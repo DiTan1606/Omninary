@@ -52,12 +52,30 @@ struct ContentView: View {
     }
 
     var body: some View {
-        switch interfaceMode {
-        case .legacy:
-            LegacyContentView()
-        case .ditandnary, .extraordinary:
-            VersionPlaceholderView(interfaceModeRaw: $interfaceModeRaw, mode: interfaceMode)
+        Group {
+            switch interfaceMode {
+            case .legacy:
+                LegacyContentView()
+            case .ditandnary, .extraordinary:
+                VersionPlaceholderView(interfaceModeRaw: $interfaceModeRaw, mode: interfaceMode)
+            }
         }
+        .task {
+            await synchronizeDevelopmentIcon()
+        }
+        .onChange(of: interfaceModeRaw) { _, _ in
+            Task {
+                await synchronizeDevelopmentIcon()
+            }
+        }
+    }
+
+    private func synchronizeDevelopmentIcon() async {
+        // Quyền Extra tạm thời được mô phỏng bằng bộ chọn phát triển.
+        // Khi có thanh toán, thay biểu thức này bằng quyền do máy chủ xác minh.
+        await AppIconManager.synchronize(
+            hasExtraordinaryAccess: interfaceMode == .extraordinary
+        )
     }
 }
 

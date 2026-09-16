@@ -30,6 +30,7 @@ class AuthManager: ObservableObject {
             self.isAuthenticated = false
             self.currentUser = nil
             self.currentUserRole = "user"
+            await AppIconManager.synchronize(hasExtraordinaryAccess: false)
         }
         self.isCheckingAuth = false
     }
@@ -55,6 +56,7 @@ class AuthManager: ObservableObject {
                 await self.fetchUserRole(userId: userId)
             } else {
                 self.currentUserRole = "user"
+                await AppIconManager.synchronize(hasExtraordinaryAccess: false)
             }
         }
     }
@@ -72,6 +74,7 @@ class AuthManager: ObservableObject {
         self.isAuthenticated = false
         self.currentUser = nil
         self.currentUserRole = "user"
+        await AppIconManager.synchronize(hasExtraordinaryAccess: false)
     }
     
     // Lấy tên hiển thị từ metadata (hoặc trả về mặc định nếu không có)
