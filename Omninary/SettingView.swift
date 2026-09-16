@@ -3,6 +3,7 @@ import UserNotifications
 
 struct SettingView: View {
     @AppStorage("daily_reminder_enabled") private var isReminderEnabled = true
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @State private var selectedTime = Date()
 
     private var appVersion: String {
@@ -12,6 +13,18 @@ struct SettingView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section(header: Text("Chế độ phát triển")) {
+                    Picker("Giao diện", selection: $interfaceModeRaw) {
+                        ForEach(AppInterfaceMode.allCases) { mode in
+                            Text(mode.title).tag(mode.rawValue)
+                        }
+                    }
+
+                    Text("Chỉ dùng để chuyển nhanh giữa giao diện cũ, Ditandnary và Extraordinary trong giai đoạn phát triển.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
                 Section(header: Text("Thông báo")) {
                     Toggle("Nhắc nhở học mỗi ngày", isOn: $isReminderEnabled)
                         .onChange(of: isReminderEnabled) { _, newValue in

@@ -9,24 +9,45 @@ struct AuthView: View {
     
     @State private var isLoading = false
     @State private var errorMessage = ""
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+
+    private var interfaceMode: AppInterfaceMode {
+        AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary
+    }
+
+    private var loginLogoAsset: String {
+        switch interfaceMode {
+        case .legacy: "AppLogo"
+        case .ditandnary: "DitanLoginMark"
+        case .extraordinary: "ExtraLoginMark"
+        }
+    }
+
+    private var loginBackground: Color {
+        switch interfaceMode {
+        case .legacy: Color(UIColor.systemBackground)
+        case .ditandnary: .white
+        case .extraordinary: .black
+        }
+    }
     
     // (Removed unused Codable metadata struct.)
     
     var body: some View {
         ZStack {
             // Background
-            Color(UIColor.systemBackground)
+            loginBackground
                 .edgesIgnoringSafeArea(.all)
             
             VStack {
                 Spacer()
                 
                 // Logo
-                Image("AppLogo")
+                Image(loginLogoAsset)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 168, height: 168)
-                    .accessibilityLabel("Ditandnary thuộc Omninary")
+                    .accessibilityLabel("\(interfaceMode.title) thuộc Omninary")
                 
                 VStack(spacing: 20) {
                     if !isLogin {
@@ -93,6 +114,7 @@ struct AuthView: View {
                 }
             }
         }
+        .preferredColorScheme(interfaceMode.usesDarkTheme ? .dark : nil)
     }
     
     func authenticate() async {
