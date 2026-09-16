@@ -28,7 +28,7 @@ struct SettingView: View {
                 }
 
                 Section(header: Text("Lịch ôn tập")) {
-                    ForEach(DitanaryReviewSchedule.visiblePlan, id: \.title) { item in
+                    ForEach(OmninaryReviewSchedule.visiblePlan, id: \.title) { item in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.title)
                                 .font(.subheadline)

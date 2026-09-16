@@ -1,6 +1,6 @@
 import SwiftUI
 
-@main struct DitanaryApp: App {
+@main struct OmninaryApp: App {
     @StateObject private var auth = AuthManager.shared
 
     init() {

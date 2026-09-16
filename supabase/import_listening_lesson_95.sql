@@ -44,7 +44,7 @@ upsert_lesson as (
     'Are You a Workaholic?',
     'Bạn có phải là người nghiện công việc?',
     'B2',
-    'Listening dictation lesson generated from Ditanary source material.',
+    'Listening dictation lesson generated from Omninary source material.',
     true
   )
   on conflict (slug) do update

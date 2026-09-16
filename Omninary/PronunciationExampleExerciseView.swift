@@ -516,7 +516,7 @@ struct PronunciationExampleExerciseView: View {
     }
 
     private func playTappedExampleWord(from url: URL) {
-        guard url.scheme == "ditanary-word",
+        guard url.scheme == "omninary-word",
               url.host == "speak",
               let word = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?
@@ -536,7 +536,7 @@ struct PronunciationExampleExerciseView: View {
 
     private func wordPlaybackURL(for word: String) -> URL? {
         var components = URLComponents()
-        components.scheme = "ditanary-word"
+        components.scheme = "omninary-word"
         components.host = "speak"
         components.queryItems = [URLQueryItem(name: "word", value: word)]
         return components.url

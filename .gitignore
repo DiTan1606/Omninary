@@ -37,9 +37,9 @@ admin-web/vite.config.js
 admin-web/vite.config.d.ts
 
 # Root-level logo exports kept outside the asset catalog
-/logo_ditanary.jpeg
-/logo_ditanary.png
-/logo_ditanary_1024x1024.png
+/logo_omninary.jpeg
+/logo_omninary.png
+/logo_omninary_1024x1024.png
 
 # macOS/editor noise
 .idea/

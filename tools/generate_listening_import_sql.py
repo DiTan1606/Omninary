@@ -153,7 +153,7 @@ upsert_lesson as (
     {sql_quote(title)},
     {sql_quote(vi_title)},
     {sql_quote(cefr)},
-    {sql_quote('Listening dictation lesson generated from Ditanary source material.')},
+    {sql_quote('Listening dictation lesson generated from Omninary source material.')},
     {is_published}
   )
   on conflict (slug) do update

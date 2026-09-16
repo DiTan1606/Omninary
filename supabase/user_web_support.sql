@@ -1,4 +1,4 @@
--- User-web support policies for DitanaryWeb.
+-- User-web support policies for OmninaryWeb.
 -- Run this after the private topic/contribution migrations.
 
 with ranked_duplicates as (

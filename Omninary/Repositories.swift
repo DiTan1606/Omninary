@@ -246,7 +246,7 @@ enum VocabularyRepository {
 
         guard await AuthManager.shared.isAdmin else {
             throw NSError(
-                domain: "Ditanary",
+                domain: "Omninary",
                 code: 404,
                 userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy từ trong thư viện của bạn."]
             )
@@ -277,12 +277,12 @@ enum VocabularyRepository {
 
     static func createPrivateTopic(name: String, description: String?) async throws -> UserTopic {
         guard let userId = await AuthManager.shared.currentUser?.id.uuidString.lowercased() else {
-            throw NSError(domain: "Ditanary", code: 401, userInfo: [NSLocalizedDescriptionKey: "Chưa đăng nhập."])
+            throw NSError(domain: "Omninary", code: 401, userInfo: [NSLocalizedDescriptionKey: "Chưa đăng nhập."])
         }
 
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
-            throw NSError(domain: "Ditanary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Tên topic không được để trống."])
+            throw NSError(domain: "Omninary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Tên topic không được để trống."])
         }
 
         let row = TopicInsert(
@@ -301,7 +301,7 @@ enum VocabularyRepository {
             .value
 
         guard let topic = inserted.first else {
-            throw NSError(domain: "Ditanary", code: 500, userInfo: [NSLocalizedDescriptionKey: "Không tạo được topic."])
+            throw NSError(domain: "Omninary", code: 500, userInfo: [NSLocalizedDescriptionKey: "Không tạo được topic."])
         }
 
         return topic
@@ -320,15 +320,15 @@ enum VocabularyRepository {
 
     static func deletePrivateTopic(_ topic: UserTopic) async throws {
         guard let userId = await AuthManager.shared.currentUser?.id.uuidString.lowercased() else {
-            throw NSError(domain: "Ditanary", code: 401, userInfo: [NSLocalizedDescriptionKey: "Chưa đăng nhập."])
+            throw NSError(domain: "Omninary", code: 401, userInfo: [NSLocalizedDescriptionKey: "Chưa đăng nhập."])
         }
 
         guard topic.visibility == "private" else {
-            throw NSError(domain: "Ditanary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Chỉ có thể xoá topic riêng."])
+            throw NSError(domain: "Omninary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Chỉ có thể xoá topic riêng."])
         }
 
         if let ownerId = topic.owner_id?.lowercased(), ownerId != userId {
-            throw NSError(domain: "Ditanary", code: 403, userInfo: [NSLocalizedDescriptionKey: "Bạn không có quyền xoá topic này."])
+            throw NSError(domain: "Omninary", code: 403, userInfo: [NSLocalizedDescriptionKey: "Bạn không có quyền xoá topic này."])
         }
 
         let linkedVocabs: [VocabCatalogRow] = try await supabase
@@ -340,7 +340,7 @@ enum VocabularyRepository {
             .value
 
         guard linkedVocabs.isEmpty else {
-            throw NSError(domain: "Ditanary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Chỉ có thể xoá topic khi chưa có từ vựng nào."])
+            throw NSError(domain: "Omninary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Chỉ có thể xoá topic khi chưa có từ vựng nào."])
         }
 
         let pendingSubmissions: [TopicSubmissionLookup] = try await supabase
@@ -354,7 +354,7 @@ enum VocabularyRepository {
             .value
 
         guard pendingSubmissions.isEmpty else {
-            throw NSError(domain: "Ditanary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Topic đang chờ duyệt, chưa thể xoá."])
+            throw NSError(domain: "Omninary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Topic đang chờ duyệt, chưa thể xoá."])
         }
 
         try await supabase
@@ -630,7 +630,7 @@ enum ContributionRepository {
             !($0.vocab ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         guard !validVocabs.isEmpty else {
-            throw NSError(domain: "Ditanary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Topic cần có ít nhất một từ để gửi duyệt."])
+            throw NSError(domain: "Omninary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Topic cần có ít nhất một từ để gửi duyệt."])
         }
         let submissionId = UUID().uuidString
         let submission = TopicSubmissionInsert(

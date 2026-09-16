@@ -1,4 +1,4 @@
--- Ditanary listening series flow.
+-- Omninary listening series flow.
 -- Run this once in Supabase SQL Editor after listening_library_flow.sql.
 -- Existing user downloads stay intact because the library continues to reference lesson IDs.
 

@@ -44,7 +44,7 @@ upsert_lesson as (
     'When You Lose Motivation',
     'Khi bạn mất động lực',
     'B1',
-    'Listening dictation lesson generated from Ditanary source material.',
+    'Listening dictation lesson generated from Omninary source material.',
     true
   )
   on conflict (slug) do update

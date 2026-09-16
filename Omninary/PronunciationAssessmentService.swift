@@ -332,7 +332,7 @@ enum PronunciationAssessmentService {
         identifierValue: String
     ) async throws -> AzurePronunciationAssessment {
         let audioData = try Data(contentsOf: audioURL)
-        let boundary = "DitanaryBoundary-\(UUID().uuidString)"
+        let boundary = "OmninaryBoundary-\(UUID().uuidString)"
         let body = multipartBody(
             boundary: boundary,
             identifierField: identifierField,

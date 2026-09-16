@@ -28,7 +28,7 @@ enum ReviewScheduler {
     }
 
     static func reviewDelayDays(for learningLevel: Int) -> Int {
-        DitanaryReviewSchedule.days(for: learningLevel)
+        OmninaryReviewSchedule.days(for: learningLevel)
     }
 
     static func nextReviewDate(for learningLevel: Int, from date: Date) -> Date {
@@ -59,7 +59,7 @@ enum ReviewScheduler {
     }
 }
 
-enum DitanaryReviewSchedule {
+enum OmninaryReviewSchedule {
     static func days(for level: Int) -> Int {
         switch level {
         case ..<1: return 0

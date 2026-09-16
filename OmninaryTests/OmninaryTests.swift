@@ -1,15 +1,15 @@
 //
-//  DitanaryTests.swift
-//  DitanaryTests
+//  OmninaryTests.swift
+//  OmninaryTests
 //
 //  Created by Trần Lê Duy Tân on 24/4/26.
 //
 
 import Foundation
 import Testing
-@testable import Ditanary
+@testable import Omninary
 
-struct DitanaryTests {
+struct OmninaryTests {
 
     @Test func normalizesLearningText() async throws {
         #expect(LearningTextNormalizer.normalizedWords("Hello, world!") == ["hello", "world"])
@@ -199,16 +199,16 @@ struct DitanaryTests {
     }
 
     @Test func ditandnaryReviewScheduleUsesPublishedFixedIntervals() async throws {
-        #expect(DitanaryReviewSchedule.days(for: 1) == 0)
-        #expect(DitanaryReviewSchedule.days(for: 2) == 1)
-        #expect(DitanaryReviewSchedule.days(for: 3) == 3)
-        #expect(DitanaryReviewSchedule.days(for: 4) == 7)
-        #expect(DitanaryReviewSchedule.days(for: 5) == 15)
-        #expect(DitanaryReviewSchedule.days(for: 6) == 30)
-        #expect(DitanaryReviewSchedule.days(for: 7) == 60)
-        #expect(DitanaryReviewSchedule.days(for: 8) == 120)
-        #expect(DitanaryReviewSchedule.days(for: 9) == 240)
-        #expect(DitanaryReviewSchedule.days(for: 10) == 365)
+        #expect(OmninaryReviewSchedule.days(for: 1) == 0)
+        #expect(OmninaryReviewSchedule.days(for: 2) == 1)
+        #expect(OmninaryReviewSchedule.days(for: 3) == 3)
+        #expect(OmninaryReviewSchedule.days(for: 4) == 7)
+        #expect(OmninaryReviewSchedule.days(for: 5) == 15)
+        #expect(OmninaryReviewSchedule.days(for: 6) == 30)
+        #expect(OmninaryReviewSchedule.days(for: 7) == 60)
+        #expect(OmninaryReviewSchedule.days(for: 8) == 120)
+        #expect(OmninaryReviewSchedule.days(for: 9) == 240)
+        #expect(OmninaryReviewSchedule.days(for: 10) == 365)
     }
 
     @Test func learningSessionBuilderAddsSentencePronunciationTasks() async throws {

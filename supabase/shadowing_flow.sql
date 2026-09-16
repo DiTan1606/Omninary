@@ -1,4 +1,4 @@
--- Ditanary Shadowing flow.
+-- Omninary Shadowing flow.
 -- Run this after listening_library_flow.sql and listening_secure_decimal_scoring.sql.
 -- The Edge Function owns score writes after Azure verifies the recording.
 

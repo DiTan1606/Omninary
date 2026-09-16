@@ -1,13 +1,13 @@
 //
-//  DitanaryUITests.swift
-//  DitanaryUITests
+//  OmninaryUITests.swift
+//  OmninaryUITests
 //
 //  Created by Trần Lê Duy Tân on 24/4/26.
 //
 
 import XCTest
 
-final class DitanaryUITests: XCTestCase {
+final class OmninaryUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

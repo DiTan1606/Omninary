@@ -1,4 +1,4 @@
--- Ditanary listening library flow.
+-- Omninary listening library flow.
 -- Run this once in Supabase SQL Editor after the base listening tables exist.
 
 begin;

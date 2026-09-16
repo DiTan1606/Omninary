@@ -139,7 +139,7 @@ final class PronunciationManager: NSObject, ObservableObject, AVAudioPlayerDeleg
     }
 
     private var recordingURL: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("ditanary-pronunciation.wav")
+        FileManager.default.temporaryDirectory.appendingPathComponent("omninary-pronunciation.wav")
     }
 
     private func prepareAudioPlayer() -> AVAudioPlayer? {

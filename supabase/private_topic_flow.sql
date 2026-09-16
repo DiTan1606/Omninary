@@ -1,4 +1,4 @@
--- Private-first topic flow for Ditanary.
+-- Private-first topic flow for Omninary.
 -- Run this after the existing contribution_review.sql migrations.
 
 alter table public.topics

@@ -1,4 +1,4 @@
--- Ditanary listening dictation scoring.
+-- Omninary listening dictation scoring.
 -- Run this once after listening_library_flow.sql and listening_series_flow.sql.
 
 begin;

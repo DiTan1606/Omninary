@@ -104,5 +104,5 @@ export async function exportVocabularyWorkbook(topic: Topic, vocabs: VocabCatalo
   ] as SheetData;
 
   const file = await writeXlsxFile(data);
-  await file.toFile(`ditanary-${topic.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.xlsx`);
+  await file.toFile(`omninary-${topic.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.xlsx`);
 }
