@@ -431,6 +431,8 @@
 				DEVELOPMENT_TEAM = YJDF6369NN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Omninary;
+				INFOPLIST_KEY_CFBundleName = Omninary;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Ứng dụng cần sử dụng micro để kiểm tra phát âm của bạn";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Ứng dụng cần truy cập ảnh bạn chọn để cập nhật ảnh đại diện";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -462,6 +464,8 @@
 				DEVELOPMENT_TEAM = YJDF6369NN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Omninary;
+				INFOPLIST_KEY_CFBundleName = Omninary;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Ứng dụng cần sử dụng micro để kiểm tra phát âm của bạn";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Ứng dụng cần truy cập ảnh bạn chọn để cập nhật ảnh đại diện";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

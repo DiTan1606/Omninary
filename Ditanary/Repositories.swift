@@ -170,7 +170,6 @@ enum VocabularyRepository {
 
     static func insert(_ vocab: Vocabulary, asSystem: Bool = false, preferredTopicId: String? = nil) async throws {
         guard let userId = await AuthManager.shared.currentUser?.id.uuidString else { return }
-        try requireEnglishExample(for: vocab)
         let catalogId = vocab.catalog_id ?? vocab.id ?? UUID().uuidString
         let resolvedTopicId: String?
         if let preferredTopicId {
@@ -203,7 +202,6 @@ enum VocabularyRepository {
 
     static func update(_ vocab: Vocabulary) async throws {
         guard let catalogId = vocab.catalog_id ?? (vocab.user_vocabulary_id == nil ? vocab.id : nil) else { return }
-        try requireEnglishExample(for: vocab)
         let isAdmin = await AuthManager.shared.isAdmin
         let resolvedTopicId: String?
         if !isAdmin, let existingTopicId = vocab.topic_id {
@@ -416,8 +414,8 @@ enum VocabularyRepository {
             e_meaning: nilIfEmpty(vocab.E_meaning),
             ev_meaning: nilIfEmpty(vocab.EV_meaning),
             v_meaning: nilIfEmpty(vocab.V_meaning),
-            e_example: nilIfEmpty(vocab.E_example),
-            v_example: nilIfEmpty(vocab.V_example),
+            e_example: Vocabulary.normalizedExample(vocab.E_example),
+            v_example: Vocabulary.normalizedExample(vocab.V_example),
             word_family: nilIfEmpty(vocab.word_family),
             synonymous: nilIfEmpty(vocab.synonymous),
             antonym: nilIfEmpty(vocab.antonym),
@@ -435,8 +433,8 @@ enum VocabularyRepository {
             e_meaning: nilIfEmpty(vocab.E_meaning),
             ev_meaning: nilIfEmpty(vocab.EV_meaning),
             v_meaning: nilIfEmpty(vocab.V_meaning),
-            e_example: nilIfEmpty(vocab.E_example),
-            v_example: nilIfEmpty(vocab.V_example),
+            e_example: Vocabulary.normalizedExample(vocab.E_example),
+            v_example: Vocabulary.normalizedExample(vocab.V_example),
             word_family: nilIfEmpty(vocab.word_family),
             synonymous: nilIfEmpty(vocab.synonymous),
             antonym: nilIfEmpty(vocab.antonym),
@@ -506,16 +504,6 @@ enum VocabularyRepository {
     private static func nilIfEmpty(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed?.isEmpty == false ? trimmed : nil
-    }
-
-    private static func requireEnglishExample(for vocab: Vocabulary) throws {
-        guard nilIfEmpty(vocab.E_example) != nil else {
-            throw NSError(
-                domain: "Ditanary",
-                code: 400,
-                userInfo: [NSLocalizedDescriptionKey: "Mỗi nghĩa cần một ví dụ tiếng Anh để luyện phát âm."]
-            )
-        }
     }
 
     private static func normalizedRequiredWord(_ value: String?) -> String {
@@ -600,13 +588,6 @@ enum ContributionRepository {
     static func submitVocabulary(_ vocab: Vocabulary) async throws {
         guard let userId = await AuthManager.shared.currentUser?.id.uuidString,
               let catalogId = vocab.catalog_id ?? vocab.id else { return }
-        guard nilIfEmpty(vocab.E_example) != nil else {
-            throw NSError(
-                domain: "Ditanary",
-                code: 400,
-                userInfo: [NSLocalizedDescriptionKey: "Thêm ví dụ tiếng Anh trước khi gửi từ này để duyệt."]
-            )
-        }
 
         let submission = VocabSubmissionInsert(
             id: UUID().uuidString,
@@ -651,14 +632,6 @@ enum ContributionRepository {
         guard !validVocabs.isEmpty else {
             throw NSError(domain: "Ditanary", code: 400, userInfo: [NSLocalizedDescriptionKey: "Topic cần có ít nhất một từ để gửi duyệt."])
         }
-        guard validVocabs.allSatisfy({ nilIfEmpty($0.E_example) != nil }) else {
-            throw NSError(
-                domain: "Ditanary",
-                code: 400,
-                userInfo: [NSLocalizedDescriptionKey: "Mỗi từ trong topic cần một ví dụ tiếng Anh trước khi gửi duyệt."]
-            )
-        }
-
         let submissionId = UUID().uuidString
         let submission = TopicSubmissionInsert(
             id: submissionId,
@@ -687,8 +660,8 @@ enum ContributionRepository {
                 e_meaning: nilIfEmpty(vocab.E_meaning),
                 ev_meaning: nilIfEmpty(vocab.EV_meaning),
                 v_meaning: nilIfEmpty(vocab.V_meaning),
-                e_example: nilIfEmpty(vocab.E_example),
-                v_example: nilIfEmpty(vocab.V_example),
+                e_example: Vocabulary.normalizedExample(vocab.E_example),
+                v_example: Vocabulary.normalizedExample(vocab.V_example),
                 word_family: nilIfEmpty(vocab.word_family),
                 synonymous: nilIfEmpty(vocab.synonymous),
                 antonym: nilIfEmpty(vocab.antonym),

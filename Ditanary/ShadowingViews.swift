@@ -625,7 +625,7 @@ struct ShadowingPracticeView: View {
                 }
             } catch {
                 await MainActor.run {
-                    errorMessage = "Không thể chấm phát âm lúc này. Vui lòng kiểm tra mạng và thử lại."
+                    errorMessage = PronunciationAssessmentService.userFacingMessage(for: error)
                     isSubmitting = false
                 }
             }

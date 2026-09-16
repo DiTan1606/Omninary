@@ -19,6 +19,40 @@ struct LearningTask: Identifiable {
     var vHint: String? = nil
     var pronunciationMeaning: Vocabulary? = nil
     var pronunciationExample: String? = nil
+
+    func freshRetryCopy() -> LearningTask {
+        LearningTask(
+            word: word,
+            meanings: meanings,
+            type: type,
+            options: options,
+            correctSentence: correctSentence,
+            scrambledWords: scrambledWords,
+            vHint: vHint,
+            pronunciationMeaning: pronunciationMeaning,
+            pronunciationExample: pronunciationExample
+        )
+    }
+}
+
+enum LearningRetryPlanner {
+    static func tasks(
+        afterAnswering task: LearningTask,
+        isCorrect: Bool,
+        scheduledTasks: [LearningTask]
+    ) -> [LearningTask] {
+        guard !isCorrect else { return scheduledTasks }
+
+        var retryTask = task.freshRetryCopy()
+        if retryTask.type == .multipleChoice {
+            retryTask.options.shuffle()
+        }
+        if retryTask.type == .sentenceScramble {
+            retryTask.scrambledWords.shuffle()
+        }
+
+        return scheduledTasks + [retryTask]
+    }
 }
 
 struct TaskResult: Identifiable {
@@ -36,5 +70,5 @@ struct LearningSessionPlan {
     let totalLearningWords: Int
     let totalSavedWords: Int
     let dueVocabsCount: Int
-    let unavailablePronunciationWords: [String]
+    let wordsWithoutExampleExercises: [String]
 }

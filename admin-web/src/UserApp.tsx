@@ -93,7 +93,7 @@ const userNavItems: Array<{ key: UserViewKey; label: string; icon: ReactNode }> 
 function BrandLogo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={compact ? 'brand compact-brand' : 'brand'}>
-      <img className="brand-logo" src="/ditanary-logo.png" alt="Ditanary" />
+      <img className="brand-logo" src="/ditanary-logo.png" alt="Omninary" />
     </div>
   );
 }
@@ -126,7 +126,7 @@ function profileLabel(profile?: Profile | null) {
 }
 
 function fieldValue(value: string | null | undefined) {
-  return value?.trim() || '...';
+  return value?.trim() || 'Chưa có';
 }
 
 function normalize(value: string | null | undefined) {
@@ -298,7 +298,7 @@ function UserApp() {
       }
       setProfile(nextProfile);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Không thể mở DitanaryWeb.');
+      setAuthError(error instanceof Error ? error.message : 'Không thể mở Omninary Web.');
     } finally {
       setIsBooting(false);
     }
@@ -337,7 +337,7 @@ function UserApp() {
     return (
       <div className="boot-screen">
         <Loader2 className="spin" size={28} />
-        <span>Đang mở DitanaryWeb</span>
+        <span>Đang mở Omninary Web</span>
       </div>
     );
   }
@@ -373,7 +373,7 @@ function UserApp() {
       <main className="main-panel">
         <header className="topbar">
           <div>
-            <p className="eyebrow">DitanaryWeb</p>
+            <p className="eyebrow">Omninary Web</p>
             <h1>{activeLabel}</h1>
           </div>
           <div className="topbar-actions">
@@ -1381,10 +1381,6 @@ function UserVocabModal({
       setError('Vui lòng nhập từ vựng.');
       return;
     }
-    if (!draft.e_example.trim()) {
-      setError('Mỗi nghĩa cần một ví dụ tiếng Anh để luyện phát âm.');
-      return;
-    }
     setIsSaving(true);
     try {
       await onSave(draft);
@@ -1412,7 +1408,7 @@ function UserVocabModal({
           <label>Nghĩa Anh<textarea value={draft.e_meaning} onChange={(event) => update('e_meaning', event.target.value)} /></label>
           <label>Nghĩa Anh - Việt<textarea value={draft.ev_meaning} onChange={(event) => update('ev_meaning', event.target.value)} /></label>
           <label>Nghĩa Việt<textarea value={draft.v_meaning} onChange={(event) => update('v_meaning', event.target.value)} /></label>
-          <label>Ví dụ Anh *<textarea value={draft.e_example} onChange={(event) => update('e_example', event.target.value)} /></label>
+          <label>Ví dụ Anh<textarea value={draft.e_example} onChange={(event) => update('e_example', event.target.value)} /></label>
           <label>Ví dụ Việt<textarea value={draft.v_example} onChange={(event) => update('v_example', event.target.value)} /></label>
           <label>Word family<textarea value={draft.word_family} onChange={(event) => update('word_family', event.target.value)} /></label>
           <label>Đồng nghĩa<textarea value={draft.synonymous} onChange={(event) => update('synonymous', event.target.value)} /></label>

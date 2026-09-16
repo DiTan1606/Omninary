@@ -157,20 +157,12 @@ enum LearningSessionBuilder {
         }
 
         let dueCount = dueGroups.count
-        let unavailablePronunciationWords = dueGroups.compactMap { group -> String? in
-            let hasExampleForEveryMeaning = group.allSatisfy {
-                !($0.E_example?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-            }
-            return hasExampleForEveryMeaning ? nil : group.first?.vocab
+        var selectedDueGroups = dueGroups
+        selectedDueGroups.shuffle()
+        let selectedGroups = Array(selectedDueGroups.prefix(maxWords))
+        let wordsWithoutExampleExercises = selectedGroups.compactMap { group -> String? in
+            group.contains(where: { $0.englishExample != nil }) ? nil : group.first?.vocab
         }
-        var practiceReadyGroups = dueGroups.filter { group in
-            group.allSatisfy {
-                !($0.E_example?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-            }
-        }
-
-        practiceReadyGroups.shuffle()
-        let selectedGroups = Array(practiceReadyGroups.prefix(maxWords))
         let tasks = buildLearningTasks(from: selectedGroups, allJoinedMeanings: allJoinedMeanings).shuffled()
 
         return LearningSessionPlan(
@@ -180,7 +172,7 @@ enum LearningSessionBuilder {
             totalLearningWords: totalLearningWords,
             totalSavedWords: allGrouped.count,
             dueVocabsCount: dueCount,
-            unavailablePronunciationWords: unavailablePronunciationWords.sorted()
+            wordsWithoutExampleExercises: wordsWithoutExampleExercises.sorted()
         )
     }
 
@@ -207,7 +199,7 @@ enum LearningSessionBuilder {
             tasks.append(LearningTask(word: word, meanings: group, type: .multipleChoice, options: options))
 
             for meaning in group {
-                if let example = meaning.E_example, !example.isEmpty {
+                if let example = meaning.englishExample {
                     let words = LearningTextNormalizer.sentenceScrambleWords(example)
 
                     if words.count >= 3 {
@@ -217,7 +209,7 @@ enum LearningSessionBuilder {
                             type: .sentenceScramble,
                             correctSentence: example,
                             scrambledWords: words.shuffled(),
-                            vHint: meaning.V_example
+                            vHint: meaning.vietnameseExample
                         ))
                     }
 

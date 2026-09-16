@@ -56,6 +56,50 @@ function assessmentFields(value: Record<string, unknown>) {
     : value;
 }
 
+function namedSupabaseKey(environmentVariable: string) {
+  const rawValue = Deno.env.get(environmentVariable)?.trim();
+  if (!rawValue) return undefined;
+
+  try {
+    const keys = JSON.parse(rawValue);
+    if (!keys || typeof keys !== "object" || Array.isArray(keys)) {
+      return undefined;
+    }
+
+    const values = keys as Record<string, unknown>;
+    const defaultKey = values.default;
+    if (typeof defaultKey === "string" && defaultKey.trim()) {
+      return defaultKey.trim();
+    }
+
+    const firstKey = Object.values(values).find((value): value is string => (
+      typeof value === "string" && value.trim().length > 0
+    ));
+    return firstKey?.trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function firstConfiguredValue(...environmentVariables: string[]) {
+  for (const environmentVariable of environmentVariables) {
+    const value = Deno.env.get(environmentVariable)?.trim();
+    if (value) return value;
+  }
+
+  return undefined;
+}
+
+function supabasePublishableKey() {
+  return namedSupabaseKey("SUPABASE_PUBLISHABLE_KEYS")
+    ?? firstConfiguredValue("SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY");
+}
+
+function supabaseSecretKey() {
+  return namedSupabaseKey("SUPABASE_SECRET_KEYS")
+    ?? firstConfiguredValue("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY");
+}
+
 const criticalPronunciationErrorTypes = new Set([
   "mispronunciation",
   "omission",
@@ -64,6 +108,11 @@ const criticalPronunciationErrorTypes = new Set([
 
 function normalizedErrorType(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function usableExample(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed === "..." || trimmed === "…" ? "" : trimmed;
 }
 
 function shadowingPasses(
@@ -94,17 +143,24 @@ Deno.serve(async (request) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseKey = supabasePublishableKey();
+  const serviceRoleKey = supabaseSecretKey();
   const azureSpeechKey = Deno.env.get("AZURE_SPEECH_KEY");
   const azureSpeechRegion = Deno.env.get("AZURE_SPEECH_REGION");
 
-  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey || !azureSpeechKey || !azureSpeechRegion) {
-    console.error("Missing required Edge Function secret.");
+  if (!supabaseUrl || !supabaseKey || !serviceRoleKey || !azureSpeechKey || !azureSpeechRegion) {
+    const missingConfiguration = [
+      !supabaseUrl ? "SUPABASE_URL" : null,
+      !supabaseKey ? "Supabase publishable/anon key" : null,
+      !serviceRoleKey ? "Supabase secret/service-role key" : null,
+      !azureSpeechKey ? "AZURE_SPEECH_KEY" : null,
+      !azureSpeechRegion ? "AZURE_SPEECH_REGION" : null,
+    ].filter(Boolean);
+    console.error("Missing required Edge Function configuration.", { missingConfiguration });
     return jsonResponse({ error: "Dịch vụ kiểm tra phát âm chưa được cấu hình." }, 500);
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+  const authClient = createClient(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: authorization } },
   });
   const { data: { user }, error: userError } = await authClient.auth.getUser();
@@ -152,7 +208,7 @@ Deno.serve(async (request) => {
     const catalog = Array.isArray(userVocabulary.vocab_catalog)
       ? userVocabulary.vocab_catalog[0]
       : userVocabulary.vocab_catalog;
-    referenceText = catalog?.e_example?.trim() ?? "";
+    referenceText = usableExample(catalog?.e_example);
 
     if (!referenceText) {
       return jsonResponse({ error: "Từ này chưa có câu ví dụ để kiểm tra phát âm." }, 422);

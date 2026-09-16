@@ -463,7 +463,7 @@ struct WordDetailView: View {
                         if let vMeaning = item.V_meaning, !vMeaning.isEmpty {
                             DetailRow(title: "Nghĩa Tiếng Việt", content: vMeaning)
                         }
-                        if let eExample = item.E_example, !eExample.isEmpty {
+                                if let eExample = item.englishExample {
                             DetailRow(title: "Ví dụ Tiếng Anh", content: eExample, isItalic: true, onSpeak: {
                                 SpeechManager.shared.speak(
                                     example: eExample,
@@ -472,7 +472,7 @@ struct WordDetailView: View {
                                 )
                             })
                         }
-                        if let vExample = item.V_example, !vExample.isEmpty {
+                                if let vExample = item.vietnameseExample {
                             DetailRow(title: "Ví dụ Tiếng Việt", content: vExample)
                         }
                         if let family = item.word_family, !family.isEmpty {
@@ -664,14 +664,6 @@ struct WordDetailView: View {
     }
     
     func addToLearning(_ items: [Vocabulary]) async {
-        guard items.allSatisfy({
-            !($0.E_example?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-        }) else {
-            contributionMessage = "Mỗi nghĩa cần một ví dụ tiếng Anh trước khi đưa từ này vào học."
-            showingContributionAlert = true
-            return
-        }
-
         let now = Date()
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

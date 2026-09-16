@@ -75,7 +75,7 @@ private struct AdminWebOnlyView: View {
                 Text("Tài khoản admin")
                     .font(.title2.bold())
 
-                Text("Dashboard admin trên iOS đã được tắt. Vui lòng dùng admin-web để quản trị Ditanary.")
+                Text("Dashboard admin trên iOS đã được tắt. Vui lòng dùng admin-web để quản trị Omninary.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)

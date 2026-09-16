@@ -44,8 +44,8 @@ struct AddVocabView: View {
             _vMeaning = State(initialValue: v.V_meaning ?? "")
             _eMeaning = State(initialValue: v.E_meaning ?? "")
             _evMeaning = State(initialValue: v.EV_meaning ?? "")
-            _vExample = State(initialValue: v.V_example ?? "")
-            _eExample = State(initialValue: v.E_example ?? "")
+            _vExample = State(initialValue: v.vietnameseExample ?? "")
+            _eExample = State(initialValue: v.englishExample ?? "")
             _topics = State(initialValue: v.topics ?? "")
             _wordFamily = State(initialValue: v.word_family ?? "")
             _synonymous = State(initialValue: v.synonymous ?? "")
@@ -75,7 +75,7 @@ struct AddVocabView: View {
                 }
                 
                 Section(header: Text("Ví dụ")) {
-                    TextField("Ví dụ tiếng Anh *", text: $eExample)
+                    TextField("Ví dụ tiếng Anh", text: $eExample)
                     TextField("Ví dụ tiếng Việt", text: $vExample)
                 }
                 
@@ -100,7 +100,7 @@ struct AddVocabView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Lưu") { Task { await saveVocab() } }
-                        .disabled(vocab.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || eExample.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+                        .disabled(vocab.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
                 }
             }
             .overlay {
@@ -133,11 +133,6 @@ struct AddVocabView: View {
             return
         }
 
-        guard !eExample.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            errorMessage = "Mỗi nghĩa cần một ví dụ tiếng Anh để luyện phát âm."
-            return
-        }
-        
         isSaving = true
         errorMessage = ""
         
@@ -156,8 +151,8 @@ struct AddVocabView: View {
             E_meaning: eMeaning.isEmpty ? nil : eMeaning,
             EV_meaning: evMeaning.isEmpty ? nil : evMeaning,
             V_meaning: vMeaning.isEmpty ? nil : vMeaning,
-            E_example: eExample.isEmpty ? nil : eExample,
-            V_example: vExample.isEmpty ? nil : vExample,
+            E_example: Vocabulary.normalizedExample(eExample),
+            V_example: Vocabulary.normalizedExample(vExample),
             word_family: wordFamily.isEmpty ? nil : wordFamily,
             synonymous: synonymous.isEmpty ? nil : synonymous,
             antonym: antonym.isEmpty ? nil : antonym,

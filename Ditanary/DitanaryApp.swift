@@ -4,7 +4,9 @@ import SwiftUI
     @StateObject private var auth = AuthManager.shared
 
     init() {
-        NotificationManager.shared.requestPermission()
+        if !ProcessInfo.processInfo.arguments.contains("-UITesting") {
+            NotificationManager.shared.requestPermission()
+        }
     }
 
     var body: some Scene {

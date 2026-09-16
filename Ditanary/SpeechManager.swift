@@ -1,11 +1,41 @@
 import Foundation
 import AVFoundation
 
+enum SpeechPlaybackSpeed: Double, CaseIterable, Identifiable {
+    case slow = 0.5
+    case normal = 1.0
+    case fast = 1.5
+
+    var id: Double { rawValue }
+
+    var title: String {
+        switch self {
+        case .slow:
+            return "0.5x"
+        case .normal:
+            return "1x"
+        case .fast:
+            return "1.5x"
+        }
+    }
+}
+
 class SpeechManager: ObservableObject {
     static let shared = SpeechManager()
     private let synthesizer = AVSpeechSynthesizer()
-    
-    func speak(word: String, ipa: String?, stopPrevious: Bool = true) {
+
+    private let defaultSpeechRate: Float = 0.45
+
+    func stopSpeaking() {
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+
+    func speak(
+        word: String,
+        ipa: String?,
+        rateMultiplier: Double = SpeechPlaybackSpeed.normal.rawValue,
+        stopPrevious: Bool = true
+    ) {
         // Dừng giọng đọc cũ nếu đang đọc dở
         if stopPrevious {
             synthesizer.stopSpeaking(at: .immediate)
@@ -29,13 +59,18 @@ class SpeechManager: ObservableObject {
         
         // Cài đặt giọng Mỹ (hoặc bạn có thể cho user tự chọn Anh-Anh, Anh-Mỹ sau này)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        // Giảm tốc độ đọc một xíu để nghe rõ hơn
-        utterance.rate = 0.45 
-        
+        utterance.rate = speechRate(for: rateMultiplier)
+
         synthesizer.speak(utterance)
     }
 
-    func speak(example sentence: String, targetWord: String, ipa: String?, stopPrevious: Bool = true) {
+    func speak(
+        example sentence: String,
+        targetWord: String,
+        ipa: String?,
+        rateMultiplier: Double = SpeechPlaybackSpeed.normal.rawValue,
+        stopPrevious: Bool = true
+    ) {
         if stopPrevious {
             synthesizer.stopSpeaking(at: .immediate)
         }
@@ -53,8 +88,13 @@ class SpeechManager: ObservableObject {
 
         let utterance = AVSpeechUtterance(attributedString: attributedSentence)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.45
+        utterance.rate = speechRate(for: rateMultiplier)
         synthesizer.speak(utterance)
+    }
+
+    private func speechRate(for multiplier: Double) -> Float {
+        let rate = defaultSpeechRate * Float(multiplier)
+        return min(max(rate, AVSpeechUtteranceMinimumSpeechRate), AVSpeechUtteranceMaximumSpeechRate)
     }
 
     private func firstWholeWordRange(of target: String, in sentence: String) -> Range<String.Index>? {

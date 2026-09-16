@@ -1,5 +1,45 @@
 import SwiftUI
 
+struct LearningActionButtonLabel: View {
+    let title: String
+    let systemImage: String
+    var isLoading = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            } else {
+                Image(systemName: systemImage)
+            }
+
+            Text(title)
+        }
+        .font(.headline)
+        .frame(maxWidth: .infinity)
+        .frame(height: 44)
+    }
+}
+
+struct LearningBottomActionBar<Content: View>: View {
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            content
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+        }
+        .background(.ultraThinMaterial)
+    }
+}
+
 struct LearningSessionView: View {
     @State var tasks: [LearningTask]
     let learningVocabGroups: [[Vocabulary]]
@@ -7,6 +47,8 @@ struct LearningSessionView: View {
     
     @State private var currentTaskIndex = 0
     @State private var isCompleted = false
+    @State private var isFinishingSession = false
+    @State private var hasStartedCelebration = false
     
     @State private var inputText = ""
     @State private var currentResult: TaskResult? = nil
@@ -15,6 +57,7 @@ struct LearningSessionView: View {
     @State private var selectedScrambleWords: [String] = []
     @State private var availableScrambleWords: [String] = []
     @State private var shouldRetryCurrentTask = false
+    @FocusState private var isAnswerFieldFocused: Bool
     
     var currentTask: LearningTask? {
         guard currentTaskIndex < tasks.count else { return nil }
@@ -30,22 +73,9 @@ struct LearningSessionView: View {
         NavigationStack {
             VStack {
                 if isCompleted {
-                    VStack(spacing: 20) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 80))
-                            .foregroundColor(.green)
-                        Text("Chúc mừng bạn đã hoàn thành bài học!")
-                            .font(.title2)
-                            .bold()
-                        Text("Bạn đã ôn tập \(learningVocabGroups.count) từ vựng.")
-                            .foregroundColor(.secondary)
-                        
-                        Button("Quay về") {
-                            onClose()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .padding(.top)
-                    }
+                    completionView
+                } else if isFinishingSession {
+                    savingProgressView
                 } else if let task = currentTask {
                     ProgressView(value: progress)
                         .padding()
@@ -55,23 +85,33 @@ struct LearningSessionView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            questionView(for: task)
-                                .padding(.top)
-                            
-                            inputArea(for: task)
+                    if task.type == .pronunciationExample {
+                        inputArea(for: task)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 20) {
+                                questionView(for: task)
+                                    .padding(.top)
+                                inputArea(for: task)
+                            }
+                            .padding(.bottom, 30)
                         }
-                        .padding(.bottom, 30)
+                        .scrollDismissesKeyboard(.interactively)
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            learningActionBar(for: task)
+                        }
                     }
                 }
             }
-            .navigationTitle("Đang học")
+            .navigationTitle(isCompleted ? "Hoàn thành" : "Đang học")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Thoát") {
-                        onClose()
+                    if !isCompleted && !isFinishingSession {
+                        Button("Thoát") {
+                            onClose()
+                        }
                     }
                 }
             }
@@ -93,7 +133,91 @@ struct LearningSessionView: View {
                     .presentationDetents([.fraction(1.0), .large])
                     .presentationDragIndicator(.visible)
             }
+            .onDisappear {
+                CelebrationFeedbackPlayer.shared.stop()
+            }
         }
+    }
+
+    private var completionView: some View {
+        ZStack {
+            Color(UIColor.systemGroupedBackground)
+                .ignoresSafeArea()
+
+            VStack(spacing: 22) {
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.14))
+                        .frame(width: 132, height: 132)
+
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 62, weight: .bold))
+                        .foregroundColor(.orange)
+                }
+
+                VStack(spacing: 8) {
+                    Text("Hoàn thành bài học!")
+                        .font(.title.bold())
+                        .multilineTextAlignment(.center)
+
+                    Text("Bạn đã ôn tập \(learningVocabGroups.count) từ vựng và cập nhật lịch ôn tiếp theo.")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Label("Tiến độ đã được lưu", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Color.green.opacity(0.1))
+                    .clipShape(Capsule())
+
+                Button {
+                    CelebrationFeedbackPlayer.shared.stop()
+                    onClose()
+                } label: {
+                    LearningActionButtonLabel(
+                        title: "Tiếp tục",
+                        systemImage: "arrow.right.circle.fill"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 8)
+            }
+            .padding(.horizontal, 28)
+            .frame(maxWidth: 520)
+
+            CelebrationConfettiView()
+                .ignoresSafeArea()
+        }
+        .onAppear {
+            startCelebrationIfNeeded()
+        }
+    }
+
+    private var savingProgressView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .controlSize(.large)
+
+            Text("Đang lưu tiến độ...")
+                .font(.headline)
+
+            Text("Omninary đang cập nhật cấp độ và lịch ôn tiếp theo của bạn.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
+
+    private func startCelebrationIfNeeded() {
+        guard !hasStartedCelebration else { return }
+        hasStartedCelebration = true
+        CelebrationFeedbackPlayer.shared.play()
     }
     
     @ViewBuilder
@@ -208,8 +332,8 @@ struct LearningSessionView: View {
     func inputArea(for task: LearningTask) -> some View {
         VStack {
             if task.type == .pronunciationExample {
-                PronunciationExampleExerciseView(task: task) {
-                    nextTask()
+                PronunciationExampleExerciseView(task: task) { isCorrect in
+                    completePronunciationTask(task, isCorrect: isCorrect)
                 }
                 .id(task.id)
             } else if task.type == .multipleChoice {
@@ -226,120 +350,237 @@ struct LearningSessionView: View {
                     }
                 }
             } else if task.type == .sentenceScramble {
-                VStack(spacing: 25) {
-                    // Built sentence
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Câu của bạn:")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.blue)
-                            Spacer()
-                            if !selectedScrambleWords.isEmpty {
-                                Button(action: {
-                                    availableScrambleWords.append(contentsOf: selectedScrambleWords)
-                                    selectedScrambleWords.removeAll()
-                                }) {
-                                    Text("Xóa hết")
-                                        .font(.caption)
-                                        .foregroundColor(.red)
-                                }
-                            }
-                        }
-                        
-                        ZStack(alignment: .topLeading) {
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(Color.blue.opacity(0.03))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(Color.blue.opacity(0.2), lineWidth: 1.5)
-                                )
-                            
-                            ScrollView {
-                                FlowLayout(spacing: 10) {
-                                    ForEach(Array(selectedScrambleWords.enumerated()), id: \.offset) { index, word in
-                                        Button(action: {
-                                            let removed = selectedScrambleWords.remove(at: index)
-                                            availableScrambleWords.append(removed)
-                                        }) {
-                                            Text(word)
-                                                .font(.body)
-                                                .padding(.horizontal, 16)
-                                                .padding(.vertical, 12)
-                                                .background(
-                                                    LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-                                                )
-                                                .foregroundColor(.white)
-                                                .cornerRadius(12)
-                                                .shadow(color: Color.blue.opacity(0.2), radius: 4, x: 0, y: 2)
-                                        }
-                                    }
-                                }
-                                .padding(15)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 250) // Tăng lên 250 theo ý ông
-                    }
-                    
-                    // Available words
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Từ gợi ý:")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                        
-                        FlowLayout(spacing: 10) {
-                            ForEach(Array(availableScrambleWords.enumerated()), id: \.offset) { index, word in
-                                Button(action: {
-                                    selectedScrambleWords.append(word)
-                                    availableScrambleWords.remove(at: index)
-                                }) {
-                                    Text(word)
-                                        .font(.body)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 10)
-                                        .background(Color(UIColor.secondarySystemGroupedBackground))
-                                        .foregroundColor(.primary)
-                                        .cornerRadius(10)
-                                        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                        )
-                                }
-                            }
-                        }
-                        .padding(4)
-                    }
-                    
-                    Button("Kiểm tra") {
-                        checkAnswer(for: task)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedScrambleWords.isEmpty)
-                    .padding(.top)
-                }
+                sentenceScrambleInput
             } else {
                 TextField("Nhập từ tiếng Anh...", text: $inputText)
                     .textFieldStyle(.roundedBorder)
                     .font(.title2)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
-                    .onSubmit {
-                        checkAnswer(for: task)
+                    .submitLabel(.done)
+                    .focused($isAnswerFieldFocused)
+                    .onAppear {
+                        scheduleTypedAnswerFocus(for: task)
                     }
-                
-                Button("Kiểm tra") {
-                    checkAnswer(for: task)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty)
-                .padding(.top)
+                    .onSubmit {
+                        submitTypedAnswer(for: task)
+                    }
             }
         }
-        .padding()
+        .padding(task.type == .pronunciationExample ? 0 : 16)
+    }
+
+    private var sentenceScrambleInput: some View {
+        VStack(spacing: 16) {
+            selectedScrambleWordsPanel
+            availableScrambleWordsPanel
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var selectedScrambleWordsPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Label("Câu của bạn", systemImage: "text.bubble.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.blue)
+
+                Spacer()
+
+                Text("\(selectedScrambleWords.count)/\(totalScrambleWordCount)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+
+                if !selectedScrambleWords.isEmpty {
+                    Button {
+                        availableScrambleWords.append(contentsOf: selectedScrambleWords)
+                        selectedScrambleWords.removeAll()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.red)
+                    .accessibilityLabel("Đặt lại câu")
+                }
+            }
+
+            ScrollView {
+                if selectedScrambleWords.isEmpty {
+                    Text("Chạm các từ gợi ý để tạo câu")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 126)
+                } else {
+                    FlowLayout(spacing: 9) {
+                        ForEach(Array(selectedScrambleWords.enumerated()), id: \.offset) { index, word in
+                            Button {
+                                let removed = selectedScrambleWords.remove(at: index)
+                                availableScrambleWords.append(removed)
+                            } label: {
+                                Text(word)
+                                    .font(.body.weight(.medium))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .foregroundColor(.white)
+                                    .background(Color.blue)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Chạm để đưa từ về danh sách gợi ý")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .scrollIndicators(.visible)
+            .frame(height: 150)
+        }
+        .padding(14)
+        .background(Color.blue.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.blue.opacity(0.22), lineWidth: 1)
+        )
+    }
+
+    private var availableScrambleWordsPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Từ gợi ý", systemImage: "square.grid.2x2.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Text("Còn \(availableScrambleWords.count) từ")
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+            }
+
+            ScrollView {
+                if availableScrambleWords.isEmpty {
+                    Label("Đã dùng hết từ gợi ý", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.green)
+                        .frame(maxWidth: .infinity, minHeight: 126)
+                } else {
+                    FlowLayout(spacing: 9) {
+                        ForEach(Array(availableScrambleWords.enumerated()), id: \.offset) { index, word in
+                            Button {
+                                selectedScrambleWords.append(word)
+                                availableScrambleWords.remove(at: index)
+                            } label: {
+                                Text(word)
+                                    .font(.body.weight(.medium))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .foregroundColor(.primary)
+                                    .background(Color(UIColor.systemBackground))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Chạm để thêm từ vào câu")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .scrollIndicators(.visible)
+            .frame(height: 150)
+        }
+        .padding(14)
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private var totalScrambleWordCount: Int {
+        selectedScrambleWords.count + availableScrambleWords.count
+    }
+
+    @ViewBuilder
+    private func learningActionBar(for task: LearningTask) -> some View {
+        switch task.type {
+        case .sentenceScramble:
+            sentenceScrambleCheckBar(for: task)
+        case .listenAndType, .meaningAndType:
+            typedAnswerCheckBar(for: task)
+        case .multipleChoice, .pronunciationExample:
+            EmptyView()
+        }
+    }
+
+    private func sentenceScrambleCheckBar(for task: LearningTask) -> some View {
+        LearningBottomActionBar {
+            Button {
+                checkAnswer(for: task)
+            } label: {
+                LearningActionButtonLabel(
+                    title: "Kiểm tra",
+                    systemImage: "checkmark.circle.fill"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!availableScrambleWords.isEmpty || selectedScrambleWords.isEmpty)
+        }
+    }
+
+    private func typedAnswerCheckBar(for task: LearningTask) -> some View {
+        LearningBottomActionBar {
+            Button {
+                submitTypedAnswer(for: task)
+            } label: {
+                LearningActionButtonLabel(
+                    title: "Kiểm tra",
+                    systemImage: "checkmark.circle.fill"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!isTypedAnswerReady)
+        }
+    }
+
+    private var isTypedAnswerReady: Bool {
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func submitTypedAnswer(for task: LearningTask) {
+        guard isTypedAnswerReady else { return }
+        isAnswerFieldFocused = false
+        checkAnswer(for: task)
+    }
+
+    private func completePronunciationTask(_ task: LearningTask, isCorrect: Bool) {
+        guard currentTask?.id == task.id else { return }
+        shouldRetryCurrentTask = !isCorrect
+        nextTask()
+    }
+
+    private func scheduleTypedAnswerFocus(for task: LearningTask) {
+        guard task.type == .listenAndType || task.type == .meaningAndType else { return }
+
+        let taskID = task.id
+        DispatchQueue.main.async {
+            guard currentTask?.id == taskID,
+                  currentResult == nil,
+                  !isCompleted,
+                  !isFinishingSession else {
+                return
+            }
+            isAnswerFieldFocused = true
+        }
     }
     
     @ViewBuilder
@@ -426,7 +667,7 @@ struct LearningSessionView: View {
                                 if let vMeaning = meaning.V_meaning, !vMeaning.isEmpty {
                                     DetailRow(title: "Nghĩa Tiếng Việt", content: vMeaning)
                                 }
-                                if let eExample = meaning.E_example, !eExample.isEmpty {
+                                if let eExample = meaning.englishExample {
                                     DetailRow(title: "Ví dụ Tiếng Anh", content: eExample, isItalic: true, onSpeak: {
                                         SpeechManager.shared.speak(
                                             example: eExample,
@@ -435,7 +676,7 @@ struct LearningSessionView: View {
                                         )
                                     })
                                 }
-                                if let vExample = meaning.V_example, !vExample.isEmpty {
+                                if let vExample = meaning.vietnameseExample {
                                     DetailRow(title: "Ví dụ Tiếng Việt", content: vExample)
                                 }
                                 if let family = meaning.word_family, !family.isEmpty {
@@ -460,8 +701,13 @@ struct LearningSessionView: View {
                 .padding(.vertical)
             }
             
-            Button("Tiếp tục") {
+            Button {
                 currentResult = nil
+            } label: {
+                LearningActionButtonLabel(
+                    title: "Tiếp tục",
+                    systemImage: "arrow.right.circle.fill"
+                )
             }
             .buttonStyle(.borderedProminent)
             .tint(isCorrect ? .green : .red)
@@ -518,13 +764,12 @@ struct LearningSessionView: View {
     }
     
     func nextTask() {
-        if shouldRetryCurrentTask {
-            if let current = currentTask {
-                var retryTask = current
-                if retryTask.type == .multipleChoice { retryTask.options.shuffle() }
-                if retryTask.type == .sentenceScramble { retryTask.scrambledWords.shuffle() }
-                tasks.append(retryTask)
-            }
+        if let current = currentTask {
+            tasks = LearningRetryPlanner.tasks(
+                afterAnswering: current,
+                isCorrect: !shouldRetryCurrentTask,
+                scheduledTasks: tasks
+            )
         }
         
         shouldRetryCurrentTask = false
@@ -535,6 +780,8 @@ struct LearningSessionView: View {
         currentTaskIndex += 1
         
         if currentTaskIndex >= tasks.count {
+            SpeechManager.shared.stopSpeaking()
+            isFinishingSession = true
             Task { await finishSession() }
         } else {
             if let next = currentTask, next.type == .listenAndType {
@@ -546,16 +793,21 @@ struct LearningSessionView: View {
     }
     
     func initializeTaskState() {
+        isAnswerFieldFocused = false
         inputText = ""
-        if let task = currentTask, task.type == .sentenceScramble {
+
+        guard let task = currentTask else { return }
+
+        if task.type == .sentenceScramble {
             availableScrambleWords = task.scrambledWords
             selectedScrambleWords = []
         }
+
+        scheduleTypedAnswerFocus(for: task)
     }
     
+    @MainActor
     func finishSession() async {
-        isCompleted = true
-        
         let now = Date()
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -577,6 +829,9 @@ struct LearningSessionView: View {
         
         // Record activity and update streak
         await recordActivity()
+
+        isFinishingSession = false
+        isCompleted = true
     }
     
     func recordActivity() async {

@@ -45,7 +45,7 @@ async function waitForProfile(user: User) {
 function BrandLogo() {
   return (
     <div className="brand">
-      <img className="brand-logo" src="/ditanary-logo.png" alt="Ditanary" />
+      <img className="brand-logo" src="/ditanary-logo.png" alt="Omninary" />
     </div>
   );
 }

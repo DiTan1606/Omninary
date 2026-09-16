@@ -113,6 +113,24 @@ struct Vocabulary: Identifiable, Codable, Hashable {
 }
 
 extension Vocabulary {
+    static func normalizedExample(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty,
+              trimmed != "...",
+              trimmed != "…" else {
+            return nil
+        }
+        return trimmed
+    }
+
+    var englishExample: String? {
+        Self.normalizedExample(E_example)
+    }
+
+    var vietnameseExample: String? {
+        Self.normalizedExample(V_example)
+    }
+
     var normalizedWord: String? {
         vocab?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }

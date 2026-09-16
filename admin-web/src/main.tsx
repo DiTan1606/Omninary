@@ -8,7 +8,7 @@ const RootApp = window.location.pathname.startsWith('/admin')
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Suspense fallback={<div className="boot-screen">Đang mở DitanaryWeb</div>}>
+    <Suspense fallback={<div className="boot-screen">Đang mở Omninary Web</div>}>
       <RootApp />
     </Suspense>
   </React.StrictMode>

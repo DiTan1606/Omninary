@@ -24,7 +24,8 @@ struct DitanaryTests {
             words: [
                 .init(word: "Most", accuracy: 90, errorType: "None", phonemes: []),
                 .init(word: "plants", accuracy: 86, errorType: "None", phonemes: [])
-            ]
+            ],
+            shadowingProgress: nil
         )
         let mispronounced = AzurePronunciationAssessment(
             referenceText: passing.referenceText,
@@ -32,7 +33,8 @@ struct DitanaryTests {
             scores: .init(pronunciation: 92, accuracy: 92, fluency: 80, completeness: 100),
             words: [
                 .init(word: "Most", accuracy: 90, errorType: "Mispronunciation", phonemes: [])
-            ]
+            ],
+            shadowingProgress: nil
         )
 
         #expect(PronunciationPassingRule.passes(passing))
@@ -48,7 +50,8 @@ struct DitanaryTests {
             words: [
                 .init(word: "Most", accuracy: 90, errorType: "None", phonemes: []),
                 .init(word: "plants", accuracy: 69, errorType: "None", phonemes: [])
-            ]
+            ],
+            shadowingProgress: nil
         )
 
         #expect(!PronunciationPassingRule.passes(assessment))
@@ -63,7 +66,8 @@ struct DitanaryTests {
             words: [
                 .init(word: "Most", accuracy: 90, errorType: "None", phonemes: []),
                 .init(word: "really", accuracy: 90, errorType: "Insertion", phonemes: [])
-            ]
+            ],
+            shadowingProgress: nil
         )
 
         #expect(!PronunciationPassingRule.passes(assessment))
@@ -152,7 +156,8 @@ struct DitanaryTests {
             referenceText: "Most plants require water.",
             transcript: "Most plants require water.",
             scores: .init(pronunciation: 95, accuracy: 95, fluency: 95, completeness: 100),
-            words: []
+            words: [],
+            shadowingProgress: nil
         )
 
         #expect(!PronunciationPassingRule.passes(assessment))
@@ -166,13 +171,15 @@ struct DitanaryTests {
             words: [
                 .init(word: "I", accuracy: 90, errorType: "None", phonemes: []),
                 .init(word: "ready", accuracy: 90, errorType: "None", phonemes: [])
-            ]
+            ],
+            shadowingProgress: nil
         )
         let passing = AzurePronunciationAssessment(
             referenceText: weakFluency.referenceText,
             transcript: weakFluency.transcript,
             scores: .init(pronunciation: 90, accuracy: 90, fluency: 65, completeness: 100),
-            words: weakFluency.words
+            words: weakFluency.words,
+            shadowingProgress: nil
         )
 
         #expect(!ShadowingPassingRule.passes(weakFluency))
@@ -189,6 +196,19 @@ struct DitanaryTests {
         #expect(ReviewScheduler.reviewDelayDays(for: 6) == 30)
         #expect(ReviewScheduler.reviewDelayDays(for: 7) == 60)
         #expect(ReviewScheduler.reviewDelayDays(for: 10) == 365)
+    }
+
+    @Test func ditandnaryReviewScheduleUsesPublishedFixedIntervals() async throws {
+        #expect(DitanaryReviewSchedule.days(for: 1) == 0)
+        #expect(DitanaryReviewSchedule.days(for: 2) == 1)
+        #expect(DitanaryReviewSchedule.days(for: 3) == 3)
+        #expect(DitanaryReviewSchedule.days(for: 4) == 7)
+        #expect(DitanaryReviewSchedule.days(for: 5) == 15)
+        #expect(DitanaryReviewSchedule.days(for: 6) == 30)
+        #expect(DitanaryReviewSchedule.days(for: 7) == 60)
+        #expect(DitanaryReviewSchedule.days(for: 8) == 120)
+        #expect(DitanaryReviewSchedule.days(for: 9) == 240)
+        #expect(DitanaryReviewSchedule.days(for: 10) == 365)
     }
 
     @Test func learningSessionBuilderAddsSentencePronunciationTasks() async throws {
@@ -237,7 +257,7 @@ struct DitanaryTests {
         #expect(plan.tasks.contains { $0.type == .pronunciationExample })
     }
 
-    @Test func learningSessionBuilderSkipsWordsWithoutExamples() async throws {
+    @Test func learningSessionBuilderKeepsBaseExercisesWhenExampleIsMissing() async throws {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         let past = ISO8601DateFormatter().string(from: now.addingTimeInterval(-3600))
         let missingExample = Vocabulary(
@@ -251,9 +271,35 @@ struct DitanaryTests {
         let plan = LearningSessionBuilder.build(from: [missingExample], now: now)
 
         #expect(plan.dueVocabsCount == 1)
-        #expect(plan.selectedGroups.isEmpty)
-        #expect(plan.tasks.isEmpty)
-        #expect(plan.unavailablePronunciationWords == ["weather"])
+        #expect(plan.selectedGroups.count == 1)
+        #expect(plan.tasks.count == 3)
+        #expect(plan.tasks.allSatisfy { $0.type != .pronunciationExample && $0.type != .sentenceScramble })
+        #expect(plan.wordsWithoutExampleExercises == ["weather"])
+    }
+
+    @Test func learningRetryPlannerAppendsFreshTaskOnlyAfterIncorrectAnswer() async throws {
+        let task = LearningTask(
+            word: "apple",
+            meanings: [Vocabulary(id: "apple", vocab: "apple", V_meaning: "quả táo")],
+            type: .meaningAndType
+        )
+
+        let afterCorrectAnswer = LearningRetryPlanner.tasks(
+            afterAnswering: task,
+            isCorrect: true,
+            scheduledTasks: [task]
+        )
+        let afterIncorrectAnswer = LearningRetryPlanner.tasks(
+            afterAnswering: task,
+            isCorrect: false,
+            scheduledTasks: [task]
+        )
+
+        #expect(afterCorrectAnswer.count == 1)
+        #expect(afterIncorrectAnswer.count == 2)
+        #expect(afterIncorrectAnswer[1].id != task.id)
+        #expect(afterIncorrectAnswer[1].word == task.word)
+        #expect(afterIncorrectAnswer[1].type == task.type)
     }
 
     @Test func learningSessionBuilderLimitsDefaultSetToFiveWords() async throws {

@@ -1,6 +1,6 @@
-# DitanaryWeb
+# Omninary Web
 
-Web workspace for Ditanary learners and admins.
+Web workspace for Omninary learners and admins.
 
 ## Run locally
 

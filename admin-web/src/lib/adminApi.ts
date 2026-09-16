@@ -33,10 +33,9 @@ function clean(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
-function requireEnglishExample(input: Pick<VocabInput, 'e_example'>) {
-  if (!clean(input.e_example)) {
-    throw new Error('Mỗi nghĩa cần một ví dụ tiếng Anh để luyện phát âm.');
-  }
+function cleanExample(value: string | null | undefined) {
+  const trimmed = clean(value);
+  return trimmed === '...' || trimmed === '…' ? null : trimmed;
 }
 
 function nowIso() {
@@ -44,7 +43,6 @@ function nowIso() {
 }
 
 function toCatalogInsert(input: VocabInput, userId: string, visibility = 'system') {
-  requireEnglishExample(input);
   return {
     id: input.id ?? crypto.randomUUID(),
     topic_id: input.topic_id,
@@ -57,8 +55,8 @@ function toCatalogInsert(input: VocabInput, userId: string, visibility = 'system
     e_meaning: clean(input.e_meaning),
     ev_meaning: clean(input.ev_meaning),
     v_meaning: clean(input.v_meaning),
-    e_example: clean(input.e_example),
-    v_example: clean(input.v_example),
+    e_example: cleanExample(input.e_example),
+    v_example: cleanExample(input.v_example),
     word_family: clean(input.word_family),
     synonymous: clean(input.synonymous),
     antonym: clean(input.antonym),
@@ -67,7 +65,6 @@ function toCatalogInsert(input: VocabInput, userId: string, visibility = 'system
 }
 
 function toCatalogUpdate(input: VocabInput) {
-  requireEnglishExample(input);
   return {
     topic_id: input.topic_id,
     word: clean(input.word) ?? 'Untitled',
@@ -77,8 +74,8 @@ function toCatalogUpdate(input: VocabInput) {
     e_meaning: clean(input.e_meaning),
     ev_meaning: clean(input.ev_meaning),
     v_meaning: clean(input.v_meaning),
-    e_example: clean(input.e_example),
-    v_example: clean(input.v_example),
+    e_example: cleanExample(input.e_example),
+    v_example: cleanExample(input.v_example),
     word_family: clean(input.word_family),
     synonymous: clean(input.synonymous),
     antonym: clean(input.antonym),
@@ -322,9 +319,6 @@ export async function markVocabSubmission(
 
 export async function approveVocabSubmission(submission: VocabSubmission, adminId: string) {
   if (!submission.catalog_id) throw new Error('Submission thiếu catalog_id.');
-  if (!clean(submission.vocab_catalog?.e_example)) {
-    throw new Error('Không thể duyệt từ vì từ này chưa có ví dụ tiếng Anh.');
-  }
 
   const { error: catalogError } = await supabase
     .from('vocab_catalog')
@@ -416,9 +410,6 @@ export async function approveTopicSubmission(
   if (submission.topic_id) {
     const approvedWords = (submission.topic_submission_words ?? [])
       .filter((word) => approvedWordIds.has(word.id));
-    if (approvedWords.some((word) => !clean(word.e_example))) {
-      throw new Error('Không thể duyệt topic vì có từ chưa có ví dụ tiếng Anh.');
-    }
     const approvedCatalogIds = approvedWords
       .map((word) => word.catalog_id)
       .filter((id): id is string => Boolean(id));
@@ -450,9 +441,6 @@ export async function approveTopicSubmission(
 
   const topic = await getOrCreateTopic(submission.name);
   const approvedWords = (submission.topic_submission_words ?? []).filter((word) => approvedWordIds.has(word.id));
-  if (approvedWords.some((word) => !clean(word.e_example))) {
-    throw new Error('Không thể duyệt topic vì có từ chưa có ví dụ tiếng Anh.');
-  }
   const reusable = await fetchReusableCatalogRows(topic.id, submission.requester_id);
   const reusableByKey = new Map<string, VocabCatalog[]>();
 
@@ -489,8 +477,8 @@ export async function approveTopicSubmission(
       e_meaning: clean(word.e_meaning),
       ev_meaning: clean(word.ev_meaning),
       v_meaning: clean(word.v_meaning),
-      e_example: clean(word.e_example),
-      v_example: clean(word.v_example),
+      e_example: cleanExample(word.e_example),
+      v_example: cleanExample(word.v_example),
       word_family: clean(word.word_family),
       synonymous: clean(word.synonymous),
       antonym: clean(word.antonym),

@@ -7,6 +7,26 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        refreshPendingReminderBranding()
+    }
+
+    private func refreshPendingReminderBranding() {
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { requests in
+            guard let existingRequest = requests.first(where: { $0.identifier == "daily_reminder" }),
+                  existingRequest.content.title != "Omninary",
+                  let updatedContent = existingRequest.content.mutableCopy() as? UNMutableNotificationContent else {
+                return
+            }
+
+            updatedContent.title = "Omninary"
+            let updatedRequest = UNNotificationRequest(
+                identifier: existingRequest.identifier,
+                content: updatedContent,
+                trigger: existingRequest.trigger
+            )
+            center.add(updatedRequest)
+        }
     }
     
     func requestPermission() {
@@ -24,7 +44,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["daily_reminder"])
         
         let content = UNMutableNotificationContent()
-        content.title = "Ditanary"
+        content.title = "Omninary"
         content.body = "Đã đến giờ học từ vựng rồi, vào app học ngay thôi! 🔥"
         content.sound = .default
         content.userInfo = ["type": "daily_reminder"]

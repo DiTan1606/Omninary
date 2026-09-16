@@ -38,7 +38,7 @@ struct SettingView: View {
                         }
                     }
 
-                    Text("Chuẩn Ditanary được cố định để giữ đúng nhịp học ngắt quãng.")
+                    Text("Chuẩn Omninary được cố định để giữ đúng nhịp học ngắt quãng.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -54,7 +54,7 @@ struct SettingView: View {
                     HStack {
                         Text("Phát triển bởi")
                         Spacer()
-                        Text("Ditanary Team")
+                        Text("Omninary Team")
                             .foregroundColor(.secondary)
                     }
                 }

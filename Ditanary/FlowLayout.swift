@@ -13,17 +13,18 @@ struct FlowLayout: Layout {
     }
 
     private func layout(proposal: ProposedViewSize, subviews: Subviews, bounds: CGRect? = nil) -> (size: CGSize, positions: [CGPoint]) {
-        let maxWidth = proposal.width ?? .infinity
-        var currentX: CGFloat = bounds?.minX ?? 0
+        let leadingX = bounds?.minX ?? 0
+        let trailingX = bounds?.maxX ?? (proposal.width ?? .infinity)
+        var currentX: CGFloat = leadingX
         var currentY: CGFloat = bounds?.minY ?? 0
         var lineHeight: CGFloat = 0
-        var maxX: CGFloat = 0
+        var contentMaxX: CGFloat = leadingX
         var positions: [CGPoint] = []
 
         for subview in subviews {
             let size = subview.sizeThatFits(.unspecified)
-            if currentX + size.width > maxWidth && currentX > (bounds?.minX ?? 0) {
-                currentX = bounds?.minX ?? 0
+            if currentX + size.width > trailingX && currentX > leadingX {
+                currentX = leadingX
                 currentY += lineHeight + spacing
                 lineHeight = 0
             }
@@ -35,9 +36,15 @@ struct FlowLayout: Layout {
             positions.append(CGPoint(x: currentX, y: currentY))
             currentX += size.width + spacing
             lineHeight = max(lineHeight, size.height)
-            maxX = max(maxX, currentX)
+            contentMaxX = max(contentMaxX, currentX - spacing)
         }
 
-        return (CGSize(width: maxX, height: currentY + lineHeight), positions)
+        return (
+            CGSize(
+                width: max(contentMaxX - leadingX, 0),
+                height: currentY - (bounds?.minY ?? 0) + lineHeight
+            ),
+            positions
+        )
     }
 }

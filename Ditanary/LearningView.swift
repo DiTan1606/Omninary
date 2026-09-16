@@ -132,7 +132,7 @@ struct VocabularyLearningView: View {
     @State private var totalLearningWords = 0
     @State private var totalSavedWords = 0
     @State private var dueVocabsCount = 0
-    @State private var unavailablePronunciationWords: [String] = []
+    @State private var wordsWithoutExampleExercises: [String] = []
     
     @State private var showLearningSession = false
     @State private var statsByLevel: [Int: Int] = [1:0, 2:0, 3:0, 4:0, 5:0, 6:0]
@@ -152,13 +152,14 @@ struct VocabularyLearningView: View {
             .onAppear {
                 Task { await prepareSession() }
             }
-            .fullScreenCover(isPresented: $showLearningSession) {
+            .fullScreenCover(isPresented: $showLearningSession, onDismiss: {
+                Task { await prepareSession() }
+            }) {
                 LearningSessionView(
                     tasks: tasks,
                     learningVocabGroups: learningVocabGroups,
                     onClose: {
                         showLearningSession = false
-                        Task { await prepareSession() }
                     }
                 )
             }
@@ -287,9 +288,9 @@ struct VocabularyLearningView: View {
                             .cornerRadius(18)
                             .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
                         }
-                        if !unavailablePronunciationWords.isEmpty {
+                        if !wordsWithoutExampleExercises.isEmpty {
                             Label(
-                                "\(unavailablePronunciationWords.count) từ đang thiếu câu ví dụ nên chưa thể vào set.",
+                                "\(wordsWithoutExampleExercises.count) từ trong set sẽ bỏ qua phần ghép câu và phát âm vì chưa có ví dụ.",
                                 systemImage: "exclamationmark.triangle.fill"
                             )
                             .font(.caption)
@@ -298,7 +299,7 @@ struct VocabularyLearningView: View {
                         }
                     } else if dueVocabsCount > 0 {
                         Label(
-                            "Các từ đến hạn đang thiếu câu ví dụ tiếng Anh để luyện phát âm.",
+                            "Không thể tạo bài ôn tập từ dữ liệu hiện có.",
                             systemImage: "exclamationmark.triangle.fill"
                         )
                         .font(.subheadline)
@@ -358,7 +359,7 @@ struct VocabularyLearningView: View {
                 totalLearningWords = 0
                 totalSavedWords = 0
                 dueVocabsCount = 0
-                unavailablePronunciationWords = []
+                wordsWithoutExampleExercises = []
                 statsByLevel = [1:0, 2:0, 3:0, 4:0, 5:0, 6:0]
                 return
             }
@@ -370,7 +371,7 @@ struct VocabularyLearningView: View {
             totalLearningWords = plan.totalLearningWords
             totalSavedWords = plan.totalSavedWords
             dueVocabsCount = plan.dueVocabsCount
-            unavailablePronunciationWords = plan.unavailablePronunciationWords
+            wordsWithoutExampleExercises = plan.wordsWithoutExampleExercises
             learningVocabGroups = plan.selectedGroups
             tasks = plan.tasks
         } catch {

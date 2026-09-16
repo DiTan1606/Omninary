@@ -103,7 +103,7 @@ struct PronunciationWordFeedbackSheet: View {
                         Button {
                             SpeechManager.shared.speak(word: feedback.word, ipa: ipaNotation)
                         } label: {
-                            Label("Ditanary đọc", systemImage: "speaker.wave.2.fill")
+                            Label("Omninary đọc", systemImage: "speaker.wave.2.fill")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)

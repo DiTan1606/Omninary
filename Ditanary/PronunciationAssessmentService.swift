@@ -1,6 +1,11 @@
 import Foundation
 import Supabase
 
+private struct EdgeFunctionErrorPayload: Decodable {
+    let error: String?
+    let message: String?
+}
+
 struct AzurePronunciationAssessment: Decodable {
     struct Scores: Decodable {
         let pronunciation: Double
@@ -46,7 +51,7 @@ struct AzurePronunciationAssessment: Decodable {
     let transcript: String
     let scores: Scores
     let words: [WordFeedback]
-    let shadowingProgress: ShadowingProgress? = nil
+    let shadowingProgress: ShadowingProgress?
 }
 
 enum PronunciationFeedbackLevel: Equatable {
@@ -63,6 +68,68 @@ enum PronunciationFeedbackLevel: Equatable {
         case .retry:
             return "Cần đọc lại"
         }
+    }
+}
+
+enum VocabularyPronunciationProgressRule {
+    static let minimumPronunciationScore = 75.0
+    static let minimumCompletenessScore = 85.0
+
+    static func canContinue(_ assessment: AzurePronunciationAssessment) -> Bool {
+        continueFailureReasons(for: assessment).isEmpty
+    }
+
+    static func continueFailureReasons(for assessment: AzurePronunciationAssessment) -> [String] {
+        var reasons: [String] = []
+
+        if assessment.scores.pronunciation < minimumPronunciationScore {
+            reasons.append("Điểm tổng cần từ \(Int(minimumPronunciationScore)) trở lên để tiếp tục")
+        }
+        if assessment.scores.completeness < minimumCompletenessScore {
+            reasons.append("Hãy đọc rõ và đủ phần lớn câu mẫu")
+        }
+        if assessment.words.isEmpty {
+            reasons.append("Chưa nhận được kết quả chi tiết từng từ, hãy thu âm lại")
+        }
+
+        return reasons
+    }
+
+    static func targetFeedback(
+        in assessment: AzurePronunciationAssessment,
+        targetWord: String
+    ) -> [AzurePronunciationAssessment.WordFeedback] {
+        let targetTokens = normalizedTokens(in: targetWord)
+        guard !targetTokens.isEmpty else { return [] }
+
+        return assessment.words.filter { feedback in
+            let feedbackTokens = normalizedTokens(in: feedback.word)
+            return !targetTokens.isDisjoint(with: feedbackTokens)
+        }
+    }
+
+    static func hasSolidTargetPronunciation(
+        _ assessment: AzurePronunciationAssessment,
+        targetWord: String
+    ) -> Bool {
+        guard canContinue(assessment) else { return false }
+
+        let feedback = targetFeedback(in: assessment, targetWord: targetWord)
+        guard !feedback.isEmpty else { return false }
+
+        return feedback.allSatisfy {
+            !PronunciationPassingRule.isCriticalError($0.errorType)
+                && $0.accuracy >= PronunciationPassingRule.minimumWordAccuracyScore
+        }
+    }
+
+    private static func normalizedTokens(in text: String) -> Set<String> {
+        Set(
+            text
+                .lowercased()
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }
+        )
     }
 }
 
@@ -198,6 +265,48 @@ enum ShadowingPassingRule {
 }
 
 enum PronunciationAssessmentService {
+    static func userFacingMessage(for error: Error) -> String {
+        if let functionError = error as? FunctionsError {
+            switch functionError {
+            case let .httpError(code, data):
+                if let payload = try? JSONDecoder().decode(EdgeFunctionErrorPayload.self, from: data),
+                   let message = [payload.error, payload.message]
+                    .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+                    .first(where: { !$0.isEmpty }) {
+                    return message
+                }
+
+                switch code {
+                case 401:
+                    return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+                case 403:
+                    return "Bạn chưa có quyền thực hiện bài kiểm tra phát âm này."
+                case 429:
+                    return "Dịch vụ chấm phát âm đang bận. Vui lòng thử lại sau ít phút."
+                case 500...599:
+                    return "Dịch vụ kiểm tra phát âm đang tạm gặp sự cố. Vui lòng thử lại sau."
+                default:
+                    return "Không thể chấm phát âm lúc này. Vui lòng thử lại."
+                }
+            case .relayError:
+                return "Không thể kết nối đến dịch vụ kiểm tra phát âm. Vui lòng thử lại."
+            }
+        }
+
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                return "Không có kết nối mạng ổn định. Vui lòng kiểm tra mạng và thử lại."
+            case .timedOut:
+                return "Dịch vụ phản hồi quá lâu. Vui lòng thử lại."
+            default:
+                break
+            }
+        }
+
+        return "Không thể chấm phát âm lúc này. Vui lòng thử lại."
+    }
+
     static func assess(audioURL: URL, userVocabularyId: String) async throws -> AzurePronunciationAssessment {
         try await assess(
             audioURL: audioURL,

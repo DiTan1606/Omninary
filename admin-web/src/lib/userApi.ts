@@ -37,10 +37,9 @@ function clean(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
-function requireEnglishExample(input: Pick<VocabInput, 'e_example'>) {
-  if (!clean(input.e_example)) {
-    throw new Error('Mỗi nghĩa cần một ví dụ tiếng Anh để luyện phát âm.');
-  }
+function cleanExample(value: string | null | undefined) {
+  const trimmed = clean(value);
+  return trimmed === '...' || trimmed === '…' ? null : trimmed;
 }
 
 function nowIso() {
@@ -102,7 +101,6 @@ export function catalogToInput(vocab: VocabCatalog): VocabInput {
 }
 
 function toPrivateCatalogInsert(input: VocabInput, userId: string) {
-  requireEnglishExample(input);
   return {
     id: input.id ?? crypto.randomUUID(),
     topic_id: input.topic_id,
@@ -115,8 +113,8 @@ function toPrivateCatalogInsert(input: VocabInput, userId: string) {
     e_meaning: clean(input.e_meaning),
     ev_meaning: clean(input.ev_meaning),
     v_meaning: clean(input.v_meaning),
-    e_example: clean(input.e_example),
-    v_example: clean(input.v_example),
+    e_example: cleanExample(input.e_example),
+    v_example: cleanExample(input.v_example),
     word_family: clean(input.word_family),
     synonymous: clean(input.synonymous),
     antonym: clean(input.antonym),
@@ -125,7 +123,6 @@ function toPrivateCatalogInsert(input: VocabInput, userId: string) {
 }
 
 function toCatalogUpdate(input: VocabInput) {
-  requireEnglishExample(input);
   return {
     topic_id: input.topic_id,
     word: clean(input.word) ?? 'Untitled',
@@ -135,8 +132,8 @@ function toCatalogUpdate(input: VocabInput) {
     e_meaning: clean(input.e_meaning),
     ev_meaning: clean(input.ev_meaning),
     v_meaning: clean(input.v_meaning),
-    e_example: clean(input.e_example),
-    v_example: clean(input.v_example),
+    e_example: cleanExample(input.e_example),
+    v_example: cleanExample(input.v_example),
     word_family: clean(input.word_family),
     synonymous: clean(input.synonymous),
     antonym: clean(input.antonym),
@@ -362,7 +359,6 @@ export async function createPrivateVocab(input: VocabInput, userId: string) {
 
 export async function importPrivateVocabs(rows: VocabInput[], userId: string) {
   const rowsToImport = rows.filter((row) => row.word.trim());
-  rowsToImport.forEach(requireEnglishExample);
 
   for (const row of rowsToImport) {
     await createPrivateVocab(row, userId);
@@ -392,9 +388,6 @@ export async function deleteUserVocab(row: UserVocabulary) {
 export async function submitVocabContribution(row: UserVocabulary) {
   const catalogId = row.vocab_id ?? row.vocab_catalog?.id;
   if (!catalogId || !row.user_id) throw new Error('Thiếu dữ liệu từ riêng.');
-  if (!clean(row.vocab_catalog?.e_example)) {
-    throw new Error('Thêm ví dụ tiếng Anh trước khi gửi từ này để duyệt.');
-  }
 
   const { error } = await supabase.from('vocab_submissions').insert({
     id: crypto.randomUUID(),
@@ -446,9 +439,6 @@ export async function fetchUserTopicSubmissions(userId: string) {
 export async function submitPrivateTopicForReview(topic: Topic, vocabs: UserVocabulary[], userId: string) {
   const validVocabs = vocabs.filter((row) => row.vocab_catalog?.word?.trim() && (row.vocab_id ?? row.vocab_catalog?.id));
   if (validVocabs.length === 0) throw new Error('Topic cần có ít nhất một từ để gửi duyệt.');
-  if (validVocabs.some((row) => !clean(row.vocab_catalog?.e_example))) {
-    throw new Error('Mỗi từ trong topic cần một ví dụ tiếng Anh trước khi gửi duyệt.');
-  }
 
   const submissionId = crypto.randomUUID();
   const { error: submissionError } = await supabase.from('topic_submissions').insert({
@@ -475,8 +465,8 @@ export async function submitPrivateTopicForReview(topic: Topic, vocabs: UserVoca
       e_meaning: clean(vocab?.e_meaning),
       ev_meaning: clean(vocab?.ev_meaning),
       v_meaning: clean(vocab?.v_meaning),
-      e_example: clean(vocab?.e_example),
-      v_example: clean(vocab?.v_example),
+      e_example: cleanExample(vocab?.e_example),
+      v_example: cleanExample(vocab?.v_example),
       word_family: clean(vocab?.word_family),
       synonymous: clean(vocab?.synonymous),
       antonym: clean(vocab?.antonym),

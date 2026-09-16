@@ -49,7 +49,7 @@ const navItems: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
 function BrandLogo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={compact ? 'brand compact-brand' : 'brand'}>
-      <img className="brand-logo" src="/ditanary-logo.png" alt="Ditanary" />
+      <img className="brand-logo" src="/ditanary-logo.png" alt="Omninary" />
     </div>
   );
 }
@@ -73,7 +73,7 @@ function profileDisplayName(profile?: Profile) {
 }
 
 function fieldValue(value: string | null | undefined) {
-  return value?.trim() || '...';
+  return value?.trim() || 'Chưa có';
 }
 
 type VocabSubmissionTopicGroup = {
@@ -248,7 +248,7 @@ function App() {
     return (
       <div className="boot-screen">
         <Loader2 className="spin" size={28} />
-        <span>Đang mở Ditanary Admin</span>
+        <span>Đang mở Omninary Admin</span>
       </div>
     );
   }
@@ -1379,11 +1379,6 @@ function VocabEditorModal({
       setError('Vui lòng nhập từ vựng.');
       return;
     }
-    if (!draft.e_example.trim()) {
-      setError('Mỗi nghĩa cần một ví dụ tiếng Anh để luyện phát âm.');
-      return;
-    }
-
     setIsSaving(true);
     try {
       await onSave(draft);
@@ -1445,7 +1440,7 @@ function VocabEditorModal({
             <textarea value={draft.ev_meaning} onChange={(event) => update('ev_meaning', event.target.value)} />
           </label>
           <label>
-            Ví dụ tiếng Anh *
+            Ví dụ tiếng Anh
             <textarea value={draft.e_example} onChange={(event) => update('e_example', event.target.value)} />
           </label>
           <label>
@@ -1506,7 +1501,7 @@ function ContributionWordPreview({ vocab }: { vocab: VocabCatalog | null }) {
       </div>
       <div>
         <span>Ví dụ</span>
-        <strong>{vocab.e_example || vocab.v_example || '...'}</strong>
+        <strong>{vocab.e_example || vocab.v_example || 'Chưa có ví dụ'}</strong>
       </div>
     </div>
   );
