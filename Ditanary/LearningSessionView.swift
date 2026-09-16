@@ -48,6 +48,7 @@ struct LearningSessionView: View {
     @State private var currentTaskIndex = 0
     @State private var isCompleted = false
     @State private var isFinishingSession = false
+    @State private var saveErrorMessage: String?
     @State private var hasStartedCelebration = false
     
     @State private var inputText = ""
@@ -74,6 +75,8 @@ struct LearningSessionView: View {
             VStack {
                 if isCompleted {
                     completionView
+                } else if let saveErrorMessage {
+                    savingFailureView(message: saveErrorMessage)
                 } else if isFinishingSession {
                     savingProgressView
                 } else if let task = currentTask {
@@ -212,6 +215,41 @@ struct LearningSessionView: View {
                 .multilineTextAlignment(.center)
         }
         .padding()
+    }
+
+    private func savingFailureView(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 46))
+                .foregroundColor(.orange)
+
+            Text("Chưa thể xác nhận tiến độ đã lưu")
+                .font(.title3.bold())
+                .multilineTextAlignment(.center)
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                saveErrorMessage = nil
+                isFinishingSession = true
+                Task { await finishSession() }
+            } label: {
+                LearningActionButtonLabel(
+                    title: "Thử lưu lại",
+                    systemImage: "arrow.clockwise"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Để sau") {
+                onClose()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(28)
     }
 
     private func startCelebrationIfNeeded() {
@@ -812,36 +850,42 @@ struct LearningSessionView: View {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
-        for group in learningVocabGroups {
-            for vocab in group {
-                guard let id = vocab.id else { continue }
-                
-                let newLvl = ReviewScheduler.nextLearningLevel(from: vocab.learning_level ?? 0)
-                let nextStr = ReviewScheduler.reviewString(for: newLvl, from: now, formatter: formatter)
-                
-                do {
+        do {
+            for group in learningVocabGroups {
+                for vocab in group {
+                    guard let id = vocab.id else {
+                        throw NSError(
+                            domain: "OmninaryLearning",
+                            code: 400,
+                            userInfo: [NSLocalizedDescriptionKey: "Thiếu mã định danh của từ vựng."]
+                        )
+                    }
+
+                    let newLvl = ReviewScheduler.nextLearningLevel(from: vocab.learning_level ?? 0)
+                    let nextStr = ReviewScheduler.reviewString(for: newLvl, from: now, formatter: formatter)
                     try await VocabularyRepository.updateLearningData(id: id, learningLevel: newLvl, nextReview: nextStr)
-                } catch {
-                    print("Lỗi cập nhật level cho \(vocab.vocab ?? ""): \(error)")
                 }
             }
-        }
-        
-        // Record activity and update streak
-        await recordActivity()
 
-        isFinishingSession = false
-        isCompleted = true
+            try await recordActivity()
+            isFinishingSession = false
+            isCompleted = true
+        } catch {
+            isFinishingSession = false
+            saveErrorMessage = "Một phần thay đổi có thể đã được đồng bộ. Hãy kiểm tra kết nối và thử lưu lại."
+        }
     }
     
-    func recordActivity() async {
-        guard let myUserId = AuthManager.shared.currentUser?.id.uuidString else { return }
-        
-        do {
-            try await UserProgressRepository.recordDailyActivityAndUpdateStreak(userId: myUserId)
-        } catch {
-            print("Lỗi đồng bộ hoạt động với Supabase: \(error)")
+    func recordActivity() async throws {
+        guard let myUserId = AuthManager.shared.currentUser?.id.uuidString else {
+            throw NSError(
+                domain: "OmninaryLearning",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "Phiên đăng nhập đã hết hạn."]
+            )
         }
+
+        try await UserProgressRepository.recordDailyActivityAndUpdateStreak(userId: myUserId)
     }
     
     struct DetailRow: View {

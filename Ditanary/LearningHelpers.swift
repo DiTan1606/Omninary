@@ -191,12 +191,10 @@ enum LearningSessionBuilder {
             let distractors = allJoinedMeanings.filter { $0 != correctOption }.shuffled()
             options.append(contentsOf: distractors.prefix(3))
 
-            while options.count < 4 {
-                options.append("Nghĩa giả định \(UUID().uuidString.prefix(4))")
+            if options.count >= 2 {
+                options.shuffle()
+                tasks.append(LearningTask(word: word, meanings: group, type: .multipleChoice, options: options))
             }
-
-            options.shuffle()
-            tasks.append(LearningTask(word: word, meanings: group, type: .multipleChoice, options: options))
 
             for meaning in group {
                 if let example = meaning.englishExample {

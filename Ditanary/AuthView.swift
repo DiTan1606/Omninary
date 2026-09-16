@@ -25,7 +25,8 @@ struct AuthView: View {
                 Image("AppLogo")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 300, height: 300)
+                    .frame(width: 168, height: 168)
+                    .accessibilityLabel("Ditandnary thuộc Omninary")
                 
                 VStack(spacing: 20) {
                     if !isLogin {

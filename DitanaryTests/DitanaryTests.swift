@@ -272,9 +272,44 @@ struct DitanaryTests {
 
         #expect(plan.dueVocabsCount == 1)
         #expect(plan.selectedGroups.count == 1)
-        #expect(plan.tasks.count == 3)
-        #expect(plan.tasks.allSatisfy { $0.type != .pronunciationExample && $0.type != .sentenceScramble })
+        #expect(plan.tasks.count == 2)
+        #expect(plan.tasks.allSatisfy {
+            $0.type != .multipleChoice
+                && $0.type != .pronunciationExample
+                && $0.type != .sentenceScramble
+        })
         #expect(plan.wordsWithoutExampleExercises == ["weather"])
+    }
+
+    @Test func learningSessionBuilderUsesOnlyRealMultipleChoiceOptions() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let past = ISO8601DateFormatter().string(from: now.addingTimeInterval(-3600))
+        let apple = Vocabulary(
+            id: "apple",
+            vocab: "apple",
+            V_meaning: "quả táo",
+            learning_level: 1,
+            next_review: past
+        )
+        let banana = Vocabulary(
+            id: "banana",
+            vocab: "banana",
+            V_meaning: "quả chuối",
+            learning_level: 1,
+            next_review: past
+        )
+
+        let plan = LearningSessionBuilder.build(from: [apple, banana], now: now)
+        let validMeanings = Set(["quả táo", "quả chuối"])
+        let multipleChoiceTasks = plan.tasks.filter { $0.type == .multipleChoice }
+
+        #expect(multipleChoiceTasks.count == 2)
+        #expect(multipleChoiceTasks.allSatisfy {
+            Set($0.options).isSubset(of: validMeanings)
+        })
+        #expect(!plan.tasks.contains {
+            $0.options.contains { $0.hasPrefix("Nghĩa giả định") }
+        })
     }
 
     @Test func learningRetryPlannerAppendsFreshTaskOnlyAfterIncorrectAnswer() async throws {

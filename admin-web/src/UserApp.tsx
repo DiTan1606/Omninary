@@ -93,7 +93,7 @@ const userNavItems: Array<{ key: UserViewKey; label: string; icon: ReactNode }> 
 function BrandLogo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={compact ? 'brand compact-brand' : 'brand'}>
-      <img className="brand-logo" src="/ditanary-logo.png" alt="Omninary" />
+      <img className="brand-logo" src="/ditanary-logo.png" alt="Ditandnary thuộc Omninary" />
     </div>
   );
 }

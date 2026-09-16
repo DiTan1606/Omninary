@@ -197,10 +197,11 @@ struct HomeView: View {
     
     var headerView: some View {
         HStack {
-            Image("AppLogo") // Using the requested logo file name
+            Image("AppLogo")
                 .resizable()
                 .scaledToFit()
                 .frame(height: 50)
+                .accessibilityLabel("Ditandnary thuộc Omninary")
             
             Spacer()
             
