@@ -40,21 +40,4 @@ enum AuthService {
         _ = try await supabase.auth.update(user: UserAttributes(data: metadata))
     }
 
-    static func uploadAvatar(userId: UUID, data: Data, date: Date = Date()) async throws -> String {
-        let fileName = "\(userId.uuidString)_\(date.timeIntervalSince1970).jpg"
-        let filePath = "avatars/\(fileName)"
-
-        try await supabase.storage
-            .from("avatars")
-            .upload(
-                filePath,
-                data: data,
-                options: FileOptions(cacheControl: "3600", upsert: true)
-            )
-
-        return try supabase.storage
-            .from("avatars")
-            .getPublicURL(path: filePath)
-            .absoluteString
-    }
 }

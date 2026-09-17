@@ -77,31 +77,12 @@ class AuthManager: ObservableObject {
         await AppIconManager.synchronize(hasExtraordinaryAccess: false)
     }
     
-    // Lấy tên hiển thị từ metadata (hoặc trả về mặc định nếu không có)
-    var avatarURL: String? {
-        guard let metadata = currentUser?.userMetadata else { return nil }
-        if case let .string(url) = metadata["avatar_url"] {
-            return url
-        }
-        return nil
-    }
-    
     func updateDisplayName(_ name: String) async throws {
         guard let userId = currentUser?.id else { return }
         
         try await AuthService.updateUserMetadata(["display_name": .string(name)])
         
         try await ProfileRepository.updateDisplayName(userId: userId.uuidString, name: name)
-        
-        await checkSession()
-    }
-    
-    func updateAvatar(data: Data) async throws {
-        guard let userId = currentUser?.id else { return }
-
-        let urlString = try await AuthService.uploadAvatar(userId: userId, data: data)
-        try await AuthService.updateUserMetadata(["avatar_url": .string(urlString)])
-        try await ProfileRepository.updateAvatarURL(userId: userId.uuidString, urlString: urlString)
         
         await checkSession()
     }

@@ -9,7 +9,6 @@ private enum UserTab {
     case library
     case learning
     case setting
-    case profile
 }
 
 
@@ -53,13 +52,10 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            switch interfaceMode {
-            case .legacy:
-                LegacyContentView()
-            case .ditandnary, .extraordinary:
-                VersionPlaceholderView(interfaceModeRaw: $interfaceModeRaw, mode: interfaceMode)
-            }
+            LegacyContentView()
         }
+        .preferredColorScheme(interfaceMode.usesDarkTheme ? .dark : nil)
+        .tint(interfaceMode.usesDarkTheme ? Color.purple : Color.blue)
         .task {
             await synchronizeDevelopmentIcon()
         }
@@ -82,26 +78,25 @@ struct ContentView: View {
 private struct LegacyContentView: View {
     @ObservedObject private var auth = AuthManager.shared
     @State private var selectedUserTab: UserTab = .home
-    @State private var vocabularyLearningRequest: UUID?
     
     var body: some View {
         if auth.isAdmin {
             AdminWebOnlyView()
         } else {
             TabView(selection: $selectedUserTab) {
-                HomeView()
+                HomePlaceholderView()
                     .tabItem {
                         Label("Home", systemImage: "house")
                     }
                     .tag(UserTab.home)
                 
-                LibraryView()
+                BlankTabView(title: "Library")
                     .tabItem {
                         Label("Library", systemImage: "books.vertical")
                     }
                     .tag(UserTab.library)
                 
-                LearningView(openVocabularyRequest: vocabularyLearningRequest)
+                BlankTabView(title: "Learning")
                     .tabItem {
                         Label("Learning", systemImage: "graduationcap")
                     }
@@ -113,68 +108,11 @@ private struct LegacyContentView: View {
                     }
                     .tag(UserTab.setting)
                 
-                ProfileView()
-                    .tabItem {
-                        Label("Profile", systemImage: "person")
-                    }
-                    .tag(UserTab.profile)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .openLearningTab)) { _ in
-                selectedUserTab = .learning
-                vocabularyLearningRequest = UUID()
             }
         }
     }
 }
 
-
-private struct VersionPlaceholderView: View {
-    @Binding var interfaceModeRaw: String
-    let mode: AppInterfaceMode
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-            (mode.usesDarkTheme ? Color.black : Color.white)
-                .ignoresSafeArea()
-
-            VStack(spacing: 24) {
-                Image(mode.wordmarkAsset)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 320, maxHeight: 110)
-                    .accessibilityLabel(mode.title)
-
-                Text(mode.previewMessage)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(mode.usesDarkTheme ? Color.white : Color.primary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(32)
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(AppInterfaceMode.allCases) { availableMode in
-                        Button {
-                            interfaceModeRaw = availableMode.rawValue
-                        } label: {
-                            Label(
-                                availableMode.title,
-                                systemImage: availableMode == mode ? "checkmark" : "circle"
-                            )
-                        }
-                    }
-                } label: {
-                    Image(systemName: "gearshape")
-                        .foregroundStyle(mode.usesDarkTheme ? Color.white : Color.primary)
-                }
-                .accessibilityLabel("Chuyển giao diện phát triển")
-            }
-        }
-        }
-    }
-}
 
 private struct AdminWebOnlyView: View {
     @ObservedObject private var auth = AuthManager.shared

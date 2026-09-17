@@ -169,7 +169,6 @@ struct Profile: Identifiable, Codable {
     var id: String
     var email: String?
     var display_name: String?
-    var avatar_url: String?
     var role: String?
     var created_at: String?
 }

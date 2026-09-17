@@ -867,11 +867,4 @@ enum ProfileRepository {
             .execute()
     }
 
-    static func updateAvatarURL(userId: String, urlString: String) async throws {
-        try await supabase
-            .from("profiles")
-            .update(["avatar_url": urlString] as [String: String])
-            .eq("id", value: userId)
-            .execute()
-    }
 }
