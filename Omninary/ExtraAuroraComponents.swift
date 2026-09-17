@@ -67,6 +67,21 @@ struct ExtraAuroraTabBar: View {
     ]
 
     var body: some View {
+        Group {
+            if #available(iOS 26.0, *) {
+                GlassEffectContainer(spacing: 12) {
+                    glassContent
+                }
+            } else {
+                glassContent
+            }
+        }
+        .shadow(color: Color.black.opacity(0.45), radius: 22, y: 10)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
+    }
+
+    private var glassContent: some View {
         HStack(spacing: 4) {
             ForEach(tabs, id: \.0) { tab, title, icon in
                 Button {
@@ -85,12 +100,20 @@ struct ExtraAuroraTabBar: View {
                     .frame(height: 54)
                     .background {
                         if selectedTab == tab {
-                            RoundedRectangle(cornerRadius: 15)
-                                .fill(Color.white.opacity(0.13))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 15)
-                                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                                }
+                            if #available(iOS 26.0, *) {
+                                Color.clear
+                                    .glassEffect(
+                                        .regular.tint(ExtraAuroraPalette.ice.opacity(0.22)),
+                                        in: .rect(cornerRadius: 15)
+                                    )
+                            } else {
+                                RoundedRectangle(cornerRadius: 15)
+                                    .fill(Color.white.opacity(0.13))
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 15)
+                                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                                    }
+                            }
                         }
                     }
                 }
@@ -100,9 +123,6 @@ struct ExtraAuroraTabBar: View {
         }
         .padding(6)
         .modifier(ExtraLiquidGlassSurface())
-        .shadow(color: Color.black.opacity(0.45), radius: 22, y: 10)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 6)
     }
 }
 

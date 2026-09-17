@@ -14,7 +14,12 @@ struct SettingView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            ZStack {
+                if isExtra {
+                    AuroraBackdrop()
+                }
+
+                List {
                 Section {
                     Button {
                         newDisplayName = auth.displayName
@@ -65,6 +70,7 @@ struct SettingView: View {
                 .disabled(isSavingName || newDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } message: {
                 Text("Nhập tên bạn muốn hiển thị trong ứng dụng.")
+            }
             }
         }
     }
