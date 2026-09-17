@@ -50,12 +50,7 @@ struct OmninaryHomeView: View {
             }
             .background {
                 if isExtra {
-                    LinearGradient(
-                        colors: [Color(red: 0.015, green: 0.025, blue: 0.05), Color(red: 0.02, green: 0.09, blue: 0.15), Color(red: 0.01, green: 0.035, blue: 0.07)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .ignoresSafeArea()
+                    AuroraBackdrop()
                 } else {
                     Color(UIColor.systemGroupedBackground).ignoresSafeArea()
                 }
@@ -79,7 +74,7 @@ struct OmninaryHomeView: View {
             Image(interfaceMode.wordmarkAsset)
                 .resizable()
                 .scaledToFit()
-                .frame(width: isExtra ? 232 : 205, height: isExtra ? 74 : 64, alignment: .leading)
+                .frame(width: isExtra ? 250 : 205, height: isExtra ? 82 : 64, alignment: .leading)
                 .accessibilityLabel(interfaceMode.title)
 
             Spacer(minLength: 12)
@@ -124,14 +119,34 @@ struct OmninaryHomeView: View {
     private var streakCard: some View {
         HStack(spacing: 20) {
             ZStack {
+                if isExtra {
+                    Circle()
+                        .stroke(
+                            AngularGradient(
+                                colors: [ExtraAuroraPalette.ice, ExtraAuroraPalette.electricBlue, ExtraAuroraPalette.champagne, ExtraAuroraPalette.ice],
+                                center: .center
+                            ),
+                            lineWidth: 3
+                        )
+                        .frame(width: 98, height: 98)
+                        .shadow(color: ExtraAuroraPalette.ice.opacity(0.42), radius: 10)
+                }
+
                 Circle()
                     .fill(streakCount > 0 ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1))
                     .frame(width: 80, height: 80)
                 Image(systemName: "flame.fill")
                     .font(.system(size: 40))
-                    .foregroundStyle(streakCount > 0 ? .orange : .gray)
+                    .foregroundStyle(isExtra ? ExtraAuroraPalette.champagne : (streakCount > 0 ? Color.orange : Color.gray))
             }
             VStack(alignment: .leading, spacing: 4) {
+                if isExtra {
+                    Text("EXTRA MOMENT")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(1.2)
+                        .foregroundStyle(ExtraAuroraPalette.champagne)
+                }
+
                 Text("Chuỗi học tập")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -144,7 +159,7 @@ struct OmninaryHomeView: View {
                 }
                 Text(streakCount > 0 ? "Tuyệt vời! Hãy tiếp tục nhé." : "Bắt đầu học để tạo chuỗi nhé!")
                     .font(.caption)
-                    .foregroundStyle(streakCount > 0 ? .orange : .secondary)
+                    .foregroundStyle(isExtra ? ExtraAuroraPalette.ice : (streakCount > 0 ? Color.orange : Color.secondary))
             }
             Spacer()
         }
@@ -199,6 +214,17 @@ struct OmninaryHomeView: View {
             HStack {
                 Text("Khám phá")
                     .font(.title2.bold())
+
+                if isExtra {
+                    Text("EXTRA")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(1)
+                        .foregroundStyle(ExtraAuroraPalette.ice)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(ExtraAuroraPalette.ice.opacity(0.13), in: Capsule())
+                }
+
                 Spacer()
                 Image(systemName: "safari.fill")
                     .foregroundStyle(.secondary)
@@ -283,7 +309,22 @@ struct OmninaryHomeView: View {
                 .font(.title3)
                 .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
-                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 13))
+                .background {
+                    if isExtra {
+                        RoundedRectangle(cornerRadius: 13)
+                            .fill(
+                                LinearGradient(
+                                    colors: [ExtraAuroraPalette.electricBlue.opacity(0.82), ExtraAuroraPalette.ice.opacity(0.58)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .shadow(color: tint.opacity(0.35), radius: 8, y: 3)
+                    } else {
+                        RoundedRectangle(cornerRadius: 13)
+                            .fill(tint.opacity(0.12))
+                    }
+                }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.headline)

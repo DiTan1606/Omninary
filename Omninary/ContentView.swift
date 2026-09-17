@@ -4,7 +4,7 @@ extension Foundation.Notification.Name {
     static let openLearningTab = Self("openLearningTab")
 }
 
-private enum UserTab {
+enum UserTab: Hashable {
     case home
     case library
     case learning
@@ -52,7 +52,11 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            LegacyContentView()
+            if interfaceMode == .extraordinary {
+                ExtraordinaryUserContentView()
+            } else {
+                LegacyContentView()
+            }
         }
         .preferredColorScheme(interfaceMode.usesDarkTheme ? .dark : nil)
         .tint(interfaceMode.usesDarkTheme ? Color.cyan : Color.blue)
@@ -113,6 +117,37 @@ private struct LegacyContentView: View {
     }
 }
 
+
+private struct ExtraordinaryUserContentView: View {
+    @ObservedObject private var auth = AuthManager.shared
+    @State private var selectedUserTab: UserTab = .home
+
+    var body: some View {
+        if auth.isAdmin {
+            AdminWebOnlyView()
+        } else {
+            ZStack(alignment: .bottom) {
+                AuroraBackdrop()
+
+                Group {
+                    switch selectedUserTab {
+                    case .home:
+                        OmninaryHomeView()
+                    case .library:
+                        BlankTabView(title: "Library")
+                    case .learning:
+                        BlankTabView(title: "Learning")
+                    case .setting:
+                        SettingView()
+                    }
+                }
+                .padding(.bottom, 82)
+
+                ExtraAuroraTabBar(selectedTab: $selectedUserTab)
+            }
+        }
+    }
+}
 
 private struct AdminWebOnlyView: View {
     @ObservedObject private var auth = AuthManager.shared
