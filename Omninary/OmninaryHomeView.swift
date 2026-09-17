@@ -39,14 +39,7 @@ struct OmninaryHomeView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                if isExtra {
-                    AuroraBackdrop()
-                } else {
-                    Color(UIColor.systemGroupedBackground).ignoresSafeArea()
-                }
-
-                ScrollView(.vertical) {
+            ScrollView(.vertical) {
                 VStack(spacing: 28) {
                     header
                     streakCard
@@ -59,6 +52,13 @@ struct OmninaryHomeView: View {
             }
             .frame(maxWidth: .infinity)
             .clipped()
+            .background {
+                if isExtra {
+                    AuroraBackdrop()
+                } else {
+                    Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .refreshable { await loadData() }
             .task { await loadData() }
@@ -69,7 +69,6 @@ struct OmninaryHomeView: View {
             }
             .navigationDestination(isPresented: $showDailyStats) {
                 DailyLearningStatsPlaceholderView(date: selectedActivityDate)
-            }
             }
         }
     }

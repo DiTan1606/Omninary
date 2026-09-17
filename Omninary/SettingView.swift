@@ -14,12 +14,7 @@ struct SettingView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                if isExtra {
-                    AuroraBackdrop()
-                }
-
-                List {
+            List {
                 Section {
                     Button {
                         newDisplayName = auth.displayName
@@ -59,6 +54,11 @@ struct SettingView: View {
             }
             .contentMargins(.top, 24, for: .scrollContent)
             .scrollContentBackground(isExtra ? .hidden : .automatic)
+            .background {
+                if isExtra {
+                    AuroraBackdrop()
+                }
+            }
             .navigationTitle("Setting")
             .navigationBarTitleDisplayMode(.large)
             .alert("Đổi tên hiển thị", isPresented: $isEditingName) {
@@ -70,7 +70,6 @@ struct SettingView: View {
                 .disabled(isSavingName || newDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } message: {
                 Text("Nhập tên bạn muốn hiển thị trong ứng dụng.")
-            }
             }
         }
     }
