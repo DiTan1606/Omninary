@@ -59,7 +59,7 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(interfaceMode.usesDarkTheme ? .dark : nil)
-        .tint(interfaceMode.usesDarkTheme ? Color.cyan : Color.blue)
+        .tint(interfaceMode.usesDarkTheme ? ExtraAuroraPalette.electricBlue : Color.blue)
         .task {
             await synchronizeDevelopmentIcon()
         }

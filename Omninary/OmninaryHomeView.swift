@@ -46,6 +46,7 @@ struct OmninaryHomeView: View {
                     calendarCard
                     discoveryCard
                 }
+                .frame(maxWidth: .infinity)
                 .padding(.bottom, 32)
             }
             .background {
@@ -74,7 +75,7 @@ struct OmninaryHomeView: View {
             Image(interfaceMode.wordmarkAsset)
                 .resizable()
                 .scaledToFit()
-                .frame(width: isExtra ? 250 : 205, height: isExtra ? 82 : 64, alignment: .leading)
+                .frame(width: isExtra ? 220 : 205, height: isExtra ? 72 : 64, alignment: .leading)
                 .accessibilityLabel(interfaceMode.title)
 
             Spacer(minLength: 12)
@@ -98,7 +99,7 @@ struct OmninaryHomeView: View {
                         if #available(iOS 26.0, *) {
                             Circle()
                                 .fill(Color.clear)
-                                .glassEffect(.regular.tint(.cyan.opacity(0.28)), in: Circle())
+                                .glassEffect(.regular.tint(ExtraAuroraPalette.electricBlue.opacity(0.22)), in: Circle())
                         } else {
                             Circle()
                                 .fill(.ultraThinMaterial)
@@ -108,12 +109,13 @@ struct OmninaryHomeView: View {
                         Circle().fill(Color(UIColor.secondarySystemGroupedBackground))
                     }
                 }
-                .shadow(color: isExtra ? Color.cyan.opacity(0.18) : Color.black.opacity(0.05), radius: 8)
+                .shadow(color: isExtra ? ExtraAuroraPalette.electricBlue.opacity(0.16) : Color.black.opacity(0.05), radius: 8)
             }
             .accessibilityLabel("Thông báo")
         }
         .padding(.horizontal)
         .padding(.top, 18)
+        .frame(maxWidth: .infinity)
     }
 
     private var streakCard: some View {
@@ -128,15 +130,15 @@ struct OmninaryHomeView: View {
                             ),
                             lineWidth: 3
                         )
-                        .frame(width: 98, height: 98)
+                        .frame(width: 84, height: 84)
                         .shadow(color: ExtraAuroraPalette.ice.opacity(0.42), radius: 10)
                 }
 
                 Circle()
                     .fill(streakCount > 0 ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1))
-                    .frame(width: 80, height: 80)
+                    .frame(width: isExtra ? 68 : 80, height: isExtra ? 68 : 80)
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 40))
+                    .font(.system(size: isExtra ? 32 : 40))
                     .foregroundStyle(isExtra ? ExtraAuroraPalette.champagne : (streakCount > 0 ? Color.orange : Color.gray))
             }
             VStack(alignment: .leading, spacing: 4) {
@@ -159,11 +161,16 @@ struct OmninaryHomeView: View {
                 }
                 Text(streakCount > 0 ? "Tuyệt vời! Hãy tiếp tục nhé." : "Bắt đầu học để tạo chuỗi nhé!")
                     .font(.caption)
+                    .lineLimit(2)
                     .foregroundStyle(isExtra ? ExtraAuroraPalette.ice : (streakCount > 0 ? Color.orange : Color.secondary))
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
+            Spacer(minLength: 0)
         }
         .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardBackground)
         .padding(.horizontal)
     }
@@ -176,7 +183,7 @@ struct OmninaryHomeView: View {
                         .font(.title2.bold())
                         .frame(width: proxy.size.width * 0.5, alignment: .leading)
 
-                    HStack(spacing: 10) {
+                    HStack(spacing: isExtra ? 6 : 10) {
                         Button {
                             withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth }
                         } label: {
@@ -186,7 +193,7 @@ struct OmninaryHomeView: View {
                         Text(monthYearString(selectedMonth))
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .minimumScaleFactor(isExtra ? 0.62 : 0.8)
                             .frame(maxWidth: .infinity)
 
                         Button {
@@ -205,6 +212,7 @@ struct OmninaryHomeView: View {
             }
         }
         .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardBackground)
         .padding(.horizontal)
     }
@@ -241,10 +249,14 @@ struct OmninaryHomeView: View {
                     }
                 )
             } label: {
-                folderRow(title: "Khám phá Từ vựng", subtitle: "Các chủ đề và bộ từ", icon: "books.vertical.fill", tint: isExtra ? .cyan : .blue)
+                folderRow(title: "Khám phá Từ vựng", subtitle: "Các chủ đề và bộ từ", icon: "books.vertical.fill", tint: isExtra ? ExtraAuroraPalette.ice : Color.blue)
             }
 
-            Divider()
+            if isExtra {
+                Color.clear.frame(height: 4)
+            } else {
+                Divider()
+            }
 
             NavigationLink {
                 ListeningExploreView(
@@ -253,10 +265,11 @@ struct OmninaryHomeView: View {
                     refreshLibrary: { Task { await fetchListeningLibrary() } }
                 )
             } label: {
-                folderRow(title: "Khám phá Bài luyện nghe", subtitle: "Các seri bài luyện nghe", icon: "headphones", tint: isExtra ? .blue : .orange)
+                folderRow(title: "Khám phá Bài luyện nghe", subtitle: "Các seri bài luyện nghe", icon: "headphones", tint: isExtra ? ExtraAuroraPalette.violet : Color.orange)
             }
         }
         .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardBackground)
         .padding(.horizontal)
     }
@@ -264,37 +277,23 @@ struct OmninaryHomeView: View {
     private var cardBackground: some View {
         Group {
             if isExtra {
-                if #available(iOS 26.0, *) {
-                    Color.clear
-                        .glassEffect(.regular.tint(.cyan.opacity(0.18)), in: .rect(cornerRadius: 24))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [Color.cyan.opacity(0.42), Color.white.opacity(0.14), Color.blue.opacity(0.26)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        }
-                        .shadow(color: Color.cyan.opacity(0.16), radius: 18, x: 0, y: 8)
-                } else {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(.ultraThinMaterial)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [Color.cyan.opacity(0.42), Color.white.opacity(0.14), Color.blue.opacity(0.26)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        }
-                        .shadow(color: Color.cyan.opacity(0.12), radius: 18, x: 0, y: 8)
-                }
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.105),
+                                ExtraAuroraPalette.violet.opacity(0.075),
+                                ExtraAuroraPalette.deepBlue.opacity(0.26)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(Color.white.opacity(0.085), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.30), radius: 18, x: 0, y: 9)
             } else {
                 RoundedRectangle(cornerRadius: 24)
                     .fill(Color(UIColor.secondarySystemGroupedBackground))
@@ -307,14 +306,14 @@ struct OmninaryHomeView: View {
         HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(tint)
+                .foregroundStyle(isExtra ? Color.white : tint)
                 .frame(width: 44, height: 44)
                 .background {
                     if isExtra {
                         RoundedRectangle(cornerRadius: 13)
                             .fill(
                                 LinearGradient(
-                                    colors: [ExtraAuroraPalette.electricBlue.opacity(0.82), ExtraAuroraPalette.ice.opacity(0.58)],
+                                    colors: [ExtraAuroraPalette.electricBlue.opacity(0.76), ExtraAuroraPalette.violet.opacity(0.64)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -338,7 +337,15 @@ struct OmninaryHomeView: View {
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, isExtra ? 0 : 5)
+        .padding(isExtra ? 12 : 0)
+        .background {
+            if isExtra {
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.white.opacity(0.055))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.055), lineWidth: 1))
+            }
+        }
     }
 
     private func loadData() async {

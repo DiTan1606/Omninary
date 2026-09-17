@@ -1,22 +1,27 @@
 import SwiftUI
 
 enum ExtraAuroraPalette {
-    static let obsidian = Color(red: 0.012, green: 0.022, blue: 0.045)
-    static let deepBlue = Color(red: 0.025, green: 0.10, blue: 0.19)
-    static let ice = Color(red: 0.33, green: 0.90, blue: 1.0)
-    static let electricBlue = Color(red: 0.27, green: 0.48, blue: 1.0)
+    static let obsidian = Color(red: 0.025, green: 0.020, blue: 0.070)
+    static let deepBlue = Color(red: 0.035, green: 0.080, blue: 0.20)
+    static let ice = Color(red: 0.30, green: 0.78, blue: 1.0)
+    static let electricBlue = Color(red: 0.34, green: 0.39, blue: 1.0)
+    static let violet = Color(red: 0.58, green: 0.30, blue: 0.98)
     static let champagne = Color(red: 0.91, green: 0.79, blue: 0.50)
 }
 
 struct AuroraBackdrop: View {
     var body: some View {
         ZStack {
-            ExtraAuroraPalette.obsidian
+            LinearGradient(
+                colors: [ExtraAuroraPalette.deepBlue, ExtraAuroraPalette.obsidian, ExtraAuroraPalette.violet.opacity(0.42)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
 
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [ExtraAuroraPalette.electricBlue.opacity(0.34), .clear],
+                        colors: [ExtraAuroraPalette.electricBlue.opacity(0.28), .clear],
                         center: .center,
                         startRadius: 0,
                         endRadius: 250
@@ -28,17 +33,17 @@ struct AuroraBackdrop: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [ExtraAuroraPalette.ice.opacity(0.22), .clear],
+                        colors: [ExtraAuroraPalette.violet.opacity(0.22), .clear],
                         center: .center,
                         startRadius: 0,
                         endRadius: 220
                     )
                 )
                 .frame(width: 440, height: 440)
-                .offset(x: 175, y: 260)
+                .offset(x: 185, y: 190)
 
             LinearGradient(
-                colors: [.clear, Color.black.opacity(0.28)],
+                colors: [Color.clear, Color.black.opacity(0.38)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -77,15 +82,15 @@ struct ExtraAuroraTabBar: View {
                     .frame(height: 54)
                     .background {
                         if selectedTab == tab {
-                            Capsule()
+                            RoundedRectangle(cornerRadius: 15)
                                 .fill(
                                     LinearGradient(
-                                        colors: [ExtraAuroraPalette.electricBlue.opacity(0.92), ExtraAuroraPalette.ice.opacity(0.72)],
+                                        colors: [ExtraAuroraPalette.electricBlue.opacity(0.42), ExtraAuroraPalette.violet.opacity(0.34)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                                .shadow(color: ExtraAuroraPalette.ice.opacity(0.35), radius: 10, y: 3)
+                                .shadow(color: ExtraAuroraPalette.electricBlue.opacity(0.20), radius: 8, y: 3)
                         }
                     }
                 }
@@ -97,15 +102,15 @@ struct ExtraAuroraTabBar: View {
         .background {
             if #available(iOS 26.0, *) {
                 Color.clear
-                    .glassEffect(.regular.tint(ExtraAuroraPalette.ice.opacity(0.14)), in: Capsule())
+                    .glassEffect(.regular.tint(ExtraAuroraPalette.deepBlue.opacity(0.42)), in: .rect(cornerRadius: 28))
             } else {
-                Capsule()
+                RoundedRectangle(cornerRadius: 28)
                     .fill(.ultraThinMaterial)
-                    .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.white.opacity(0.10), lineWidth: 1))
             }
         }
         .shadow(color: Color.black.opacity(0.45), radius: 22, y: 10)
-        .padding(.horizontal, 18)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
     }
 }
