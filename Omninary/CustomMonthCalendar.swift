@@ -4,6 +4,7 @@ import SwiftUI
 struct CustomMonthCalendar: View {
     let month: Date
     let activityLogs: [String: Bool]
+    let onCompletedDayTapped: (Date) -> Void
     
     private let calendar = Calendar.current
     private let daysOfWeek = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
@@ -65,6 +66,12 @@ struct CustomMonthCalendar: View {
             }
         }
         .frame(height: 35)
+        .contentShape(Circle())
+        .onTapGesture {
+            if completed {
+                onCompletedDayTapped(date)
+            }
+        }
     }
     
     private func generateDaysInMonth(for month: Date) -> [Date?] {

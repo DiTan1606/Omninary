@@ -48,6 +48,7 @@ struct SettingView: View {
                     }
                 }
             }
+            .contentMargins(.top, 24, for: .scrollContent)
             .navigationTitle("Setting")
             .navigationBarTitleDisplayMode(.large)
             .alert("Đổi tên hiển thị", isPresented: $isEditingName) {

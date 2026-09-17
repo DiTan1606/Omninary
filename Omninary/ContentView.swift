@@ -84,7 +84,7 @@ private struct LegacyContentView: View {
             AdminWebOnlyView()
         } else {
             TabView(selection: $selectedUserTab) {
-                HomePlaceholderView()
+                OmninaryHomeView()
                     .tabItem {
                         Label("Home", systemImage: "house")
                     }

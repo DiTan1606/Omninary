@@ -70,7 +70,7 @@ struct HomeView: View {
                             }
                         }
                         
-                        CustomMonthCalendar(month: selectedMonth, activityLogs: activityLogs)
+                        CustomMonthCalendar(month: selectedMonth, activityLogs: activityLogs) { _ in }
                     }
                     .padding()
                     .background(
