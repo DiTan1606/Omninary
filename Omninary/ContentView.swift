@@ -141,10 +141,14 @@ private struct ExtraordinaryUserContentView: View {
                         SettingView()
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
                 .padding(.bottom, 82)
 
                 ExtraAuroraTabBar(selectedTab: $selectedUserTab)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
         }
     }
 }

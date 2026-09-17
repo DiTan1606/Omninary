@@ -39,7 +39,7 @@ struct OmninaryHomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(.vertical) {
                 VStack(spacing: 28) {
                     header
                     streakCard
@@ -47,8 +47,11 @@ struct OmninaryHomeView: View {
                     discoveryCard
                 }
                 .frame(maxWidth: .infinity)
+                .containerRelativeFrame(.horizontal)
                 .padding(.bottom, 32)
             }
+            .frame(maxWidth: .infinity)
+            .clipped()
             .background {
                 if isExtra {
                     AuroraBackdrop()
