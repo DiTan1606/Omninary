@@ -126,9 +126,10 @@ struct OmninaryHomeView: View {
 
     private var calendarCard: some View {
         VStack(alignment: .leading, spacing: 15) {
-            HStack {
-                Text("Lịch học tập")
-                    .font(.headline)
+            Text("Lịch học tập")
+                .font(.headline)
+
+            HStack(spacing: 16) {
                 Spacer()
                 Button {
                     withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth }
@@ -136,16 +137,15 @@ struct OmninaryHomeView: View {
                     Image(systemName: "chevron.left")
                 }
                 Text(monthYearString(selectedMonth))
-                    .font(.subheadline.weight(.bold))
+                    .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(maxWidth: .infinity)
-                    .layoutPriority(1)
+                    .fixedSize(horizontal: true, vertical: false)
                 Button {
                     withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth }
                 } label: {
                     Image(systemName: "chevron.right")
                 }
+                Spacer()
             }
             CustomMonthCalendar(month: selectedMonth, activityLogs: activityLogs) { date in
                 selectedActivityDate = date
