@@ -55,7 +55,7 @@ struct ContentView: View {
             LegacyContentView()
         }
         .preferredColorScheme(interfaceMode.usesDarkTheme ? .dark : nil)
-        .tint(interfaceMode.usesDarkTheme ? Color.purple : Color.blue)
+        .tint(interfaceMode.usesDarkTheme ? Color.cyan : Color.blue)
         .task {
             await synchronizeDevelopmentIcon()
         }

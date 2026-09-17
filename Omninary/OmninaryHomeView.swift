@@ -22,6 +22,10 @@ struct OmninaryHomeView: View {
         AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary
     }
 
+    private var isExtra: Bool {
+        interfaceMode == .extraordinary
+    }
+
     private var groupedVocabs: [String: [Vocabulary]] {
         Dictionary(grouping: storeVocabs) { vocab in
             let topic = vocab.topics?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -44,7 +48,18 @@ struct OmninaryHomeView: View {
                 }
                 .padding(.bottom, 32)
             }
-            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+            .background {
+                if isExtra {
+                    LinearGradient(
+                        colors: [Color(red: 0.015, green: 0.025, blue: 0.05), Color(red: 0.02, green: 0.09, blue: 0.15), Color(red: 0.01, green: 0.035, blue: 0.07)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
+                } else {
+                    Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .refreshable { await loadData() }
             .task { await loadData() }
@@ -64,7 +79,7 @@ struct OmninaryHomeView: View {
             Image(interfaceMode.wordmarkAsset)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 205, height: 64, alignment: .leading)
+                .frame(width: isExtra ? 232 : 205, height: isExtra ? 74 : 64, alignment: .leading)
                 .accessibilityLabel(interfaceMode.title)
 
             Spacer(minLength: 12)
@@ -83,8 +98,16 @@ struct OmninaryHomeView: View {
                     }
                 }
                 .padding(12)
-                .background(Circle().fill(Color(UIColor.secondarySystemGroupedBackground)))
-                .shadow(color: .black.opacity(0.05), radius: 5)
+                .background {
+                    if isExtra {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                    } else {
+                        Circle().fill(Color(UIColor.secondarySystemGroupedBackground))
+                    }
+                }
+                .shadow(color: isExtra ? Color.cyan.opacity(0.18) : Color.black.opacity(0.05), radius: 8)
             }
             .accessibilityLabel("Thông báo")
         }
@@ -130,7 +153,7 @@ struct OmninaryHomeView: View {
                 HStack(spacing: 0) {
                     Text("Lịch học tập")
                         .font(.title2.bold())
-                        .frame(width: proxy.size.width * 0.4, alignment: .leading)
+                        .frame(width: proxy.size.width * 0.5, alignment: .leading)
 
                     HStack(spacing: 10) {
                         Button {
@@ -151,7 +174,7 @@ struct OmninaryHomeView: View {
                             Image(systemName: "chevron.right")
                         }
                     }
-                    .frame(width: proxy.size.width * 0.6)
+                    .frame(width: proxy.size.width * 0.5)
                 }
             }
             .frame(height: 32)
@@ -186,7 +209,7 @@ struct OmninaryHomeView: View {
                     }
                 )
             } label: {
-                folderRow(title: "Khám phá Từ vựng", subtitle: "Các chủ đề và bộ từ", icon: "books.vertical.fill", tint: .blue)
+                folderRow(title: "Khám phá Từ vựng", subtitle: "Các chủ đề và bộ từ", icon: "books.vertical.fill", tint: isExtra ? .cyan : .blue)
             }
 
             Divider()
@@ -198,7 +221,7 @@ struct OmninaryHomeView: View {
                     refreshLibrary: { Task { await fetchListeningLibrary() } }
                 )
             } label: {
-                folderRow(title: "Khám phá Bài luyện nghe", subtitle: "Các seri bài luyện nghe", icon: "headphones", tint: .orange)
+                folderRow(title: "Khám phá Bài luyện nghe", subtitle: "Các seri bài luyện nghe", icon: "headphones", tint: isExtra ? .blue : .orange)
             }
         }
         .padding(20)
@@ -207,9 +230,28 @@ struct OmninaryHomeView: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(Color(UIColor.secondarySystemGroupedBackground))
-            .shadow(color: .black.opacity(0.05), radius: 15, x: 0, y: 5)
+        Group {
+            if isExtra {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.cyan.opacity(0.42), Color.white.opacity(0.14), Color.blue.opacity(0.26)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    }
+                    .shadow(color: Color.cyan.opacity(0.12), radius: 18, x: 0, y: 8)
+            } else {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+                    .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 5)
+            }
+        }
     }
 
     private func folderRow(title: String, subtitle: String, icon: String, tint: Color) -> some View {
