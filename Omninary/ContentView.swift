@@ -123,32 +123,36 @@ private struct ExtraordinaryUserContentView: View {
     @State private var selectedUserTab: UserTab = .home
 
     var body: some View {
-        if auth.isAdmin {
-            AdminWebOnlyView()
-        } else {
-            ZStack(alignment: .bottom) {
-                Group {
-                    switch selectedUserTab {
-                    case .home:
-                        OmninaryHomeView()
-                    case .library:
-                        BlankTabView(title: "Library")
-                    case .learning:
-                        BlankTabView(title: "Learning")
-                    case .setting:
-                        SettingView()
+        ZStack {
+            AuroraBackdrop()
+
+            if auth.isAdmin {
+                AdminWebOnlyView()
+            } else {
+                ZStack(alignment: .bottom) {
+                    Group {
+                        switch selectedUserTab {
+                        case .home:
+                            OmninaryHomeView()
+                        case .library:
+                            BlankTabView(title: "Library")
+                        case .learning:
+                            BlankTabView(title: "Learning")
+                        case .setting:
+                            SettingView()
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+                    .padding(.bottom, 82)
+
+                    ExtraAuroraTabBar(selectedTab: $selectedUserTab)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
-                .padding(.bottom, 82)
-
-                ExtraAuroraTabBar(selectedTab: $selectedUserTab)
             }
-            .background { AuroraBackdrop() }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

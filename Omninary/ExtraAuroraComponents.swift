@@ -86,14 +86,11 @@ struct ExtraAuroraTabBar: View {
                     .background {
                         if selectedTab == tab {
                             RoundedRectangle(cornerRadius: 15)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [ExtraAuroraPalette.electricBlue.opacity(0.42), ExtraAuroraPalette.violet.opacity(0.34)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .shadow(color: ExtraAuroraPalette.electricBlue.opacity(0.20), radius: 8, y: 3)
+                                .fill(Color.white.opacity(0.13))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 15)
+                                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                                }
                         }
                     }
                 }
@@ -102,18 +99,29 @@ struct ExtraAuroraTabBar: View {
             }
         }
         .padding(6)
-        .background {
-            if #available(iOS 26.0, *) {
-                Color.clear
-                    .glassEffect(.regular.tint(ExtraAuroraPalette.deepBlue.opacity(0.42)), in: .rect(cornerRadius: 28))
-            } else {
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(.ultraThinMaterial)
-                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.white.opacity(0.10), lineWidth: 1))
-            }
-        }
+        .modifier(ExtraLiquidGlassSurface())
         .shadow(color: Color.black.opacity(0.45), radius: 22, y: 10)
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
+    }
+}
+
+private struct ExtraLiquidGlassSurface: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .glassEffect(
+                    .regular.tint(ExtraAuroraPalette.deepBlue.opacity(0.24)),
+                    in: .rect(cornerRadius: 28)
+                )
+        } else {
+            content
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                }
+        }
     }
 }

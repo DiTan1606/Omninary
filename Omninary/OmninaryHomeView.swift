@@ -54,7 +54,7 @@ struct OmninaryHomeView: View {
             .clipped()
             .background {
                 if isExtra {
-                    AuroraBackdrop()
+                    Color.clear
                 } else {
                     Color(UIColor.systemGroupedBackground).ignoresSafeArea()
                 }

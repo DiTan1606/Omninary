@@ -49,7 +49,7 @@ struct BlankTabView: View {
 
     var body: some View {
         NavigationStack {
-            Color(UIColor.systemGroupedBackground)
+            (interfaceMode.usesDarkTheme ? Color.clear : Color(UIColor.systemGroupedBackground))
                 .ignoresSafeArea()
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.large)

@@ -8,6 +8,10 @@ struct SettingView: View {
     @State private var isSavingName = false
     @State private var errorMessage = ""
 
+    private var isExtra: Bool {
+        interfaceModeRaw == AppInterfaceMode.extraordinary.rawValue
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -49,6 +53,7 @@ struct SettingView: View {
                 }
             }
             .contentMargins(.top, 24, for: .scrollContent)
+            .scrollContentBackground(isExtra ? .hidden : .automatic)
             .navigationTitle("Setting")
             .navigationBarTitleDisplayMode(.large)
             .alert("Đổi tên hiển thị", isPresented: $isEditingName) {
