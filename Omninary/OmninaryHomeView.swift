@@ -100,9 +100,15 @@ struct OmninaryHomeView: View {
                 .padding(12)
                 .background {
                     if isExtra {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                        if #available(iOS 26.0, *) {
+                            Circle()
+                                .fill(Color.clear)
+                                .glassEffect(.regular.tint(.cyan.opacity(0.28)), in: Circle())
+                        } else {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                        }
                     } else {
                         Circle().fill(Color(UIColor.secondarySystemGroupedBackground))
                     }
@@ -232,20 +238,37 @@ struct OmninaryHomeView: View {
     private var cardBackground: some View {
         Group {
             if isExtra {
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.cyan.opacity(0.42), Color.white.opacity(0.14), Color.blue.opacity(0.26)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    }
-                    .shadow(color: Color.cyan.opacity(0.12), radius: 18, x: 0, y: 8)
+                if #available(iOS 26.0, *) {
+                    Color.clear
+                        .glassEffect(.regular.tint(.cyan.opacity(0.18)), in: .rect(cornerRadius: 24))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.cyan.opacity(0.42), Color.white.opacity(0.14), Color.blue.opacity(0.26)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        }
+                        .shadow(color: Color.cyan.opacity(0.16), radius: 18, x: 0, y: 8)
+                } else {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(.ultraThinMaterial)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.cyan.opacity(0.42), Color.white.opacity(0.14), Color.blue.opacity(0.26)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        }
+                        .shadow(color: Color.cyan.opacity(0.12), radius: 18, x: 0, y: 8)
+                }
             } else {
                 RoundedRectangle(cornerRadius: 24)
                     .fill(Color(UIColor.secondarySystemGroupedBackground))
