@@ -82,70 +82,77 @@ struct ContentView: View {
 private struct LegacyContentView: View {
     @ObservedObject private var auth = AuthManager.shared
     @State private var selectedUserTab: UserTab = .home
-    
+
     var body: some View {
         if auth.isAdmin {
             AdminWebOnlyView()
         } else {
-            ZStack(alignment: .bottom) {
-                Group {
-                    switch selectedUserTab {
-                    case .home:
-                        OmninaryHomeView()
-                    case .library:
-                        BlankTabView(title: "Library")
-                    case .learning:
-                        BlankTabView(title: "Learning")
-                    case .setting:
-                        SettingView()
+            TabView(selection: $selectedUserTab) {
+                OmninaryHomeView()
+                    .tabItem {
+                        Label("Home", systemImage: "house")
                     }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-                .padding(.bottom, 82)
+                    .tag(UserTab.home)
 
-                OmninaryLiquidGlassTabBar(style: .ditan, selectedTab: $selectedUserTab)
+                BlankTabView(title: "Library")
+                    .tabItem {
+                        Label("Library", systemImage: "books.vertical")
+                    }
+                    .tag(UserTab.library)
+
+                BlankTabView(title: "Learning")
+                    .tabItem {
+                        Label("Learning", systemImage: "graduationcap")
+                    }
+                    .tag(UserTab.learning)
+
+                SettingView()
+                    .tabItem {
+                        Label("Setting", systemImage: "gear")
+                    }
+                    .tag(UserTab.setting)
             }
         }
     }
 }
-
 
 private struct ExtraordinaryUserContentView: View {
     @ObservedObject private var auth = AuthManager.shared
     @State private var selectedUserTab: UserTab = .home
 
     var body: some View {
-        ZStack {
-            AuroraBackdrop()
-
-            if auth.isAdmin {
-                AdminWebOnlyView()
-            } else {
-                ZStack(alignment: .bottom) {
-                    Group {
-                        switch selectedUserTab {
-                        case .home:
-                            OmninaryHomeView()
-                        case .library:
-                            BlankTabView(title: "Library")
-                        case .learning:
-                            BlankTabView(title: "Learning")
-                        case .setting:
-                            SettingView()
-                        }
+        if auth.isAdmin {
+            AdminWebOnlyView()
+        } else {
+            TabView(selection: $selectedUserTab) {
+                OmninaryHomeView()
+                    .tabItem {
+                        Label("Home", systemImage: "house.fill")
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
-                    .padding(.bottom, 82)
+                    .tag(UserTab.home)
 
-                    OmninaryLiquidGlassTabBar(style: .extra, selectedTab: $selectedUserTab)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                BlankTabView(title: "Library")
+                    .tabItem {
+                        Label("Library", systemImage: "books.vertical.fill")
+                    }
+                    .tag(UserTab.library)
+
+                BlankTabView(title: "Learning")
+                    .tabItem {
+                        Label("Learning", systemImage: "sparkles")
+                    }
+                    .tag(UserTab.learning)
+
+                SettingView()
+                    .tabItem {
+                        Label("Setting", systemImage: "gearshape.fill")
+                    }
+                    .tag(UserTab.setting)
+            }
+            .background {
+                AuroraBackdrop()
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
