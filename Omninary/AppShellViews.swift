@@ -62,14 +62,3 @@ struct BlankTabView: View {
         }
     }
 }
-
-extension View {
-    @ViewBuilder
-    func omninaryHidesBottomScrollEdgeEffect() -> some View {
-        if #available(iOS 26.0, *) {
-            scrollEdgeEffectHidden(true, for: .bottom)
-        } else {
-            self
-        }
-    }
-}
