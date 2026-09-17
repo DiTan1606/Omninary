@@ -56,32 +56,66 @@ struct AuroraBackdrop: View {
     }
 }
 
-struct ExtraAuroraTabBar: View {
+enum OmninaryTabBarStyle {
+    case ditan
+    case extra
+}
+
+struct OmninaryLiquidGlassTabBar: View {
+    let style: OmninaryTabBarStyle
     @Binding var selectedTab: UserTab
 
-    private let tabs: [(UserTab, String, String)] = [
-        (.home, "Home", "house.fill"),
-        (.library, "Library", "books.vertical.fill"),
-        (.learning, "Learning", "sparkles"),
-        (.setting, "Setting", "gearshape.fill")
-    ]
+    private var tabs: [(UserTab, String, String)] {
+        switch style {
+        case .ditan:
+            [
+                (.home, "Home", "house"),
+                (.library, "Library", "books.vertical"),
+                (.learning, "Learning", "graduationcap"),
+                (.setting, "Setting", "gear")
+            ]
+        case .extra:
+            [
+                (.home, "Home", "house.fill"),
+                (.library, "Library", "books.vertical.fill"),
+                (.learning, "Learning", "sparkles"),
+                (.setting, "Setting", "gearshape.fill")
+            ]
+        }
+    }
+
+    private var selectedForeground: Color {
+        style == .ditan ? .blue : .white
+    }
+
+    private var unselectedForeground: Color {
+        style == .ditan ? .primary : Color.white.opacity(0.58)
+    }
 
     var body: some View {
         Group {
             if #available(iOS 26.0, *) {
                 GlassEffectContainer(spacing: 12) {
-                    glassContent
+                    tabItems
+                        .padding(6)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 28))
                 }
             } else {
-                glassContent
+                tabItems
+                    .padding(6)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 28)
+                            .stroke(Color.white.opacity(0.32), lineWidth: 1)
+                    }
             }
         }
-        .shadow(color: Color.black.opacity(0.45), radius: 22, y: 10)
+        .shadow(color: Color.black.opacity(style == .ditan ? 0.13 : 0.24), radius: 18, y: 8)
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
     }
 
-    private var glassContent: some View {
+    private var tabItems: some View {
         HStack(spacing: 4) {
             ForEach(tabs, id: \.0) { tab, title, icon in
                 Button {
@@ -95,24 +129,17 @@ struct ExtraAuroraTabBar: View {
                         Text(title)
                             .font(.system(size: 10, weight: .semibold))
                     }
-                    .foregroundStyle(selectedTab == tab ? Color.white : Color.white.opacity(0.56))
+                    .foregroundStyle(selectedTab == tab ? selectedForeground : unselectedForeground)
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background {
                         if selectedTab == tab {
                             if #available(iOS 26.0, *) {
                                 Color.clear
-                                    .glassEffect(
-                                        .regular.tint(ExtraAuroraPalette.ice.opacity(0.22)),
-                                        in: .rect(cornerRadius: 15)
-                                    )
+                                    .glassEffect(.regular, in: .rect(cornerRadius: 15))
                             } else {
                                 RoundedRectangle(cornerRadius: 15)
-                                    .fill(Color.white.opacity(0.13))
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 15)
-                                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                                    }
+                                    .fill(Color.white.opacity(style == .ditan ? 0.32 : 0.13))
                             }
                         }
                     }
@@ -120,28 +147,6 @@ struct ExtraAuroraTabBar: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(title)
             }
-        }
-        .padding(6)
-        .modifier(ExtraLiquidGlassSurface())
-    }
-}
-
-private struct ExtraLiquidGlassSurface: ViewModifier {
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content
-                .glassEffect(
-                    .regular.tint(ExtraAuroraPalette.deepBlue.opacity(0.24)),
-                    in: .rect(cornerRadius: 28)
-                )
-        } else {
-            content
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                }
         }
     }
 }

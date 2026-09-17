@@ -87,31 +87,24 @@ private struct LegacyContentView: View {
         if auth.isAdmin {
             AdminWebOnlyView()
         } else {
-            TabView(selection: $selectedUserTab) {
-                OmninaryHomeView()
-                    .tabItem {
-                        Label("Home", systemImage: "house")
+            ZStack(alignment: .bottom) {
+                Group {
+                    switch selectedUserTab {
+                    case .home:
+                        OmninaryHomeView()
+                    case .library:
+                        BlankTabView(title: "Library")
+                    case .learning:
+                        BlankTabView(title: "Learning")
+                    case .setting:
+                        SettingView()
                     }
-                    .tag(UserTab.home)
-                
-                BlankTabView(title: "Library")
-                    .tabItem {
-                        Label("Library", systemImage: "books.vertical")
-                    }
-                    .tag(UserTab.library)
-                
-                BlankTabView(title: "Learning")
-                    .tabItem {
-                        Label("Learning", systemImage: "graduationcap")
-                    }
-                    .tag(UserTab.learning)
-                
-                SettingView()
-                    .tabItem {
-                        Label("Setting", systemImage: "gear")
-                    }
-                    .tag(UserTab.setting)
-                
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .padding(.bottom, 82)
+
+                OmninaryLiquidGlassTabBar(style: .ditan, selectedTab: $selectedUserTab)
             }
         }
     }
@@ -146,7 +139,7 @@ private struct ExtraordinaryUserContentView: View {
                     .clipped()
                     .padding(.bottom, 82)
 
-                    ExtraAuroraTabBar(selectedTab: $selectedUserTab)
+                    OmninaryLiquidGlassTabBar(style: .extra, selectedTab: $selectedUserTab)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
