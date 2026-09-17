@@ -126,27 +126,35 @@ struct OmninaryHomeView: View {
 
     private var calendarCard: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Lịch học tập")
-                .font(.headline)
+            GeometryReader { proxy in
+                HStack(spacing: 0) {
+                    Text("Lịch học tập")
+                        .font(.title2.bold())
+                        .frame(width: proxy.size.width * 0.4, alignment: .leading)
 
-            HStack(spacing: 16) {
-                Spacer()
-                Button {
-                    withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth }
-                } label: {
-                    Image(systemName: "chevron.left")
+                    HStack(spacing: 10) {
+                        Button {
+                            withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth }
+                        } label: {
+                            Image(systemName: "chevron.left")
+                        }
+
+                        Text(monthYearString(selectedMonth))
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity)
+
+                        Button {
+                            withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth }
+                        } label: {
+                            Image(systemName: "chevron.right")
+                        }
+                    }
+                    .frame(width: proxy.size.width * 0.6)
                 }
-                Text(monthYearString(selectedMonth))
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                Button {
-                    withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth }
-                } label: {
-                    Image(systemName: "chevron.right")
-                }
-                Spacer()
             }
+            .frame(height: 32)
             CustomMonthCalendar(month: selectedMonth, activityLogs: activityLogs) { date in
                 selectedActivityDate = date
                 showDailyStats = true
