@@ -11,13 +11,13 @@ enum ExtraAuroraPalette {
 
 struct AuroraBackdrop: View {
     var body: some View {
-        ZStack {
-            LinearGradient(
+        LinearGradient(
                 colors: [ExtraAuroraPalette.deepBlue, ExtraAuroraPalette.obsidian, ExtraAuroraPalette.violet.opacity(0.42)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-
+        // Decorative shapes inherit the background bounds, never its layout size.
+        .overlay {
             Circle()
                 .fill(
                     RadialGradient(
@@ -29,7 +29,8 @@ struct AuroraBackdrop: View {
                 )
                 .frame(width: 500, height: 500)
                 .offset(x: -150, y: -330)
-
+        }
+        .overlay {
             Circle()
                 .fill(
                     RadialGradient(
@@ -41,13 +42,15 @@ struct AuroraBackdrop: View {
                 )
                 .frame(width: 440, height: 440)
                 .offset(x: 185, y: 190)
-
+        }
+        .overlay {
             LinearGradient(
                 colors: [Color.clear, Color.black.opacity(0.38)],
                 startPoint: .top,
                 endPoint: .bottom
             )
         }
+        .clipped()
         .ignoresSafeArea()
         .allowsHitTesting(false)
     }

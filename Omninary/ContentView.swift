@@ -127,8 +127,6 @@ private struct ExtraordinaryUserContentView: View {
             AdminWebOnlyView()
         } else {
             ZStack(alignment: .bottom) {
-                AuroraBackdrop()
-
                 Group {
                     switch selectedUserTab {
                     case .home:
@@ -147,6 +145,7 @@ private struct ExtraordinaryUserContentView: View {
 
                 ExtraAuroraTabBar(selectedTab: $selectedUserTab)
             }
+            .background { AuroraBackdrop() }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
         }
