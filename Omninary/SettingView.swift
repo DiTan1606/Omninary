@@ -54,6 +54,7 @@ struct SettingView: View {
             }
             .contentMargins(.top, 24, for: .scrollContent)
             .scrollContentBackground(isExtra ? .hidden : .automatic)
+            .omninaryHidesBottomScrollEdgeEffect()
             .background {
                 if isExtra {
                     AuroraBackdrop()

@@ -52,6 +52,7 @@ struct OmninaryHomeView: View {
             }
             .frame(maxWidth: .infinity)
             .clipped()
+            .omninaryHidesBottomScrollEdgeEffect()
             .background {
                 if isExtra {
                     AuroraBackdrop()
