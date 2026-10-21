@@ -6,10 +6,22 @@ enum QuestionType: Equatable {
     case multipleChoice
     case sentenceScramble
     case pronunciationExample
+
+    var telemetryName: String {
+        switch self {
+        case .listenAndType: return "listen_and_type"
+        case .meaningAndType: return "meaning_and_type"
+        case .multipleChoice: return "multiple_choice"
+        case .sentenceScramble: return "sentence_scramble"
+        case .pronunciationExample: return "pronunciation_example"
+        }
+    }
 }
 
 struct LearningTask: Identifiable {
     let id = UUID()
+    /// Keeps retries tied to the original exercise while each rendered task keeps its own ID.
+    var exerciseID = UUID()
     let word: String
     let meanings: [Vocabulary]
     let type: QuestionType
@@ -22,6 +34,7 @@ struct LearningTask: Identifiable {
 
     func freshRetryCopy() -> LearningTask {
         LearningTask(
+            exerciseID: exerciseID,
             word: word,
             meanings: meanings,
             type: type,
@@ -32,6 +45,34 @@ struct LearningTask: Identifiable {
             pronunciationMeaning: pronunciationMeaning,
             pronunciationExample: pronunciationExample
         )
+    }
+}
+
+/// The smallest useful immutable learning record for Extra v1. It is collected
+/// for Ditan too, then evaluated by the server when the session is settled.
+struct LearningAttemptTelemetry: Encodable, Identifiable {
+    let id: UUID
+    let exercise_id: UUID
+    let user_vocabulary_ids: [String]
+    let task_type: String
+    let attempt_number: Int
+    let is_correct: Bool
+    let answer_text: String?
+    let response_duration_ms: Int
+    let pronunciation_score: Int?
+    let answered_at: String
+
+    enum CodingKeys: String, CodingKey {
+        case id = "attempt_id"
+        case exercise_id
+        case user_vocabulary_ids
+        case task_type
+        case attempt_number
+        case is_correct
+        case answer_text
+        case response_duration_ms
+        case pronunciation_score
+        case answered_at
     }
 }
 

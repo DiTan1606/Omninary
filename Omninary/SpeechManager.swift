@@ -26,6 +26,11 @@ class SpeechManager: ObservableObject {
 
     private let defaultSpeechRate: Float = 0.45
 
+    private var preferredSpeed: Double {
+        let stored = UserDefaults.standard.double(forKey: "vocabulary_speech_speed")
+        return SpeechPlaybackSpeed(rawValue: stored)?.rawValue ?? SpeechPlaybackSpeed.normal.rawValue
+    }
+
     func stopSpeaking() {
         synthesizer.stopSpeaking(at: .immediate)
     }
@@ -33,7 +38,7 @@ class SpeechManager: ObservableObject {
     func speak(
         word: String,
         ipa: String?,
-        rateMultiplier: Double = SpeechPlaybackSpeed.normal.rawValue,
+        rateMultiplier: Double? = nil,
         stopPrevious: Bool = true
     ) {
         // Dừng giọng đọc cũ nếu đang đọc dở
@@ -59,7 +64,7 @@ class SpeechManager: ObservableObject {
         
         // Cài đặt giọng Mỹ (hoặc bạn có thể cho user tự chọn Anh-Anh, Anh-Mỹ sau này)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = speechRate(for: rateMultiplier)
+        utterance.rate = speechRate(for: rateMultiplier ?? preferredSpeed)
 
         synthesizer.speak(utterance)
     }
@@ -68,7 +73,7 @@ class SpeechManager: ObservableObject {
         example sentence: String,
         targetWord: String,
         ipa: String?,
-        rateMultiplier: Double = SpeechPlaybackSpeed.normal.rawValue,
+        rateMultiplier: Double? = nil,
         stopPrevious: Bool = true
     ) {
         if stopPrevious {
@@ -88,7 +93,7 @@ class SpeechManager: ObservableObject {
 
         let utterance = AVSpeechUtterance(attributedString: attributedSentence)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = speechRate(for: rateMultiplier)
+        utterance.rate = speechRate(for: rateMultiplier ?? preferredSpeed)
         synthesizer.speak(utterance)
     }
 

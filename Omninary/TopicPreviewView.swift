@@ -9,100 +9,108 @@ struct TopicPreviewView: View {
     let onDownload: () -> Void
     @Binding var isDownloading: Bool
     
-    var groupedByWord: [String: [Vocabulary]] {
-        Dictionary(grouping: vocabs, by: { $0.vocab?.trimmingCharacters(in: .whitespaces) ?? "Unknown" })
-    }
-    
-    var uniqueWords: [String] {
-        groupedByWord.keys.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    private var vocabularyItems: [Vocabulary] { Vocabulary.sortedItems(vocabs) }
+
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    private var isExtra: Bool {
+        interfaceModeRaw == AppInterfaceMode.extraordinary.rawValue
     }
 
     var missingWordKeys: Set<String> {
-        Set(missingVocabs.compactMap { $0.normalizedWord })
+        Set(missingVocabs.map(\.vocabularyIdentity))
     }
     
     var body: some View {
-        VStack {
-            List {
-                Section(header: Text("Danh sách từ vựng (\(uniqueWords.count) từ)")) {
-                    ForEach(uniqueWords, id: \.self) { word in
-                        let meanings = groupedByWord[word] ?? []
-                        let firstMeaning = meanings.first
-                        let isNewWord = firstMeaning?.normalizedWord.map { missingWordKeys.contains($0) } ?? false
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(word)
-                                    .font(.headline)
-                                if isNewWord {
-                                    Text("Mới")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(.orange)
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.orange.opacity(0.15)))
-                                }
-                                Spacer()
+        List {
+            Section {
+                ForEach(Array(vocabularyItems.enumerated()), id: \.element.vocabularyIdentity) { index, vocabulary in
+                    let word = vocabulary.vocab ?? ""
+                    let meanings = [vocabulary]
+                    let isNewWord = missingWordKeys.contains(vocabulary.vocabularyIdentity)
+                    let isBottom = (index == vocabularyItems.count - 1)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(word)
+                                .font(AppTypography.cardTitle)
+                                .foregroundStyle(isExtra ? Color.white : Color.primary)
+                            if isNewWord {
+                                Text("Mới")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(AppSemanticColor.attention)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Capsule().fill(AppSemanticColor.attention.opacity(0.12)))
                             }
-                            
-                            if let ipa = firstMeaning?.IPA, !ipa.isEmpty {
-                                Text(ipa)
-                                    .font(.subheadline)
-                                    .foregroundColor(.blue)
-                            }
-                            
-                            let vMeanings = Array(Set(meanings.compactMap { $0.V_meaning }.filter { !$0.isEmpty })).joined(separator: "; ")
-                            if !vMeanings.isEmpty {
-                                Text(vMeanings)
-                                    .font(.body)
-                                    .lineLimit(2)
-                            }
+                            Spacer()
                         }
-                        .padding(.vertical, 4)
-                        .listRowBackground(isNewWord ? Color.orange.opacity(0.08) : Color.clear)
+
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) { pronunciationAndForm(vocabulary) }
+                            VStack(alignment: .leading, spacing: 6) { pronunciationAndForm(vocabulary) }
+                        }
+
+                        let vMeanings = Array(Set(meanings.compactMap { $0.V_meaning }.filter { !$0.isEmpty })).joined(separator: "; ")
+                        if !vMeanings.isEmpty {
+                            Text(vMeanings)
+                                .font(AppTypography.body)
+                                .foregroundStyle(isExtra ? Color.white.opacity(0.85) : .primary)
+                                .lineLimit(2)
+                        }
                     }
+                    .padding(.vertical, 4)
+                    .listRowBackground(AppSurfaceBackground(kind: .row, isExtra: isExtra, grouped: true))
+                    .listRowSeparator(isBottom ? .hidden : .visible, edges: .bottom)
+                    .listRowSeparator(.hidden, edges: .top)
+                    .listRowSeparatorTint(isExtra ? Color.white.opacity(0.12) : Color(UIColor.separator))
                 }
+            } header: {
+                Text("Danh sách từ vựng (\(vocabularyItems.count) từ)")
+                    .font(AppTypography.cardTitle)
+                    .foregroundStyle(isExtra ? Color.white.opacity(0.8) : .secondary)
             }
-            
-            if !isFullyDownloaded {
-                Button(action: {
-                    onDownload()
-                }) {
-                    HStack {
-                        if isDownloading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            Text("Đang tải...")
-                        } else {
-                            Image(systemName: "arrow.down.circle.fill")
-                            let uniqueMissing = Set(missingVocabs.compactMap { $0.vocab?.trimmingCharacters(in: .whitespaces).lowercased() }).count
-                            Text(needsUpdate ? "Cập nhật \(uniqueMissing) từ mới" : "Tải bộ từ này về máy")
-                        }
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(isDownloading ? Color.gray : (needsUpdate ? Color.orange : Color.blue))
-                    .cornerRadius(12)
-                    .padding()
-                }
-                .disabled(isDownloading)
+            .listSectionSeparator(.hidden, edges: .all)
+        }
+        .scrollContentBackground(isExtra ? .hidden : .automatic)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            downloadActionBar
+        }
+        .background {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                    Text("Bộ từ này đã có trong máy của bạn")
-                }
-                .font(.headline)
-                .foregroundColor(.green)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(12)
-                .padding()
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
             }
         }
         .navigationTitle(topicName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
+    }
+
+    @ViewBuilder
+    private func pronunciationAndForm(_ vocabulary: Vocabulary) -> some View {
+        if let ipa = vocabulary.IPA, !ipa.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(ipa)
+                .font(.subheadline)
+                .foregroundStyle(isExtra ? ExtraAuroraPalette.ice : .blue)
+        }
+        if let form = vocabulary.word_form?.trimmingCharacters(in: .whitespacesAndNewlines), !form.isEmpty {
+            Text(form)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(isExtra ? ExtraAuroraPalette.ice : .blue)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background((isExtra ? ExtraAuroraPalette.ice : Color.blue).opacity(0.12), in: Capsule())
+                .accessibilityLabel("Từ loại: \(form)")
+        }
+    }
+
+    private var downloadActionBar: some View {
+        let count = Vocabulary.sortedItems(missingVocabs).count
+        return AppFloatingDownloadBar(
+            title: isFullyDownloaded ? "Bộ từ này đã có trong máy của bạn" : (isDownloading ? "Đang tải..." : (needsUpdate ? "Cập nhật \(count) từ mới" : "Tải bộ từ này về máy")),
+            isWorking: isDownloading, isComplete: isFullyDownloaded, isExtra: isExtra,
+            action: onDownload
+        )
     }
 }

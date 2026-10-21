@@ -11,22 +11,16 @@ struct HomePlaceholderView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 HStack {
-                    Image(interfaceMode.wordmarkAsset)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 42)
-                        .accessibilityLabel(interfaceMode.title)
+                    NavigationLink(destination: NotificationView()) {
+                        Image(interfaceMode.wordmarkAsset)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: interfaceMode.usesDarkTheme ? 24 : 38)
+                            .accessibilityLabel(interfaceMode.title)
+                    }
+                    .buttonStyle(.plain)
 
                     Spacer()
-
-                    NavigationLink(destination: NotificationView()) {
-                        Image(systemName: "bell.fill")
-                            .font(.title3)
-                            .foregroundStyle(interfaceMode.usesDarkTheme ? Color.white : Color.primary)
-                            .padding(12)
-                            .background(Circle().fill(interfaceMode.usesDarkTheme ? Color.white.opacity(0.12) : Color.black.opacity(0.05)))
-                    }
-                    .accessibilityLabel("Thông báo")
                 }
                 .padding(.horizontal)
                 .padding(.top, 10)
@@ -49,16 +43,28 @@ struct BlankTabView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Spacer(minLength: 40)
+                    Image(systemName: title == "Library" ? "books.vertical" : "graduationcap")
+                        .font(.system(size: 64))
+                        .foregroundStyle(interfaceMode.usesDarkTheme ? ExtraAuroraPalette.ice.opacity(0.4) : Color.blue.opacity(0.4))
+                    Text("Nội dung cho mục \(title) đang được hoàn thiện.")
+                        .font(.subheadline)
+                        .foregroundStyle(interfaceMode.usesDarkTheme ? Color.white.opacity(0.6) : .secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.large)
+            .background {
                 if interfaceMode.usesDarkTheme {
                     AuroraBackdrop()
                 } else {
-                    Color(UIColor.systemGroupedBackground)
+                    Color(UIColor.systemGroupedBackground).ignoresSafeArea()
                 }
             }
-                .ignoresSafeArea()
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(.large)
         }
     }
 }

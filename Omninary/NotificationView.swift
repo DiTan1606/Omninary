@@ -1,66 +1,107 @@
 import SwiftUI
 
 struct NotificationView: View {
+    var onDismiss: (() -> Void)? = nil
     @State private var notifications: [Notification] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    private var isExtra: Bool {
+        interfaceModeRaw == AppInterfaceMode.extraordinary.rawValue
+    }
+
     var body: some View {
         Group {
             if isLoading && notifications.isEmpty {
                 ProgressView("Đang tải thông báo...")
+                    .foregroundStyle(isExtra ? .white : .primary)
             } else if notifications.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "bell.slash")
                         .font(.system(size: 60))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isExtra ? Color.white.opacity(0.4) : .secondary)
                     Text("Chưa có thông báo nào.")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isExtra ? Color.white.opacity(0.6) : .secondary)
                 }
             } else {
                 List {
-                    ForEach(notifications) { notification in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(notification.title)
-                                    .font(.headline)
-                                    .foregroundColor(notification.is_read ? .secondary : .primary)
+                    ForEach(Array(notifications.enumerated()), id: \.element.id) { index, notification in
+                        let isBottom = (index == notifications.count - 1)
+                        Button {
+                            if !notification.is_read { markAsRead(notification) }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(notification.title)
+                                        .font(AppTypography.cardTitle)
+                                        .foregroundColor(
+                                            isExtra
+                                                ? (notification.is_read ? Color.white.opacity(0.5) : .white)
+                                                : (notification.is_read ? .secondary : .primary)
+                                        )
                                 
-                                Spacer()
+                                    Spacer()
                                 
-                                if !notification.is_read {
-                                    Circle()
-                                        .fill(Color.blue)
-                                        .frame(width: 8, height: 8)
+                                    if !notification.is_read {
+                                        Circle()
+                                            .fill(isExtra ? ExtraAuroraPalette.ice : Color.blue)
+                                            .frame(width: 8, height: 8)
+                                            .shadow(color: isExtra ? ExtraAuroraPalette.ice.opacity(0.6) : Color.clear, radius: 4)
+                                    }
+                                }
+                            
+                                Text(notification.content)
+                                    .font(.subheadline)
+                                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                            
+                                if let dateStr = notification.created_at {
+                                    Text(formatDate(dateStr))
+                                        .font(.caption2)
+                                        .foregroundColor(isExtra ? Color.white.opacity(0.45) : .gray)
                                 }
                             }
-                            
-                            Text(notification.content)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            if let dateStr = notification.created_at {
-                                Text(formatDate(dateStr))
-                                    .font(.caption2)
-                                    .foregroundColor(.gray)
-                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if !notification.is_read {
-                                markAsRead(notification)
-                            }
-                        }
+                        .buttonStyle(.automatic)
+                        .listRowBackground(AppSurfaceBackground(kind: .row, isExtra: isExtra, grouped: true))
+                        .listRowSeparator(isBottom ? .hidden : .visible, edges: .bottom)
+                        .listRowSeparator(.hidden, edges: .top)
+                        .listRowSeparatorTint(isExtra ? Color.white.opacity(0.12) : Color(UIColor.separator))
                     }
                     .onDelete(perform: deleteNotification)
                 }
+                .scrollContentBackground(isExtra ? .hidden : .automatic)
                 .refreshable {
                     await fetchNotifications()
                 }
             }
         }
+        .background {
+            if isExtra {
+                AuroraBackdrop()
+            } else {
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            }
+        }
         .navigationTitle("Thông báo")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            if let onDismiss {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: onDismiss) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Trang chủ")
+                        }
+                        .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
+                    }
+                }
+            }
+        }
         .onAppear {
             Task { await fetchNotifications() }
         }

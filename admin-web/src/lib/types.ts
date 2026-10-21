@@ -19,6 +19,7 @@ export interface Topic {
 }
 
 export interface VocabCatalog {
+  topic_vocab?: Array<{ topics: Topic | null }>;
   id: string;
   created_at: string | null;
   topic_id: string | null;
@@ -36,11 +37,15 @@ export interface VocabCatalog {
   word_family: string | null;
   synonymous: string | null;
   antonym: string | null;
+  collocation: string | null;
+  formula: string | null;
+  note: string | null;
   bonus: string | null;
   topics?: Topic | null;
 }
 
 export interface VocabInput {
+  topic_ids?: string[];
   id?: string;
   topic_id: string | null;
   word: string;
@@ -55,10 +60,14 @@ export interface VocabInput {
   word_family: string;
   synonymous: string;
   antonym: string;
+  collocation: string;
+  formula: string;
+  note: string;
   bonus: string;
 }
 
 export interface UserVocabulary {
+  user_topic_vocab?: Array<{ topics: Topic | null }>;
   id: string;
   user_id: string | null;
   vocab_id: string | null;
@@ -124,6 +133,9 @@ export interface TopicSubmissionWord {
   word_family: string | null;
   synonymous: string | null;
   antonym: string | null;
+  collocation: string | null;
+  formula: string | null;
+  note: string | null;
   bonus: string | null;
 }
 

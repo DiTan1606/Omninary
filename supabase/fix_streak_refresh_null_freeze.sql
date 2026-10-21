@@ -1,0 +1,2 @@
+-- Retired: use omninary_unified.sql (complete installation) or streak_workflow.sql.
+-- This file intentionally no longer overrides the canonical streak functions.

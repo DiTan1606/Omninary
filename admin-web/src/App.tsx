@@ -1,3 +1,5 @@
+import { vocabularyContentError } from './lib/vocabularyContent';
+import { catalogTopics } from './lib/vocabularyCollections';
 import {
   Archive,
   BookOpen,
@@ -115,8 +117,8 @@ function groupVocabSubmissions(
 
   submissions.forEach((submission) => {
     const requesterId = submission.requester_id;
-    const topicKey = submission.vocab_catalog?.topic_id ?? submission.topic_id ?? UNCATEGORIZED_TOPIC_FILTER;
-    const topicName = submission.vocab_catalog?.topics?.name ?? 'Chưa phân loại';
+    const topicKey = submission.topic_id ?? submission.vocab_catalog?.topic_id ?? UNCATEGORIZED_TOPIC_FILTER;
+    const topicName = (submission.vocab_catalog ? catalogTopics(submission.vocab_catalog).find((topic) => topic.id === topicKey)?.name : null) ?? submission.vocab_catalog?.topics?.name ?? 'Chưa phân loại';
 
     if (!userMap.has(requesterId)) userMap.set(requesterId, new Map());
     const topicMap = userMap.get(requesterId);
@@ -376,7 +378,7 @@ function TopicsView() {
 
   const counts = useMemo(() => {
     return vocabs.reduce<Record<string, number>>((result, vocab) => {
-      if (vocab.topic_id) result[vocab.topic_id] = (result[vocab.topic_id] ?? 0) + 1;
+      for (const topic of catalogTopics(vocab)) result[topic.id] = (result[topic.id] ?? 0) + 1;
       return result;
     }, {});
   }, [vocabs]);
@@ -1078,7 +1080,10 @@ function VocabSubmissionReviewTable({
             <th>Word family</th>
             <th>Đồng nghĩa</th>
             <th>Trái nghĩa</th>
-            <th>Bonus</th>
+            <th>Cụm từ thường đi cùng</th>
+            <th>Mẫu cấu trúc</th>
+            <th>Ghi chú cách dùng</th>
+            <th>Thông tin mở rộng</th>
             <th>Visibility</th>
             <th>Created by</th>
             <th>Ngày gửi</th>
@@ -1106,6 +1111,9 @@ function VocabSubmissionReviewTable({
                 <td className="long-cell">{fieldValue(vocab?.word_family)}</td>
                 <td className="long-cell">{fieldValue(vocab?.synonymous)}</td>
                 <td className="long-cell">{fieldValue(vocab?.antonym)}</td>
+                <td className="long-cell">{fieldValue(vocab?.collocation)}</td>
+                <td className="long-cell">{fieldValue(vocab?.formula)}</td>
+                <td className="long-cell">{fieldValue(vocab?.note)}</td>
                 <td className="long-cell">{fieldValue(vocab?.bonus)}</td>
                 <td>{fieldValue(vocab?.visibility)}</td>
                 <td>{vocab?.created_by ? profileDisplayName(profilesById[vocab.created_by]) : 'Không rõ'}</td>
@@ -1229,7 +1237,10 @@ function TopicSubmissionWordsReviewTable({
             <th>Word family</th>
             <th>Đồng nghĩa</th>
             <th>Trái nghĩa</th>
-            <th>Bonus</th>
+            <th>Cụm từ thường đi cùng</th>
+            <th>Mẫu cấu trúc</th>
+            <th>Ghi chú cách dùng</th>
+            <th>Thông tin mở rộng</th>
           </tr>
         </thead>
         <tbody>
@@ -1262,6 +1273,9 @@ function TopicSubmissionWordsReviewTable({
                 <td className="long-cell">{fieldValue(word.word_family)}</td>
                 <td className="long-cell">{fieldValue(word.synonymous)}</td>
                 <td className="long-cell">{fieldValue(word.antonym)}</td>
+                <td className="long-cell">{fieldValue(word.collocation)}</td>
+                <td className="long-cell">{fieldValue(word.formula)}</td>
+                <td className="long-cell">{fieldValue(word.note)}</td>
                 <td className="long-cell">{fieldValue(word.bonus)}</td>
               </tr>
             );
@@ -1303,7 +1317,10 @@ function VocabularyTable({
             <th>Word family</th>
             <th>Đồng nghĩa</th>
             <th>Trái nghĩa</th>
-            <th>Bonus</th>
+            <th>Cụm từ thường đi cùng</th>
+            <th>Mẫu cấu trúc</th>
+            <th>Ghi chú cách dùng</th>
+            <th>Thông tin mở rộng</th>
             <th>Visibility</th>
             <th>Created by</th>
             <th>Ngày tạo</th>
@@ -1317,7 +1334,7 @@ function VocabularyTable({
                 <strong>{fieldValue(vocab.word)}</strong>
                 <small>{vocab.word_form || vocab.ipa || vocab.visibility}</small>
               </td>
-              <td>{vocab.topics?.name ?? 'Chưa phân loại'}</td>
+              <td>{catalogTopics(vocab).map((topic) => topic.name).join(', ') || 'Chưa phân loại'}</td>
               <td><span className="count-badge muted">{vocab.cefr || '...'}</span></td>
               <td>{fieldValue(vocab.ipa)}</td>
               <td>{fieldValue(vocab.word_form)}</td>
@@ -1329,6 +1346,9 @@ function VocabularyTable({
               <td className="long-cell">{fieldValue(vocab.word_family)}</td>
               <td className="long-cell">{fieldValue(vocab.synonymous)}</td>
               <td className="long-cell">{fieldValue(vocab.antonym)}</td>
+              <td className="long-cell">{fieldValue(vocab.collocation)}</td>
+              <td className="long-cell">{fieldValue(vocab.formula)}</td>
+              <td className="long-cell">{fieldValue(vocab.note)}</td>
               <td className="long-cell">{fieldValue(vocab.bonus)}</td>
               <td>{fieldValue(vocab.visibility)}</td>
               <td>{vocab.created_by ? profileDisplayName(profilesById[vocab.created_by]) : 'Hệ thống'}</td>
@@ -1375,8 +1395,9 @@ function VocabEditorModal({
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError('');
-    if (!draft.word.trim()) {
-      setError('Vui lòng nhập từ vựng.');
+    const contentError = vocabularyContentError(draft);
+    if (contentError) {
+      setError(contentError);
       return;
     }
     setIsSaving(true);
@@ -1402,14 +1423,16 @@ function VocabEditorModal({
         <div className="form-grid two">
           <label>
             Topic
-            <select value={draft.topic_id ?? ''} onChange={(event) => update('topic_id', event.target.value || null)}>
-              <option value="">Chưa phân loại</option>
+            <select multiple value={draft.topic_ids ?? (draft.topic_id ? [draft.topic_id] : [])}
+              onChange={(event) => {
+                const ids = Array.from(event.target.selectedOptions, (option) => option.value);
+                setDraft((current) => ({ ...current, topic_ids: ids, topic_id: ids[0] ?? null }));
+              }}>
               {topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.name}
-                </option>
+                <option key={topic.id} value={topic.id}>{topic.name}</option>
               ))}
             </select>
+            <small>Có thể chọn nhiều chủ đề cho cùng một nghĩa.</small>
           </label>
           <label>
             Từ vựng
@@ -1460,7 +1483,19 @@ function VocabEditorModal({
             <input value={draft.antonym} onChange={(event) => update('antonym', event.target.value)} />
           </label>
           <label>
-            Bonus
+            Cụm từ thường đi cùng
+            <textarea value={draft.collocation} onChange={(event) => update('collocation', event.target.value)} />
+          </label>
+          <label>
+            Mẫu cấu trúc
+            <textarea value={draft.formula} onChange={(event) => update('formula', event.target.value)} />
+          </label>
+          <label>
+            Ghi chú cách dùng
+            <textarea value={draft.note} onChange={(event) => update('note', event.target.value)} />
+          </label>
+          <label>
+            Thông tin mở rộng
             <textarea value={draft.bonus} onChange={(event) => update('bonus', event.target.value)} />
           </label>
         </div>
@@ -1489,7 +1524,7 @@ function ContributionWordPreview({ vocab }: { vocab: VocabCatalog | null }) {
     <div className="word-preview">
       <div>
         <span>Topic</span>
-        <strong>{vocab.topics?.name ?? 'Chưa phân loại'}</strong>
+        <strong>{catalogTopics(vocab).map((topic) => topic.name).join(', ') || 'Chưa phân loại'}</strong>
       </div>
       <div>
         <span>IPA</span>

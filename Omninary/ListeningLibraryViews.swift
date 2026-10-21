@@ -2,126 +2,174 @@ import AVFoundation
 import SwiftUI
 
 struct LibraryView: View {
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    NavigationLink {
-                        MyVocabularyView()
-                    } label: {
-                        LibraryDestinationCard(
-                            title: "My Vocabulary",
-                            subtitle: "Bộ từ đã tải, topic riêng và tiến độ học từ vựng.",
-                            icon: "books.vertical.fill",
-                            tint: .blue
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    NavigationLink {
-                        MyListeningView()
-                    } label: {
-                        LibraryDestinationCard(
-                            title: "My Listening",
-                            subtitle: "Seri bài nghe đã tải để đọc trước, nghe trước và đưa từng bài vào luyện.",
-                            icon: "headphones",
-                            tint: .orange
-                        )
-                    }
-                    .buttonStyle(.plain)
+            ZStack {
+                if isExtra {
+                    AuroraBackdrop()
+                } else {
+                    Color(UIColor.systemGroupedBackground).ignoresSafeArea()
                 }
-                .padding()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: AppSpacing.cardGap) {
+                        NavigationLink {
+                            MyVocabularyView()
+                        } label: {
+                            LibraryDestinationCard(
+                                eyebrow: "TỪ VỰNG",
+                                title: "My Vocabulary",
+                                icon: "books.vertical.fill",
+                                tint: isExtra ? ExtraAuroraPalette.ice : .blue,
+                                isExtra: isExtra
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("library-vocabulary-card")
+
+                        NavigationLink {
+                            MyListeningView()
+                        } label: {
+                            LibraryDestinationCard(
+                                eyebrow: "BÀI NGHE",
+                                title: "My Listening",
+                                icon: "headphones",
+                                tint: LearningDashboardWidget.listening.iconTint(isExtra: isExtra),
+                                isExtra: isExtra
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("library-listening-card")
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 12)
+                    .padding(.bottom, 32)
+                }
             }
-            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Thư viện")
+            .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 }
 
 private struct LibraryDestinationCard: View {
+    let eyebrow: String
     let title: String
-    let subtitle: String
     let icon: String
     let tint: Color
+    let isExtra: Bool
 
     var body: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(tint.opacity(0.14))
-                    .frame(width: 58, height: 58)
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(tint.opacity(isExtra ? 0.19 : 0.14))
+                        .frame(width: 58, height: 58)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                .stroke(tint.opacity(isExtra ? 0.45 : 0.15), lineWidth: 1)
+                        }
 
-                Image(systemName: icon)
-                    .font(.system(size: 27, weight: .bold))
-                    .foregroundColor(tint)
+                    Image(systemName: icon)
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(tint)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.up.right")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(isExtra ? Color.white.opacity(0.48) : .secondary)
+                    .padding(10)
+                    .background(isExtra ? Color.white.opacity(0.08) : Color.black.opacity(0.045), in: Circle())
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text(eyebrow)
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.1)
+                    .foregroundStyle(tint)
+
                 Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(AppTypography.destinationTitle)
+                    .foregroundStyle(isExtra ? .white : .primary)
 
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
             }
-
-            Spacer(minLength: 8)
-
-            Image(systemName: "chevron.right")
-                .font(.headline)
-                .foregroundColor(.secondary.opacity(0.7))
         }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 22)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 5)
-        )
+        .padding(AppSpacing.card)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .appSurface(.card, isExtra: isExtra)
+        .contentShape(RoundedRectangle(cornerRadius: AppSurfaceKind.card.cornerRadius, style: .continuous))
     }
 }
 
 struct MyListeningView: View {
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @State private var seriesItems: [ListeningSeriesLibraryItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
 
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
+
     var body: some View {
-        Group {
-            if isLoading && seriesItems.isEmpty {
-                ProgressView("Đang tải thư viện nghe...")
-            } else if seriesItems.isEmpty {
-                VStack {
-                    Text("Chưa có seri bài nghe nào.")
-                        .foregroundColor(.secondary)
-                    Text("Hãy tải seri bài nghe ở Trang chủ để xem và luyện nghe.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 6)
-                }
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                List {
-                    Section("Seri bài luyện nghe của tôi") {
-                        ForEach(seriesItems) { seriesItem in
-                            NavigationLink {
-                                MyListeningSeriesView(
-                                    seriesItem: seriesItem,
-                                    onLibraryChanged: {
-                                        Task { await loadItems() }
-                                    }
-                                )
-                            } label: {
-                                ListeningLibrarySeriesRow(seriesItem: seriesItem)
+                Color(UIColor.systemGroupedBackground)
+                    .ignoresSafeArea()
+            }
+
+            Group {
+                if isLoading && seriesItems.isEmpty {
+                    ProgressView("Đang tải thư viện nghe...")
+                } else if seriesItems.isEmpty {
+                    VStack {
+                        Text("Chưa có seri bài nghe nào.")
+                            .foregroundColor(isExtra ? Color.white.opacity(0.85) : .secondary)
+                        Text("Hãy tải seri bài nghe ở Trang chủ để xem và luyện nghe.")
+                            .font(.caption)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 6)
+                    }
+                } else {
+                    List {
+                        Section("Seri bài luyện nghe của tôi") {
+                            ForEach(seriesItems) { seriesItem in
+                                NavigationLink {
+                                    MyListeningSeriesView(
+                                        seriesItem: seriesItem,
+                                        onLibraryChanged: {
+                                            Task { await loadItems() }
+                                        }
+                                    )
+                                } label: {
+                                    ListeningLibrarySeriesRow(seriesItem: seriesItem, isExtra: isExtra)
+                                }
+                                .listRowBackground(AppSurfaceBackground(kind: .row, isExtra: isExtra, grouped: true))
+                                .listRowSeparatorTint(isExtra ? Color.white.opacity(0.12) : Color(UIColor.separator))
                             }
                         }
                     }
+                    .scrollContentBackground(isExtra ? .hidden : .automatic)
                 }
             }
         }
         .navigationTitle("My Listening")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .task {
             await loadItems()
         }
@@ -161,10 +209,15 @@ struct MyListeningSeriesView: View {
     let onLibraryChanged: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @State private var items: [ListeningLibraryItem]
     @State private var summariesByLessonId: [String: ListeningLessonSummary] = [:]
     @State private var deletingLessonId: String?
     @State private var errorMessage: String?
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     init(seriesItem: ListeningSeriesLibraryItem, onLibraryChanged: @escaping () -> Void) {
         self.series = seriesItem.series
@@ -173,40 +226,55 @@ struct MyListeningSeriesView: View {
     }
 
     var body: some View {
-        List {
-            if items.isEmpty {
-                Text("Không có bài luyện nghe nào trong seri này.")
-                    .foregroundColor(.secondary)
-                    .listRowBackground(Color.clear)
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                ForEach(items) { item in
-                    NavigationLink {
-                        ListeningLessonDetailView(
-                            item: item,
-                            onLibraryChanged: onLibraryChanged
-                        )
-                    } label: {
-                        ListeningLibraryLessonRow(
-                            item: item,
-                            summary: summariesByLessonId[item.lesson.id]
-                        )
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            Task { await delete(item) }
+                Color(UIColor.systemGroupedBackground)
+                    .ignoresSafeArea()
+            }
+
+            List {
+                if items.isEmpty {
+                    Text("Không có bài luyện nghe nào trong seri này.")
+                        .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                        .listRowBackground(Color.clear)
+                } else {
+                    ForEach(items) { item in
+                        NavigationLink {
+                            ListeningLessonDetailView(
+                                item: item,
+                                onLibraryChanged: onLibraryChanged
+                            )
                         } label: {
-                            Label(
-                                deletingLessonId == item.lesson.id ? "Đang xóa" : "Xóa bài",
-                                systemImage: "trash"
+                            ListeningLibraryLessonRow(
+                                item: item,
+                                summary: summariesByLessonId[item.lesson.id],
+                                isExtra: isExtra
                             )
                         }
-                        .disabled(deletingLessonId != nil)
+                        .listRowBackground(AppSurfaceBackground(kind: .row, isExtra: isExtra, grouped: true))
+                        .listRowSeparatorTint(isExtra ? Color.white.opacity(0.12) : Color(UIColor.separator))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                Task { await delete(item) }
+                            } label: {
+                                Label(
+                                    deletingLessonId == item.lesson.id ? "Đang xóa" : "Xóa bài",
+                                    systemImage: "trash"
+                                )
+                            }
+                            .disabled(deletingLessonId != nil)
+                        }
                     }
                 }
             }
+            .scrollContentBackground(isExtra ? .hidden : .automatic)
         }
         .navigationTitle(series.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .task {
             await loadSummaries()
         }
@@ -297,28 +365,53 @@ struct ListeningSeriesPreviewView: View {
         hasDownloadedSome && !missingLessons.isEmpty
     }
 
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    private var isExtra: Bool {
+        interfaceModeRaw == AppInterfaceMode.extraordinary.rawValue
+    }
+
     var body: some View {
         VStack {
             if isLoading {
                 ProgressView("Đang tải danh sách bài nghe...")
+                    .foregroundStyle(isExtra ? .white : .primary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
-                    Section(header: Text("Danh sách bài luyện nghe (\(summaries.count) bài)")) {
-                        ForEach(summaries) { summary in
+                    Section {
+                        ForEach(Array(summaries.enumerated()), id: \.element.id) { index, summary in
                             let isNew = !downloadedLessonIds.contains(summary.lesson.id)
-                            ListeningSeriesLessonRow(summary: summary, isNew: isNew)
+                            let isBottom = (index == summaries.count - 1)
+                            ListeningSeriesLessonRow(summary: summary, isNew: isNew, isExtra: isExtra)
                                 .padding(.vertical, 4)
-                                .listRowBackground(isNew ? Color.orange.opacity(0.08) : Color.clear)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(isBottom ? .hidden : .visible, edges: .bottom)
+                                .listRowSeparator(.hidden, edges: .top)
+                                .listRowSeparatorTint(isExtra ? Color.white.opacity(0.12) : Color(UIColor.separator))
                         }
+                    } header: {
+                        Text("Danh sách bài luyện nghe (\(summaries.count) bài)")
+                            .font(AppTypography.cardTitle)
+                            .foregroundStyle(isExtra ? Color.white.opacity(0.8) : .secondary)
                     }
+                    .listSectionSeparator(.hidden, edges: .all)
                 }
-
-                seriesAction
+                .scrollContentBackground(isExtra ? .hidden : .automatic)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    seriesAction
+                }
+            }
+        }
+        .background {
+            if isExtra {
+                AuroraBackdrop()
+            } else {
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
             }
         }
         .navigationTitle(catalogItem.series.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .task {
             await loadSummaries()
         }
@@ -340,50 +433,24 @@ struct ListeningSeriesPreviewView: View {
         }
     }
 
-    @ViewBuilder
     private var seriesAction: some View {
-        if isFullyDownloaded {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                Text("Seri bài nghe này đã có trong máy của bạn")
-            }
-                .font(.headline)
-                .foregroundColor(.green)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(12)
-                .padding()
-        } else {
-            Button {
-                Task { await downloadMissingLessons() }
-            } label: {
-                HStack {
-                    if isSaving {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        Text("Đang tải...")
-                    } else {
-                        Image(systemName: "arrow.down.circle.fill")
-                        Text(needsUpdate ? "Cập nhật \(missingLessons.count) bài mới" : "Tải seri bài nghe này về máy")
-                    }
-                }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(isSaving ? Color.gray : (needsUpdate ? Color.orange : Color.blue))
-                    .cornerRadius(12)
-                    .padding()
-            }
-            .disabled(isSaving)
-        }
+        AppFloatingDownloadBar(
+            title: isFullyDownloaded ? "Seri bài nghe này đã có trong máy của bạn" : (isSaving ? "Đang tải..." : (needsUpdate ? "Cập nhật \(missingLessons.count) bài mới" : "Tải seri bài nghe này về máy")),
+            isWorking: isSaving, isComplete: isFullyDownloaded, isExtra: isExtra
+        ) { Task { await downloadMissingLessons() } }
     }
 
     @MainActor
     private func loadSummaries() async {
         isLoading = true
         defer { isLoading = false }
+
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITesting") && ProcessInfo.processInfo.arguments.contains("-InterfacePolishUITest") {
+            summaries = catalogItem.lessons.map { ListeningLessonSummary(lesson: $0, segmentCount: 3, durationSeconds: 45) }
+            return
+        }
+#endif
 
         do {
             summaries = try await ListeningRepository.fetchLessonSummaries(for: catalogItem.lessons)
@@ -423,6 +490,7 @@ struct ListeningLessonDetailView: View {
     let item: ListeningLibraryItem
     let onLibraryChanged: () -> Void
 
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @StateObject private var sentenceAudioPlayer = ListeningAudioPlayer()
     @StateObject private var lessonAudioPlayer = ListeningSequenceAudioPlayer()
     @State private var segments: [ListeningSegment] = []
@@ -440,6 +508,10 @@ struct ListeningLessonDetailView: View {
     @State private var errorMessage: String?
     @State private var successMessage: String?
 
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
+
     init(item: ListeningLibraryItem, onLibraryChanged: @escaping () -> Void) {
         self.item = item
         self.onLibraryChanged = onLibraryChanged
@@ -452,41 +524,57 @@ struct ListeningLessonDetailView: View {
     }
 
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Đang tải nội dung bài nghe...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                List {
-                    Section {
-                        lessonHeader
-                    }
+                Color(UIColor.systemGroupedBackground)
+                    .ignoresSafeArea()
+            }
 
-                    ForEach(segments) { segment in
-                        Section(header: Text("Câu \(segment.order_index)")) {
-                            ListeningSegmentDetailRow(
-                                segment: segment,
-                                isPlaying: sentenceAudioPlayer.isPlaying,
-                                onPlay: { playSentence(segment) }
-                            )
+            Group {
+                if isLoading {
+                    ProgressView("Đang tải nội dung bài nghe...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        Section {
+                            lessonHeader
                         }
-                    }
+                        .listRowBackground(AppSurfaceBackground(kind: .row, isExtra: isExtra, grouped: true))
+                        .listRowSeparatorTint(isExtra ? Color.white.opacity(0.12) : Color(UIColor.separator))
 
-                    Section("Luyện nghe chép chính tả") {
-                        dictationLearningAction
-                    }
-                    .listRowBackground(Color.clear)
+                        ForEach(segments) { segment in
+                            Section(header: Text("Câu \(segment.order_index)").foregroundColor(isExtra ? Color.white.opacity(0.9) : .secondary)) {
+                                ListeningSegmentDetailRow(
+                                    segment: segment,
+                                    isPlaying: sentenceAudioPlayer.isPlaying,
+                                    isExtra: isExtra,
+                                    onPlay: { playSentence(segment) }
+                                )
+                            }
+                            .listRowBackground(AppSurfaceBackground(kind: .row, isExtra: isExtra, grouped: true))
+                            .listRowSeparatorTint(isExtra ? Color.white.opacity(0.12) : Color(UIColor.separator))
+                        }
 
-                    Section("Luyện Shadowing") {
-                        shadowingLearningAction
+                        Section("Luyện nghe chép chính tả") {
+                            dictationLearningAction
+                        }
+                        .listRowBackground(Color.clear)
+
+                        Section("Luyện Shadowing") {
+                            shadowingLearningAction
+                        }
+                        .listRowBackground(Color.clear)
                     }
-                    .listRowBackground(Color.clear)
+                    .scrollContentBackground(isExtra ? .hidden : .automatic)
                 }
             }
         }
         .navigationTitle(item.lesson.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .fullScreenCover(isPresented: $showingDictation) {
             NavigationStack {
                 ListeningDictationView(
@@ -544,11 +632,12 @@ struct ListeningLessonDetailView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(item.lesson.title)
                         .font(.title3.bold())
+                        .foregroundColor(isExtra ? .white : .primary)
 
                     if let viTitle = item.lesson.vi_title, !viTitle.isEmpty {
                         Text(viTitle)
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     }
                 }
 
@@ -558,10 +647,10 @@ struct ListeningLessonDetailView: View {
                     toggleWholeLessonPlayback()
                 } label: {
                     Image(systemName: lessonAudioPlayer.isPlaying ? "stop.fill" : "play.fill")
-                        .font(.headline)
+                        .font(AppTypography.cardTitle)
                         .foregroundColor(.white)
                         .frame(width: 40, height: 40)
-                        .background(Color.orange)
+                        .background(AppTheme(isExtra: isExtra).primaryGradient)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -570,14 +659,14 @@ struct ListeningLessonDetailView: View {
 
             FlowLayout(spacing: 8) {
                 if let cefr = item.lesson.cefr, !cefr.isEmpty {
-                    ListeningPill(text: cefr, tint: .blue)
+                    ListeningPill(text: cefr, tint: isExtra ? ExtraAuroraPalette.iceCyan : .blue)
                 }
                 ListeningPill(text: "\(segments.count) câu", tint: .orange)
                 if isPassed {
                     ListeningPill(text: "Đã pass", tint: .green)
                     ListeningPill(text: "\(ListeningScoreCalculator.display(bestScore))/100", tint: .orange)
                 } else if isInLearning {
-                    ListeningPill(text: "Đang luyện", tint: .green)
+                    ListeningPill(text: "Đang luyện", tint: AppTheme(isExtra: isExtra).accent)
                     if bestScore > 0 {
                         ListeningPill(text: "Cao nhất \(ListeningScoreCalculator.display(bestScore))/100", tint: .orange)
                     }
@@ -586,7 +675,7 @@ struct ListeningLessonDetailView: View {
                 }
 
                 if isShadowingPassed {
-                    ListeningPill(text: "Shadowing đã pass", tint: .purple)
+                    ListeningPill(text: "Shadowing đã pass", tint: AppSemanticColor.success)
                     if shadowingBestScore > 0 {
                         ListeningPill(
                             text: "\(ListeningScoreCalculator.display(shadowingBestScore))/100",
@@ -594,7 +683,7 @@ struct ListeningLessonDetailView: View {
                         )
                     }
                 } else if isInShadowing {
-                    ListeningPill(text: "Đang Shadowing", tint: .purple)
+                    ListeningPill(text: "Đang Shadowing", tint: AppTheme(isExtra: isExtra).accent)
                 }
             }
         }
@@ -610,22 +699,20 @@ struct ListeningLessonDetailView: View {
             } label: {
                 ListeningActionLabel(
                     title: "Luyện nghe chép chính tả lại",
-                    icon: "arrow.counterclockwise",
-                    tint: .orange
+                    icon: "arrow.counterclockwise"
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
         } else if isInLearning {
             Button {
                 showingDictation = true
             } label: {
                 ListeningActionLabel(
                     title: "Luyện nghe chép chính tả ngay",
-                    icon: "play.fill",
-                    tint: .orange
+                    icon: "play.fill"
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
         } else {
             Button {
                 Task { await startPractice() }
@@ -634,10 +721,10 @@ struct ListeningLessonDetailView: View {
                     title: isSaving
                         ? "Đang đưa vào luyện nghe chép chính tả..."
                         : "Đưa bài nghe này vào luyện nghe chép chính tả ngay",
-                    icon: "graduationcap.fill",
-                    tint: .green
+                    icon: "graduationcap.fill"
                 )
             }
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
             .disabled(isSaving)
         }
     }
@@ -650,22 +737,20 @@ struct ListeningLessonDetailView: View {
             } label: {
                 ListeningActionLabel(
                     title: "Luyện Shadowing lại",
-                    icon: "arrow.counterclockwise",
-                    tint: .purple
+                    icon: "arrow.counterclockwise"
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
         } else if isInShadowing {
             Button {
                 showingShadowing = true
             } label: {
                 ListeningActionLabel(
                     title: "Luyện Shadowing ngay",
-                    icon: "waveform.and.mic",
-                    tint: .purple
+                    icon: "waveform.and.mic"
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
         } else {
             Button {
                 Task { await startShadowing() }
@@ -674,10 +759,10 @@ struct ListeningLessonDetailView: View {
                     title: isStartingShadowing
                         ? "Đang đưa vào luyện Shadowing..."
                         : "Đưa bài nghe này vào luyện Shadowing ngay",
-                    icon: "waveform.and.mic",
-                    tint: .green
+                    icon: "waveform.and.mic"
                 )
             }
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
             .disabled(isStartingShadowing)
         }
     }
@@ -784,9 +869,14 @@ struct ListeningLessonDetailView: View {
 }
 
 struct ListeningPracticeDashboardView: View {
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @State private var items: [ListeningLibraryItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     private var completedLessonCount: Int {
         items.filter(\.isCompleted).count
@@ -797,25 +887,33 @@ struct ListeningPracticeDashboardView: View {
     }
 
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Đang tải tiến độ luyện nghe...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                ScrollView {
-                    VStack(spacing: 20) {
-                        screenTitle
-                        progressCard
-                        practiceCard
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            }
+
+            Group {
+                if isLoading {
+                    ProgressView("Đang tải tiến độ luyện nghe...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .foregroundStyle(isExtra ? .white : .primary)
+                } else {
+                    ScrollView {
+                        VStack(spacing: AppSpacing.section) {
+                            progressCard
+                            practiceCard
+                        }
+                        .padding()
                     }
-                    .padding()
                 }
-                .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
             }
         }
-        .navigationTitle("Luyện nghe")
+        .navigationTitle("Luyện nghe chép chính tả")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear {
             Task { await loadItems() }
         }
@@ -834,79 +932,67 @@ struct ListeningPracticeDashboardView: View {
             ListeningCompletionRing(
                 completed: completedLessonCount,
                 total: items.count,
-                tint: .orange
+                tint: AppSemanticColor.success
             )
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Tiến độ bài nghe")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
 
                 Text("\(completedLessonCount) / \(items.count) bài")
                     .font(.title2.bold())
+                    .foregroundColor(isExtra ? .white : .primary)
 
                 Text(items.isEmpty ? "Hãy tải một seri bài nghe từ Trang chủ." : "Số bài đã hoàn thành trên tổng bài đã tải về.")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(22)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
-        )
-    }
-
-    private var screenTitle: some View {
-        Text("Luyện nghe\nchép chính tả")
-            .font(.system(size: 32, weight: .bold))
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
+        .padding(AppSpacing.card)
+        .appSurface(.card, isExtra: isExtra)
     }
 
     private var practiceCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Bài đang luyện")
-                        .font(.headline)
+        NavigationLink {
+            ListeningPracticeMenuView(items: activeItems)
+        } label: {
+            VStack(alignment: .leading, spacing: AppSpacing.section) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Bài đang luyện")
+                            .font(AppTypography.cardTitle)
+                            .foregroundColor(isExtra ? .white : .primary)
 
-                    Text(activeItems.isEmpty ? "Hãy vào My Listening và bấm Đưa bài này vào luyện nghe." : "Bạn đang có \(activeItems.count) bài sẵn sàng luyện.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        Text(activeItems.isEmpty ? "Hãy vào My Listening và bấm Đưa bài này vào luyện nghe." : "Bạn đang có \(activeItems.count) bài sẵn sàng luyện.")
+                            .font(.subheadline)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "headphones")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundColor(activeItems.isEmpty ? (isExtra ? Color.white.opacity(0.4) : .secondary) : AppTheme(isExtra: isExtra).accent)
                 }
 
-                Spacer()
-
-                Image(systemName: "headphones")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundColor(activeItems.isEmpty ? .secondary : .orange)
-            }
-
-            NavigationLink {
-                ListeningPracticeMenuView(items: activeItems)
-            } label: {
                 Label("Luyện nghe", systemImage: "play.fill")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(activeItems.isEmpty ? Color.gray.opacity(0.45) : Color.orange)
-                    .cornerRadius(18)
+                    .font(AppTypography.action)
+                    .foregroundStyle(activeItems.isEmpty ? AppTheme(isExtra: isExtra).secondaryText : Color.white)
+                    .padding(.horizontal, AppSpacing.row)
+                    .padding(.vertical, AppSpacing.item)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .modifier(AppActionFill(isExtra: isExtra, enabled: !activeItems.isEmpty))
             }
-            .disabled(activeItems.isEmpty)
+            .padding(AppSpacing.card)
+            .appSurface(.card, isExtra: isExtra)
         }
-        .padding(22)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
-        )
+        .buttonStyle(.plain)
+        .disabled(activeItems.isEmpty)
+        .accessibilityIdentifier("listening-practice-card")
     }
 
     @MainActor
@@ -929,33 +1015,49 @@ struct ListeningPracticeDashboardView: View {
 
 struct ListeningPracticeMenuView: View {
     let items: [ListeningLibraryItem]
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @State private var selectedItem: ListeningLibraryItem?
 
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
+
     var body: some View {
-        Group {
-            if items.isEmpty {
-                ContentUnavailableView(
-                    "Chưa có bài đang luyện",
-                    systemImage: "headphones",
-                    description: Text("Bạn cần đưa bài từ My Listening vào Luyện nghe trước.")
-                )
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                List {
-                    Section("Bài đang luyện") {
-                        ForEach(items) { item in
-                            Button {
-                                selectedItem = item
-                            } label: {
-                                ListeningLibraryLessonRow(item: item)
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            }
+
+            Group {
+                if items.isEmpty {
+                    ContentUnavailableView(
+                        "Chưa có bài đang luyện",
+                        systemImage: "headphones",
+                        description: Text("Bạn cần đưa bài từ My Listening vào Luyện nghe trước.")
+                    )
+                    .foregroundStyle(isExtra ? .white : .primary)
+                } else {
+                    List {
+                        Section("Bài đang luyện") {
+                            ForEach(items) { item in
+                                Button {
+                                    selectedItem = item
+                                } label: {
+                                    ListeningLibraryLessonRow(item: item, isExtra: isExtra)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
+                    .scrollContentBackground(isExtra ? .hidden : .automatic)
                 }
             }
         }
         .navigationTitle("Chọn bài luyện")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .fullScreenCover(item: $selectedItem) { item in
             NavigationStack {
                 ListeningDictationView(lesson: item.lesson)
@@ -967,6 +1069,12 @@ struct ListeningPracticeMenuView: View {
 struct ListeningSystemSeriesRow: View {
     let catalogItem: ListeningSeriesCatalogItem
     let downloadedLessonIds: Set<String>
+    var showChevron: Bool = true
+
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    private var isExtra: Bool {
+        interfaceModeRaw == AppInterfaceMode.extraordinary.rawValue
+    }
 
     private var missingCount: Int {
         catalogItem.lessons.filter { !downloadedLessonIds.contains($0.id) }.count
@@ -980,39 +1088,44 @@ struct ListeningSystemSeriesRow: View {
         HStack(spacing: 15) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.orange.opacity(0.12))
+                    .fill(isExtra ? ExtraAuroraPalette.violet.opacity(0.2) : Color.blue.opacity(0.12))
                     .frame(width: 50, height: 50)
 
                 Image(systemName: "rectangle.stack.fill")
-                    .foregroundColor(.orange)
+                    .font(.system(size: 22))
+                    .foregroundColor(isExtra ? ExtraAuroraPalette.violet : .blue)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(catalogItem.series.title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(isExtra ? Color.white : .primary)
                     .lineLimit(1)
 
                 Text("\(catalogItem.lessons.count) bài nghe")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
             }
 
             Spacer(minLength: 6)
 
             if downloadedCount > 0, missingCount == 0 {
-                catalogStatusBadge(text: "Đã tải", tint: .green)
+                catalogStatusBadge(text: "Đã tải", tint: AppSemanticColor.success)
             } else if downloadedCount > 0 {
-                catalogStatusBadge(text: "+\(missingCount)", tint: .orange)
+                catalogStatusBadge(text: "+\(missingCount)", tint: AppSemanticColor.attention)
             } else {
-                catalogStatusBadge(text: "Mới", tint: .blue)
+                catalogStatusBadge(text: "Mới", tint: isExtra ? ExtraAuroraPalette.electricBlue : .blue)
             }
 
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundColor(.secondary)
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(isExtra ? Color.white.opacity(0.4) : .secondary)
+            }
         }
         .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private func catalogStatusBadge(text: String, tint: Color) -> some View {
@@ -1021,19 +1134,21 @@ struct ListeningSystemSeriesRow: View {
             .foregroundColor(tint)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Capsule().fill(tint.opacity(0.1)))
+            .background(Capsule().fill(tint.opacity(0.12)))
     }
 }
 
 private struct ListeningLibrarySeriesRow: View {
     let seriesItem: ListeningSeriesLibraryItem
+    var isExtra: Bool = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Text(seriesItem.series.title)
-                        .font(.headline)
+                        .font(AppTypography.cardTitle)
+                        .foregroundColor(isExtra ? .white : .primary)
 
                     if seriesItem.learningLessonCount > 0 {
                         ListeningPill(text: "\(seriesItem.learningLessonCount) đang luyện", tint: .orange)
@@ -1046,29 +1161,32 @@ private struct ListeningLibrarySeriesRow: View {
 
                 Text("\(seriesItem.lessons.count) bài nghe")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
             }
 
             Spacer()
         }
         .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
 struct ListeningLibraryLessonRow: View {
     let item: ListeningLibraryItem
     var summary: ListeningLessonSummary? = nil
+    var isExtra: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(item.lesson.title)
-                .font(.headline)
-                .foregroundColor(.primary)
+                .font(AppTypography.cardTitle)
+                .foregroundColor(isExtra ? .white : .primary)
                 .lineLimit(2)
 
             FlowLayout(spacing: 6) {
                 if let cefr = item.lesson.cefr, !cefr.isEmpty {
-                    ListeningPill(text: cefr, tint: .blue)
+                    ListeningPill(text: cefr, tint: isExtra ? ExtraAuroraPalette.ice : .blue)
                 }
 
                 if item.isCompleted {
@@ -1082,11 +1200,11 @@ struct ListeningLibraryLessonRow: View {
                         ListeningPill(text: "\(ListeningScoreCalculator.display(score))/100", tint: .orange)
                     }
                 } else {
-                    ListeningPill(text: "Đã tải", tint: .blue)
+                    ListeningPill(text: "Đã tải", tint: isExtra ? ExtraAuroraPalette.ice : .blue)
                 }
 
                 if item.isShadowingCompleted {
-                    ListeningPill(text: "Shadowing đã pass", tint: .purple)
+                    ListeningPill(text: "Shadowing đã pass", tint: AppSemanticColor.success)
                     if let score = item.entry.shadowing_best_score, score > 0 {
                         ListeningPill(text: "\(ListeningScoreCalculator.display(score))/100", tint: .purple)
                     }
@@ -1101,6 +1219,7 @@ struct ListeningLibraryLessonRow: View {
             if let viTitle = item.lesson.vi_title, !viTitle.isEmpty {
                 Text(viTitle)
                     .font(.body)
+                    .foregroundColor(isExtra ? Color.white.opacity(0.85) : .primary)
                     .lineLimit(1)
             }
 
@@ -1113,29 +1232,33 @@ struct ListeningLibraryLessonRow: View {
                 }
             }
             .font(.subheadline)
-            .foregroundColor(.secondary)
+            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
 private struct ListeningSeriesLessonRow: View {
     let summary: ListeningLessonSummary
     let isNew: Bool
+    var isExtra: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(summary.lesson.title)
-                    .font(.headline)
+                    .font(AppTypography.cardTitle)
+                    .foregroundStyle(isExtra ? Color.white : Color.primary)
 
                 if isNew {
                     Text("Mới")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.orange)
+                        .foregroundColor(AppSemanticColor.attention)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.orange.opacity(0.15)))
+                        .background(Capsule().fill(AppSemanticColor.attention.opacity(0.12)))
                 }
 
                 Spacer()
@@ -1144,23 +1267,26 @@ private struct ListeningSeriesLessonRow: View {
             if let viTitle = summary.lesson.vi_title, !viTitle.isEmpty {
                 Text(viTitle)
                     .font(.body)
+                    .foregroundStyle(isExtra ? Color.white.opacity(0.85) : .primary)
                     .lineLimit(2)
             }
 
             HStack(spacing: 5) {
                 if let cefr = summary.lesson.cefr, !cefr.isEmpty {
                     Text(cefr)
-                        .foregroundColor(.blue)
+                        .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
                     Text("•")
+                        .foregroundColor(isExtra ? Color.white.opacity(0.5) : .secondary)
                 }
                 Text("\(summary.segmentCount) câu")
                 if summary.durationSeconds > 0 {
                     Text("•")
+                        .foregroundColor(isExtra ? Color.white.opacity(0.5) : .secondary)
                     Text(ListeningDurationFormatter.text(summary.durationSeconds))
                 }
             }
             .font(.subheadline)
-            .foregroundColor(.secondary)
+            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
         }
     }
 }
@@ -1168,6 +1294,7 @@ private struct ListeningSeriesLessonRow: View {
 private struct ListeningSegmentDetailRow: View {
     let segment: ListeningSegment
     let isPlaying: Bool
+    var isExtra: Bool = false
     let onPlay: () -> Void
 
     var body: some View {
@@ -1175,6 +1302,7 @@ private struct ListeningSegmentDetailRow: View {
             HStack(alignment: .top, spacing: 12) {
                 Text(segment.english_text)
                     .font(.body.weight(.semibold))
+                    .foregroundColor(isExtra ? .white : .primary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Spacer(minLength: 0)
@@ -1182,30 +1310,30 @@ private struct ListeningSegmentDetailRow: View {
                 Button(action: onPlay) {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.title2)
-                        .foregroundColor(.blue)
+                        .foregroundColor(isExtra ? ExtraAuroraPalette.iceCyan : .blue)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Nghe câu \(segment.order_index)")
             }
 
             if let vietnamese = segment.vietnamese_text, !vietnamese.isEmpty {
-                listeningDetailRow(title: "Nghĩa Tiếng Việt", content: vietnamese)
+                listeningDetailRow(title: "Nghĩa Tiếng Việt", content: vietnamese, isExtra: isExtra)
             }
 
             if let ipa = segment.ipa, !ipa.isEmpty {
-                listeningDetailRow(title: "Phát âm (IPA)", content: ipa, color: .blue)
+                listeningDetailRow(title: "Phát âm (IPA)", content: ipa, color: isExtra ? ExtraAuroraPalette.iceCyan : .blue, isExtra: isExtra)
             }
         }
         .padding(.vertical, 4)
     }
 
-    private func listeningDetailRow(title: String, content: String, color: Color = .primary) -> some View {
+    private func listeningDetailRow(title: String, content: String, color: Color = .primary, isExtra: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
             Text(content)
-                .foregroundColor(color)
+                .foregroundColor(color == .primary && isExtra ? Color.white.opacity(0.85) : color)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
         }
@@ -1215,18 +1343,8 @@ private struct ListeningSegmentDetailRow: View {
 private struct ListeningActionLabel: View {
     let title: String
     let icon: String
-    let tint: Color
-
     var body: some View {
-        Label(title, systemImage: icon)
-            .font(.headline)
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(tint)
-            .cornerRadius(10)
+        Label(title, systemImage: icon).fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -1266,7 +1384,7 @@ struct ListeningCompletionRing: View {
                 .rotationEffect(.degrees(-90))
 
             Text("\(Int((fraction * 100).rounded()))%")
-                .font(.headline)
+                .font(AppTypography.cardTitle)
                 .foregroundColor(tint)
         }
         .frame(width: 100, height: 100)

@@ -2,8 +2,13 @@ import SwiftUI
 import Foundation
 
 struct PronunciationExampleExerciseView: View {
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     let task: LearningTask
-    let onContinue: (Bool) -> Void
+    let onContinue: (Bool, Int?) -> Void
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     @StateObject private var pronunciationManager = PronunciationManager()
     @State private var assessment: AzurePronunciationAssessment?
@@ -80,7 +85,7 @@ struct PronunciationExampleExerciseView: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 5) {
                 Label("Luyện phát âm câu ví dụ", systemImage: "mic.fill")
-                    .font(.headline)
+                    .font(AppTypography.cardTitle)
                     .foregroundColor(.purple)
 
                 HStack(spacing: 8) {
@@ -120,7 +125,7 @@ struct PronunciationExampleExerciseView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 5)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
             .tint(.blue)
 
             Picker("Tốc độ đọc", selection: $playbackSpeed) {
@@ -132,14 +137,14 @@ struct PronunciationExampleExerciseView: View {
             .accessibilityLabel("Tốc độ đọc câu mẫu")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.purple.opacity(0.08)))
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private var recordedAudioControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Bản thu của bạn")
-                .font(.headline)
+                .font(AppTypography.cardTitle)
 
             Button {
                 if pronunciationManager.isPlaying {
@@ -156,12 +161,12 @@ struct PronunciationExampleExerciseView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 5)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra, emphasis: .secondary))
             .tint(pronunciationManager.isPlaying ? .red : .orange)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(UIColor.secondarySystemGroupedBackground)))
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private var pronunciationResultSheet: some View {
@@ -170,11 +175,11 @@ struct PronunciationExampleExerciseView: View {
                 VStack(spacing: 20) {
                     HStack(spacing: 10) {
                         Image(systemName: canContinue ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(canContinue ? .green : .red)
+                            .foregroundColor(canContinue ? AppSemanticColor.success : AppSemanticColor.error)
 
                         Text(canContinue ? "Chính xác!" : "Chưa đúng rồi!")
-                            .font(.headline)
-                            .foregroundColor(canContinue ? .green : .red)
+                            .font(AppTypography.cardTitle)
+                            .foregroundColor(canContinue ? AppSemanticColor.success : AppSemanticColor.error)
                     }
 
                     if pronunciationManager.hasRecorded {
@@ -193,7 +198,11 @@ struct PronunciationExampleExerciseView: View {
             pronunciationResultActionBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemBackground))
+        .background(
+            isExtra
+                ? AnyView(AuroraBackdrop())
+                : AnyView(Color(UIColor.systemBackground).ignoresSafeArea())
+        )
         .sheet(isPresented: wordFeedbackSheetPresented) {
             selectedWordFeedbackSheet
                 .presentationDetents([.medium, .large])
@@ -213,15 +222,14 @@ struct PronunciationExampleExerciseView: View {
                     systemImage: "arrow.right.circle.fill"
                 )
             }
-            .buttonStyle(.borderedProminent)
-            .tint(canContinue ? .green : .red)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
         }
     }
 
     private var recordingPracticePanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Bản thu của bạn", systemImage: "waveform.and.mic")
-                .font(.headline)
+                .font(AppTypography.cardTitle)
 
             VStack(spacing: 8) {
                 Button {
@@ -229,7 +237,7 @@ struct PronunciationExampleExerciseView: View {
                 } label: {
                     Image(systemName: pronunciationManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
                         .font(.system(size: 58))
-                        .foregroundColor(pronunciationManager.isRecording ? .red : .purple)
+                        .foregroundColor(pronunciationManager.isRecording ? AppSemanticColor.attention : AppTheme(isExtra: isExtra).accent)
                 }
                 .accessibilityLabel(pronunciationManager.isRecording ? "Dừng thu âm" : "Bắt đầu thu âm")
 
@@ -264,13 +272,12 @@ struct PronunciationExampleExerciseView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 5)
                 }
-                .buttonStyle(.bordered)
-                .tint(pronunciationManager.isPlaying ? .red : .orange)
+                .buttonStyle(AppActionButtonStyle(isExtra: isExtra, emphasis: .secondary))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(UIColor.secondarySystemGroupedBackground)))
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private var pronunciationCheckActionBar: some View {
@@ -284,7 +291,7 @@ struct PronunciationExampleExerciseView: View {
                     isLoading: isSubmitting
                 )
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
             .tint(.blue)
             .disabled(
                 assessment != nil
@@ -300,7 +307,7 @@ struct PronunciationExampleExerciseView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Label("Kết quả phát âm", systemImage: "waveform.path.ecg")
-                    .font(.headline)
+                    .font(AppTypography.cardTitle)
 
                 Spacer()
 
@@ -345,7 +352,7 @@ struct PronunciationExampleExerciseView: View {
                             ? "checkmark.seal.fill"
                             : "arrow.forward.circle.fill"
                     )
-                        .font(.headline)
+                        .font(AppTypography.cardTitle)
                         .foregroundColor(resultStatusColor)
 
                     if !hasSolidTargetPronunciation {
@@ -455,7 +462,8 @@ struct PronunciationExampleExerciseView: View {
             pronunciationManager.resetRecordingState()
         }
 
-        onContinue(result)
+        let finalScore = assessment.map { Int(PronunciationScore(assessment: $0).finalScore.rounded()) }
+        onContinue(result, finalScore)
     }
 
     private var recordingInstruction: String {
@@ -480,9 +488,9 @@ struct PronunciationExampleExerciseView: View {
 
     private var resultStatusColor: Color {
         if hasSolidTargetPronunciation {
-            return .green
+            return AppSemanticColor.success
         }
-        return canContinue ? .orange : .red
+        return canContinue ? AppSemanticColor.attention : AppSemanticColor.error
     }
 
     private var tappableExample: AttributedString {
@@ -581,7 +589,7 @@ struct PronunciationExampleExerciseView: View {
     private func wordFeedbackSection(_ words: [AzurePronunciationAssessment.WordFeedback]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Kết quả từng từ")
-                .font(.headline)
+                .font(AppTypography.cardTitle)
 
             HStack(spacing: 10) {
                 PronunciationFeedbackLegend(level: .good)
@@ -626,14 +634,14 @@ struct PronunciationExampleExerciseView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(UIColor.secondarySystemGroupedBackground)))
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private func scoreMetricsSection(_ score: PronunciationScore) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Điểm đánh giá")
-                .font(.headline)
+                .font(AppTypography.cardTitle)
 
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
@@ -668,7 +676,7 @@ private struct PronunciationMetricCard: View {
                     .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text("\(Int(boundedScore.rounded()))")
-                    .font(.title3.weight(.bold))
+                    .font(AppTypography.destinationTitle)
             }
             .frame(width: 58, height: 58)
 

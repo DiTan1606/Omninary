@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var showAlert = false
     
     // Streak and Activity states
+    @ObservedObject private var streakState = OmniStreakFreezeManager.shared
     @State private var streakCount: Int = 0
     @State private var activityLogs: [String: Bool] = [:] // "YYYY-MM-DD" -> completed
     @State private var hasUnreadNotifications = false
@@ -22,12 +23,7 @@ struct HomeView: View {
     @State private var selectedMonth = Date()
     
     var groupedStoreVocabs: [String: [Vocabulary]] {
-        Dictionary(grouping: storeVocabs, by: { 
-            if let topic = $0.topics, !topic.trimmingCharacters(in: .whitespaces).isEmpty {
-                return topic.trimmingCharacters(in: .whitespaces)
-            }
-            return "Chủ đề chung"
-        })
+        Vocabulary.groupedByTopic(storeVocabs)
     }
     
     var sortedTopics: [String] {
@@ -37,7 +33,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 25) {
+                VStack(spacing: AppSpacing.cardGap) {
                     // Header
                     headerView
                     
@@ -70,14 +66,11 @@ struct HomeView: View {
                             }
                         }
                         
-                        CustomMonthCalendar(month: selectedMonth, activityLogs: activityLogs) { _ in }
+                        CustomMonthCalendar(month: selectedMonth, activityLogs: activityLogs,
+                                            frozenDates: streakState.frozenDates, rescuedDates: streakState.rescuedDates) { _ in }
                     }
                     .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(Color(UIColor.secondarySystemGroupedBackground))
-                            .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 5)
-                    )
+                    .appSurface(.card, isExtra: false)
                     .padding(.horizontal)
                     
                     // Explore Vocabulary Section (Wrapped in card)
@@ -106,7 +99,7 @@ struct HomeView: View {
                             }
                             .frame(maxWidth: .infinity)
                         } else {
-                            LazyVStack(spacing: 15) {
+                            LazyVStack(spacing: AppSpacing.cardGap) {
                                 ForEach(sortedTopics, id: \.self) { topic in
                                     topicRow(topic: topic)
                                 }
@@ -114,11 +107,7 @@ struct HomeView: View {
                         }
                     }
                     .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(Color(UIColor.secondarySystemGroupedBackground))
-                            .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 5)
-                    )
+                    .appSurface(.card, isExtra: false)
                     .padding(.horizontal)
 
                     // Explore Listening Section
@@ -148,7 +137,7 @@ struct HomeView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                         } else {
-                            LazyVStack(spacing: 14) {
+                            LazyVStack(spacing: AppSpacing.cardGap) {
                                 ForEach(storeListeningSeries) { catalogItem in
                                     NavigationLink {
                                         ListeningSeriesPreviewView(
@@ -170,11 +159,7 @@ struct HomeView: View {
                         }
                     }
                     .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(Color(UIColor.secondarySystemGroupedBackground))
-                            .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 5)
-                    )
+                    .appSurface(.card, isExtra: false)
                     .padding(.horizontal)
                 }
                 .padding(.bottom, 30)
@@ -197,32 +182,24 @@ struct HomeView: View {
     
     var headerView: some View {
         HStack {
+            // Tạm thời tắt chức năng bấm vào logo mở thông báo
             Image("AppLogo")
                 .resizable()
                 .scaledToFit()
-                .frame(height: 50)
+                .frame(height: 45)
                 .accessibilityLabel("Ditandnary thuộc Omninary")
-            
-            Spacer()
-            
+            /*
             NavigationLink(destination: NotificationView()) {
-                ZStack {
-                    Image(systemName: "bell.fill")
-                        .font(.title3)
-                        .foregroundColor(.primary)
-                    
-                    if hasUnreadNotifications {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 10, height: 10)
-                            .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                            .offset(x: 8, y: -8)
-                    }
-                }
-                .padding(12)
-                .background(Circle().fill(Color(UIColor.secondarySystemGroupedBackground)))
-                .shadow(color: Color.black.opacity(0.05), radius: 5)
+                Image("AppLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 45)
+                    .accessibilityLabel("Ditandnary thuộc Omninary")
             }
+            .buttonStyle(.plain)
+            */
+
+            Spacer()
         }
         .padding(.horizontal)
         .padding(.top, 10)
@@ -268,18 +245,14 @@ struct HomeView: View {
             Spacer()
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 5)
-        )
+        .appSurface(.card, isExtra: false)
         .padding(.horizontal)
     }
     
     @ViewBuilder
     func topicRow(topic: String) -> some View {
         let topicVocabs = groupedStoreVocabs[topic] ?? []
-        let myDownloadKeysInTopic = myDownloadKeysByTopic[topic] ?? []
+        let myDownloadKeysInTopic = myDownloadKeysByTopic[topicVocabs.first?.topic_id ?? ""] ?? []
         let missingVocabs = topicVocabs.filter { adminVocab in
             guard let downloadKey = adminVocab.downloadIdentityKey else { return false }
             return !myDownloadKeysInTopic.contains(downloadKey)
@@ -289,8 +262,8 @@ struct HomeView: View {
         let isFullyDownloaded = hasDownloadedSome && missingVocabs.isEmpty
         let needsUpdate = hasDownloadedSome && !missingVocabs.isEmpty
         
-        let uniqueTopicVocabsCount = Set(topicVocabs.compactMap { $0.vocab?.trimmingCharacters(in: .whitespaces).lowercased() }).count
-        let uniqueMissingVocabsCount = Set(missingVocabs.compactMap { $0.vocab?.trimmingCharacters(in: .whitespaces).lowercased() }).count
+        let uniqueTopicVocabsCount = Vocabulary.sortedItems(topicVocabs).count
+        let uniqueMissingVocabsCount = Vocabulary.sortedItems(missingVocabs).count
         
         NavigationLink(destination: TopicPreviewView(
             topicName: topic, 
@@ -390,12 +363,10 @@ struct HomeView: View {
             
             var dict: [String: Set<String>] = [:]
             for v in fetched {
-                if let topic = v.topics?.trimmingCharacters(in: .whitespaces), !topic.isEmpty {
-                    if let downloadKey = v.downloadIdentityKey {
-                        dict[topic, default: []].insert(downloadKey)
-                    }
-                }
+                guard let key = v.downloadIdentityKey else { continue }
+                for topic in v.collectionTopics { dict[topic.id, default: []].insert(key) }
             }
+
             DispatchQueue.main.async {
                 self.myDownloadKeysByTopic = dict
             }
@@ -431,22 +402,12 @@ struct HomeView: View {
     func fetchUserStats() async {
         guard let myUserId = AuthManager.shared.currentUser?.id.uuidString else { return }
         do {
-            // Fetch Streak from Supabase
-            let stats = try await UserProgressRepository.fetchStats(userId: myUserId)
-            
-            if var currentStats = stats.first {
-                // Check if streak is broken
-                let now = Date()
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                if let lastDateStr = currentStats.last_learning_date, let lastDate = formatter.date(from: lastDateStr) {
-                    let diff = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: lastDate), to: Calendar.current.startOfDay(for: now)).day ?? 0
-                    if diff > 1 {
-                        currentStats.streak_count = 0
-                        try await UserProgressRepository.resetStreak(userId: myUserId)
-                    }
-                }
-                DispatchQueue.main.async { self.streakCount = currentStats.streak_count }
+            // The server atomically decides both a broken streak and whether a
+            // 24-hour rescue window is still valid.
+            let currentStats = try await UserProgressRepository.refreshStreakState()
+            await MainActor.run {
+                self.streakCount = currentStats.streak_count
+                OmniStreakFreezeManager.shared.applyRemoteState(currentStats)
             }
             
             // Fetch Activity Logs from Supabase
@@ -494,8 +455,10 @@ struct HomeView: View {
             DispatchQueue.main.async {
                 isDownloading = false
                 let newDownloadKeys = myNewVocabs.compactMap(\.downloadIdentityKey)
-                myDownloadKeysByTopic[topicName, default: []].formUnion(newDownloadKeys)
-                let uniqueWordCount = Set(myNewVocabs.compactMap { $0.normalizedWord }).count
+                if let topicId = myNewVocabs.first?.topic_id {
+                    myDownloadKeysByTopic[topicId, default: []].formUnion(newDownloadKeys)
+                }
+                let uniqueWordCount = Vocabulary.sortedItems(myNewVocabs).count
                 alertMessage = "Tải thành công \(uniqueWordCount) từ!"
                 showAlert = true
             }

@@ -1,3 +1,5 @@
+import { vocabularyContentError, supplementaryValues } from './lib/vocabularyContent';
+import { inTopic, savedTopics } from './lib/vocabularyCollections';
 import {
   BarChart3,
   Bell,
@@ -74,13 +76,22 @@ type LevelStat = {
 };
 
 const learningLevelColors: Record<number, string> = {
-  1: '#ef4444',
-  2: '#f97316',
-  3: '#eab308',
-  4: '#22c55e',
-  5: '#3b82f6',
-  6: '#9333ea'
+  0: '#ef4444',
+  1: '#f97316',
+  2: '#eab308',
+  3: '#22c55e',
+  4: '#3b82f6',
+  5: '#06b6d4',
+  6: '#9333ea',
+  7: '#10b981'
 };
+
+function learningLevelLabel(level: number | null) {
+  if (level === null) return 'New';
+  if (level >= 10) return 'Super';
+  if (level >= 6) return 'Master';
+  return `Cấp ${level}`;
+}
 
 const userNavItems: Array<{ key: UserViewKey; label: string; icon: ReactNode }> = [
   { key: 'home', label: 'Trang chủ', icon: <Home size={18} /> },
@@ -149,13 +160,18 @@ function makeTopicItems(
   const items = new Map<string, TopicItem>();
 
   vocabs.forEach((row) => {
-    const topic = row.vocab_catalog?.topics ?? null;
-    const name = topic?.name?.trim() || 'Chưa phân loại';
-    const key = row.vocab_catalog?.topic_id ?? `uncategorized-${name}`;
-    const item = items.get(key) ?? { id: key, name, topic, vocabs: [] };
-    item.vocabs.push(row);
-    if (topic) item.topic = topic;
-    items.set(key, item);
+    const memberships = savedTopics(row);
+    if (!memberships.length) {
+      const key = 'uncategorized';
+      const item = items.get(key) ?? { id: key, name: 'Chưa phân loại', topic: null, vocabs: [] };
+      item.vocabs.push(row);
+      items.set(key, item);
+    }
+    for (const topic of memberships) {
+      const item = items.get(topic.id) ?? { id: topic.id, name: topic.name, topic, vocabs: [] };
+      item.vocabs.push(inTopic(row, topic));
+      items.set(topic.id, item);
+    }
   });
 
   privateTopics.forEach((topic) => {
@@ -182,29 +198,23 @@ function makeTopicItems(
   return Array.from(items.values()).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
 }
 
-function groupByWord(rows: UserVocabulary[]): WordGroup[] {
+function vocabularyItems(rows: UserVocabulary[]): WordGroup[] {
   const map = new Map<string, WordGroup>();
-  rows.forEach((row) => {
-    const word = row.vocab_catalog?.word?.trim() || 'Untitled';
-    const key = word.toLowerCase();
-    const group = map.get(key) ?? { key, word, rows: [] };
-    group.rows.push(row);
-    map.set(key, group);
-  });
-  return Array.from(map.values()).sort((a, b) => a.word.localeCompare(b.word, 'vi'));
+  for (const row of rows) {
+    const key = row.vocab_id ?? row.vocab_catalog?.id ?? row.id;
+    map.set(key, { key, word: row.vocab_catalog?.word?.trim() || 'Untitled', rows: [row] });
+  }
+  return Array.from(map.values()).sort((a, b) => a.word.localeCompare(b.word, 'vi') || a.key.localeCompare(b.key));
 }
 
 function uniqueWordCount(vocabs: UserVocabulary[]) {
-  return groupByWord(vocabs).length;
+  return vocabularyItems(vocabs).length;
 }
 
 function joinedMeanings(group: WordGroup) {
   return uniqueText(group.rows.map((row) => row.vocab_catalog?.v_meaning || row.vocab_catalog?.ev_meaning || row.vocab_catalog?.e_meaning)).join('; ');
 }
 
-function learningLevel(group: WordGroup) {
-  return group.rows.find((row) => (row.learning_level ?? 0) > 0)?.learning_level ?? 0;
-}
 
 function pronunciationAverage(group: WordGroup) {
   const scores = group.rows.map((row) => row.pronunciation_score).filter((score): score is number => typeof score === 'number');
@@ -222,19 +232,24 @@ function latestStatusByCatalog(submissions: UserVocabSubmission[]) {
 
 function buildLevelStats(groups: WordGroup[]): LevelStat[] {
   const stats: LevelStat[] = [
-    { key: '1', label: 'Cấp 1', description: 'Đang học giai đoạn đầu', count: 0, color: learningLevelColors[1] },
-    { key: '2', label: 'Cấp 2', description: 'Ôn sau 1 ngày', count: 0, color: learningLevelColors[2] },
-    { key: '3', label: 'Cấp 3', description: 'Ôn sau 3 ngày', count: 0, color: learningLevelColors[3] },
-    { key: '4', label: 'Cấp 4', description: 'Ôn sau 7 ngày', count: 0, color: learningLevelColors[4] },
-    { key: '5', label: 'Cấp 5', description: 'Ôn sau 15 ngày', count: 0, color: learningLevelColors[5] },
-    { key: 'master', label: 'Master', description: 'Cấp 6 trở lên', count: 0, color: learningLevelColors[6] }
+    { key: '0', label: 'Cấp 0', description: 'Cần học lần đầu', count: 0, color: learningLevelColors[0] },
+    { key: '1', label: 'Cấp 1', description: 'Ôn sau 1 ngày', count: 0, color: learningLevelColors[1] },
+    { key: '2', label: 'Cấp 2', description: 'Ôn sau 3 ngày', count: 0, color: learningLevelColors[2] },
+    { key: '3', label: 'Cấp 3', description: 'Ôn sau 7 ngày', count: 0, color: learningLevelColors[3] },
+    { key: '4', label: 'Cấp 4', description: 'Ôn sau 15 ngày', count: 0, color: learningLevelColors[4] },
+    { key: '5', label: 'Cấp 5', description: 'Ôn sau 30 ngày', count: 0, color: learningLevelColors[5] },
+    { key: 'master', label: 'Master', description: 'Ôn sau 60, 120, 240 hoặc 365 ngày', count: 0, color: learningLevelColors[6] },
+    { key: 'super', label: 'Super', description: 'Đã hoàn thành lịch ôn', count: 0, color: learningLevelColors[7] }
   ];
 
   groups.forEach((group) => {
-    const level = learningLevel(group);
-    if (level <= 0) return;
-    if (level >= 6) stats[5].count += 1;
-    else stats[level - 1].count += 1;
+    group.rows.forEach((row) => {
+      const level = row.learning_level;
+      if (level === null) return;
+      if (level >= 10) stats[7].count += 1;
+      else if (level >= 6) stats[6].count += 1;
+      else stats[level].count += 1;
+    });
   });
 
   return stats;
@@ -592,7 +607,7 @@ function UserExploreView({ profile }: { profile: Profile }) {
                   </div>
                   <div>
                     <strong>{item.topic.name}</strong>
-                    <span>{item.totalWords} từ · {item.vocabs.length} nghĩa</span>
+                    <span>{item.totalWords} từ</span>
                   </div>
                   {isDownloaded && <span className="status-pill approved">Đã tải</span>}
                   {hasUpdate && <span className="status-pill pending">+{item.newWords} từ</span>}
@@ -631,11 +646,11 @@ function UserLearningView({ profile }: { profile: Profile }) {
     load();
   }, [profile.id]);
 
-  const groups = useMemo(() => groupByWord(data?.vocabs ?? []), [data]);
+  const groups = useMemo(() => vocabularyItems(data?.vocabs ?? []), [data]);
   const levelStats = useMemo(() => buildLevelStats(groups), [groups]);
-  const totalWords = groups.length;
-  const learningWords = groups.filter((group) => learningLevel(group) > 0).length;
-  const masterWords = groups.filter((group) => learningLevel(group) >= 6).length;
+  const totalWords = data?.vocabs.length ?? 0;
+  const learningWords = data?.vocabs.filter((row) => row.learning_level !== null && row.learning_level >= 0).length ?? 0;
+  const masterWords = data?.vocabs.filter((row) => (row.learning_level ?? 0) >= 6).length ?? 0;
   const totalLevelWords = Math.max(1, learningWords);
   const learnedPercent = totalWords > 0 ? Math.round((learningWords / totalWords) * 100) : 0;
   const donutStyle = donutGradient(levelStats, learningWords);
@@ -659,9 +674,9 @@ function UserLearningView({ profile }: { profile: Profile }) {
               </div>
             </div>
             <div className="compact-list">
-              <MetricRow label="Số từ đã tải về" value={`${totalWords} từ`} />
-              <MetricRow label="Số từ đã đưa vào học" value={`${learningWords} từ`} />
-              <MetricRow label="Số từ đã master" value={`${masterWords} từ`} />
+              <MetricRow label="Số từ vựng đã lưu" value={`${totalWords} từ vựng`} />
+              <MetricRow label="Số từ vựng đang học" value={`${learningWords} từ vựng`} />
+              <MetricRow label="Số từ vựng Master và Super" value={`${masterWords} từ vựng`} />
             </div>
           </div>
         </div>
@@ -669,7 +684,7 @@ function UserLearningView({ profile }: { profile: Profile }) {
         <div className="panel">
           <div className="panel-head">
             <h2>Tiến độ theo cấp</h2>
-            <span className="count-badge muted">{groups.length} từ</span>
+            <span className="count-badge muted">{totalWords} từ vựng</span>
           </div>
           <div className="level-bars">
             {levelStats.map((item) => {
@@ -752,6 +767,9 @@ function UserLibraryView({ profile }: { profile: Profile }) {
   const [privateTopics, setPrivateTopics] = useState<Topic[]>([]);
   const [topicSubmissions, setTopicSubmissions] = useState<UserTopicSubmission[]>([]);
   const [wordSubmissions, setWordSubmissions] = useState<UserVocabSubmission[]>([]);
+  const [existingWordSearch, setExistingWordSearch] = useState('');
+  const [existingMeanings, setExistingMeanings] = useState<VocabCatalog[] | null>(null);
+  const [isAddingExisting, setIsAddingExisting] = useState(false);
   const [selectedTopicId, setSelectedTopicId] = useState('');
   const [search, setSearch] = useState('');
   const [newTopicName, setNewTopicName] = useState('');
@@ -770,7 +788,7 @@ function UserLibraryView({ profile }: { profile: Profile }) {
   const selectedTopic = topicItems.find((item) => item.id === selectedTopicId) ?? topicItems[0];
   const statusByCatalog = useMemo(() => latestStatusByCatalog(wordSubmissions), [wordSubmissions]);
   const wordGroups = useMemo(() => {
-    const groups = groupByWord(selectedTopic?.vocabs ?? []);
+    const groups = vocabularyItems(selectedTopic?.vocabs ?? []);
     const keyword = normalize(search);
     if (!keyword) return groups;
     return groups.filter((group) => {
@@ -780,7 +798,7 @@ function UserLibraryView({ profile }: { profile: Profile }) {
   }, [search, selectedTopic]);
 
   const canSubmitTopic = selectedTopic?.topic?.visibility === 'private' && (selectedTopic?.vocabs.length ?? 0) > 0 && selectedTopic?.submission?.status !== 'pending';
-  const canDeleteTopic = selectedTopic?.topic?.visibility === 'private' && (selectedTopic?.vocabs.length ?? 0) === 0 && selectedTopic?.submission?.status !== 'pending';
+  const canDeleteTopic = selectedTopic?.topic?.visibility === 'private' && selectedTopic?.submission?.status !== 'pending';
   const addTopicId = selectedTopic?.topic?.id ?? selectedTopic?.vocabs[0]?.vocab_catalog?.topic_id ?? null;
   const validRows = rows.filter((row) => !row.error && row.word.trim());
 
@@ -832,11 +850,34 @@ function UserLibraryView({ profile }: { profile: Profile }) {
   }
 
   async function deleteRows(rowsToDelete: UserVocabulary[]) {
-    if (!confirm(`Xoá "${rowsToDelete[0]?.vocab_catalog?.word ?? 'từ này'}" khỏi kho từ của bạn?`)) return;
-    for (const row of rowsToDelete) await userApi.deleteUserVocab(row);
+    const topicId = selectedTopic?.topic?.id;
+    if (!confirm(topicId ? 'Gỡ các từ vựng này khỏi chủ đề? Cấp độ và lịch sử học vẫn được giữ.' : 'Xoá các từ vựng này khỏi toàn bộ kho học?')) return;
+    if (topicId) await userApi.removeMeaningsFromTopic(rowsToDelete.flatMap((row) => row.vocab_id ? [row.vocab_id] : []), topicId);
+    else for (const row of rowsToDelete) await userApi.deleteUserVocab(row);
     setSelectedGroup(null);
-    setMessage('Đã xoá từ.');
+    setMessage(topicId ? 'Đã gỡ khỏi chủ đề, giữ nguyên tiến độ.' : 'Đã xoá khỏi kho học.');
     await load();
+  }
+
+  async function searchExistingMeanings() {
+    setIsAddingExisting(true);
+    try {
+      setExistingMeanings(existingWordSearch.trim() ? await userApi.searchAvailableMeanings(existingWordSearch) :
+        vocabs.flatMap((row) => row.vocab_catalog ? [row.vocab_catalog] : []));
+    } catch (err) { setMessage(err instanceof Error ? err.message : 'Không tìm được từ vựng.'); }
+    finally { setIsAddingExisting(false); }
+  }
+
+  async function addExistingMeaning(vocab: VocabCatalog) {
+    if (!selectedTopic?.topic) return;
+    setIsAddingExisting(true);
+    try {
+      await userApi.saveMeaningsToTopic([vocab.id], selectedTopic.topic.id);
+      setMessage('Đã thêm từ vựng vào chủ đề, giữ nguyên tiến độ đã có.');
+      setExistingMeanings(null);
+      await load();
+    } catch (err) { setMessage(err instanceof Error ? err.message : 'Không thêm được từ vựng.'); }
+    finally { setIsAddingExisting(false); }
   }
 
   async function submitWord(row: UserVocabulary) {
@@ -861,7 +902,7 @@ function UserLibraryView({ profile }: { profile: Profile }) {
   }
 
   async function deleteTopic() {
-    if (!selectedTopic?.topic || !confirm(`Xoá topic "${selectedTopic.name}"?`)) return;
+    if (!selectedTopic?.topic || !confirm(`Xoá chủ đề "${selectedTopic.name}"? Nghĩa và tiến độ học vẫn được giữ.`)) return;
     try {
       await userApi.deletePrivateTopic(selectedTopic.topic, profile.id);
       setMessage('Đã xoá topic riêng.');
@@ -903,7 +944,7 @@ function UserLibraryView({ profile }: { profile: Profile }) {
     try {
       const catalogRows = selectedTopic.vocabs.map((row) => row.vocab_catalog).filter((vocab): vocab is VocabCatalog => Boolean(vocab));
       await exportVocabularyWorkbook({ id: selectedTopic.id, name: selectedTopic.name }, catalogRows);
-      setMessage(`Đã export ${catalogRows.length} nghĩa của ${selectedTopic.name}.`);
+      setMessage(`Đã export ${catalogRows.length} từ vựng của ${selectedTopic.name}.`);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Export thất bại.');
     } finally {
@@ -974,6 +1015,9 @@ function UserLibraryView({ profile }: { profile: Profile }) {
                 Xoá topic
               </button>
             )}
+            {selectedTopic?.topic?.visibility === 'private' && (
+              <button className="ghost-button" onClick={searchExistingMeanings}>Thêm từ vựng đã có</button>
+            )}
             <button className="primary-button" disabled={!selectedTopic} onClick={() => setEditing(userApi.emptyVocabInput(addTopicId))}>
               <Plus size={18} />
               Thêm từ
@@ -989,6 +1033,25 @@ function UserLibraryView({ profile }: { profile: Profile }) {
             </button>
           </div>
         </div>
+
+        {existingMeanings !== null && (
+          <div className="panel">
+            <h3>Thêm từ vựng đã có vào {selectedTopic?.name}</h3>
+            <p>Dùng lại từ vựng để giữ cấp độ và lịch ôn hiện tại.</p>
+            <div className="button-row">
+              <input placeholder="Nhập từ cần tìm" value={existingWordSearch} onChange={(event) => setExistingWordSearch(event.target.value)} />
+              <button onClick={searchExistingMeanings} disabled={isAddingExisting}>Tìm</button>
+              <button onClick={() => setExistingMeanings(null)}>Đóng</button>
+            </div>
+            {existingMeanings.map((vocab) => (
+              <div className="compact-row" key={vocab.id}>
+                <span>{vocab.word} · {vocab.word_form} · {vocab.v_meaning || vocab.e_meaning}</span>
+                <button onClick={() => addExistingMeaning(vocab)} disabled={isAddingExisting}>Dùng từ vựng này</button>
+              </div>
+            ))}
+            {!existingMeanings.length && <p>Không có từ vựng phù hợp. Bạn có thể tạo từ vựng mới.</p>}
+          </div>
+        )}
 
         {rows.length > 0 && (
           <div className="panel">
@@ -1071,7 +1134,6 @@ function WordSummaryList({
     <div className="word-list">
       {groups.map((group) => {
         const first = group.rows[0]?.vocab_catalog;
-        const level = learningLevel(group);
         const score = pronunciationAverage(group);
         const isPrivate = group.rows.some((row) => row.vocab_catalog?.visibility === 'private');
         const status = group.rows
@@ -1083,7 +1145,7 @@ function WordSummaryList({
               <div className="word-row-title">
                 <strong>{group.word}</strong>
                 {isPrivate && <span className="status-pill private">Riêng tư</span>}
-                {level >= 6 ? <span className="status-pill master">Master</span> : <span className="count-badge muted">{level}/6</span>}
+                <span className="count-badge muted">{group.rows.filter((row) => row.learning_level !== null).length}/{group.rows.length} từ vựng đã đưa vào học</span>
                 {score != null && <span className={score >= 70 ? 'status-pill approved' : 'status-pill pending'}>{score}/100</span>}
                 {status && <span className={`status-pill ${status}`}>{status}</span>}
               </div>
@@ -1117,7 +1179,6 @@ function WordDetailModal({
 }) {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState('');
-  const level = learningLevel(group);
   const score = pronunciationAverage(group);
   const privateRows = group.rows.filter((row) => row.vocab_catalog?.visibility === 'private');
   const canSubmitWord = privateRows.length > 0 && !isPrivateTopic;
@@ -1135,7 +1196,7 @@ function WordDetailModal({
         <div className="modal-head">
           <div>
             <h2>{group.word}</h2>
-            <p className="description">{group.rows.length} nghĩa · Cấp {level >= 6 ? 'Master' : `${level}/6`}</p>
+            <p className="description">{group.rows.length} từ vựng · {group.rows.filter((row) => row.learning_level !== null).length} đã đưa vào học</p>
           </div>
           <button className="icon-button" onClick={onClose} title="Đóng">
             <X size={18} />
@@ -1147,14 +1208,14 @@ function WordDetailModal({
         <div className="word-action-card">
           <div className="compact-list">
             <MetricRow label="Topic" value={topicName(group.rows[0])} />
-            <MetricRow label="Trạng thái học" value={level >= 6 ? 'Master' : `Cấp ${level}/6`} />
+            <MetricRow label="Trạng thái học" value={`${group.rows.filter((row) => row.learning_level !== null).length}/${group.rows.length} từ vựng đã đưa vào học`} />
             <MetricRow label="Lần ôn tiếp theo" value={formatDate(group.rows.find((row) => row.next_review)?.next_review)} />
             <MetricRow label="Điểm phát âm" value={score == null ? 'Chưa có' : `${score}/100`} />
           </div>
           <div className="button-row">
             <button className="danger-button" onClick={() => onDelete(group.rows)}>
               <Trash2 size={18} />
-              Xoá khỏi kho
+              Gỡ khỏi chủ đề
             </button>
           </div>
         </div>
@@ -1185,14 +1246,14 @@ function WordDetailModal({
         )}
 
         <div className="meaning-list">
-          {group.rows.map((row, index) => {
+          {group.rows.map((row) => {
             const vocab = row.vocab_catalog;
             const isPrivate = vocab?.visibility === 'private';
             return (
               <article className="meaning-card" key={row.id}>
                 <div className="meaning-head">
                   <div className="word-row-title">
-                    <strong>Nghĩa {index + 1}</strong>
+                    <strong>Từ vựng · {learningLevelLabel(row.learning_level)}</strong>
                     {isPrivate && <span className="status-pill private">Riêng tư</span>}
                     {vocab?.cefr && <span className="count-badge muted">{vocab.cefr}</span>}
                     {vocab?.word_form && <span className="count-badge muted">{vocab.word_form}</span>}
@@ -1209,10 +1270,13 @@ function WordDetailModal({
                 <DetailLine label="Nghĩa Việt" value={vocab?.v_meaning} />
                 <DetailLine label="Ví dụ Anh" value={vocab?.e_example} tone="blue" />
                 <DetailLine label="Ví dụ Việt" value={vocab?.v_example} />
-                <DetailLine label="Word family" value={vocab?.word_family} />
-                <DetailLine label="Đồng nghĩa" value={vocab?.synonymous} />
-                <DetailLine label="Trái nghĩa" value={vocab?.antonym} />
-                <DetailLine label="Bonus" value={vocab?.bonus} tone="purple" />
+                <DetailLine label="Word family" value={vocab?.word_family} multiple />
+                <DetailLine label="Đồng nghĩa" value={vocab?.synonymous} multiple />
+                <DetailLine label="Trái nghĩa" value={vocab?.antonym} multiple />
+                <DetailLine label="Cụm từ thường đi cùng" value={vocab?.collocation} multiple />
+                <DetailLine label="Mẫu cấu trúc" value={vocab?.formula} multiple />
+                <DetailLine label="Ghi chú cách dùng" value={vocab?.note} multiple />
+                <DetailLine label="Thông tin mở rộng" value={vocab?.bonus} tone="purple" multiple />
               </article>
             );
           })}
@@ -1222,11 +1286,15 @@ function WordDetailModal({
   );
 }
 
-function DetailLine({ label, value, tone }: { label: string; value: string | null | undefined; tone?: 'blue' | 'purple' }) {
+function DetailLine({ label, value, tone, multiple = false }: { label: string; value: string | null | undefined; tone?: 'blue' | 'purple'; multiple?: boolean }) {
   return (
     <div className="detail-line">
       <span>{label}</span>
-      <p className={tone ? `detail-${tone}` : undefined}>{fieldValue(value)}</p>
+      {multiple && supplementaryValues(value).length > 0 ? (
+        <div className="supplementary-value-list">
+          {supplementaryValues(value).map((item, index) => <p className="supplementary-value-card" key={index}>{item}</p>)}
+        </div>
+      ) : <p className={tone ? `detail-${tone}` : undefined}>{fieldValue(value)}</p>}
     </div>
   );
 }
@@ -1377,8 +1445,9 @@ function UserVocabModal({
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError('');
-    if (!draft.word.trim()) {
-      setError('Vui lòng nhập từ vựng.');
+    const contentError = vocabularyContentError(draft);
+    if (contentError) {
+      setError(contentError);
       return;
     }
     setIsSaving(true);
@@ -1400,6 +1469,7 @@ function UserVocabModal({
             <X size={18} />
           </button>
         </div>
+        {draft.id && <p>Sửa cách diễn đạt sẽ giữ tiến độ. Để học một mục độc lập, hãy tạo từ vựng mới.</p>}
         <div className="form-grid two">
           <label>Từ vựng<input value={draft.word} onChange={(event) => update('word', event.target.value)} /></label>
           <label>CEFR<input value={draft.cefr} onChange={(event) => update('cefr', event.target.value)} /></label>
@@ -1413,7 +1483,10 @@ function UserVocabModal({
           <label>Word family<textarea value={draft.word_family} onChange={(event) => update('word_family', event.target.value)} /></label>
           <label>Đồng nghĩa<textarea value={draft.synonymous} onChange={(event) => update('synonymous', event.target.value)} /></label>
           <label>Trái nghĩa<textarea value={draft.antonym} onChange={(event) => update('antonym', event.target.value)} /></label>
-          <label>Bonus<textarea value={draft.bonus} onChange={(event) => update('bonus', event.target.value)} /></label>
+          <label>Cụm từ thường đi cùng<textarea value={draft.collocation} onChange={(event) => update('collocation', event.target.value)} /></label>
+          <label>Mẫu cấu trúc<textarea value={draft.formula} onChange={(event) => update('formula', event.target.value)} /></label>
+          <label>Ghi chú cách dùng<textarea value={draft.note} onChange={(event) => update('note', event.target.value)} /></label>
+          <label>Thông tin mở rộng<textarea value={draft.bonus} onChange={(event) => update('bonus', event.target.value)} /></label>
         </div>
         {error && <div className="form-error">{error}</div>}
         <div className="modal-actions">

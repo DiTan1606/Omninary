@@ -1,9 +1,10 @@
+import { vocabularyContentError, normalizeSupplementaryText } from './vocabularyContent';
 import { readSheet } from 'read-excel-file/browser';
 import writeXlsxFile from 'write-excel-file/browser';
 import type { SheetData } from 'write-excel-file/browser';
 import { ImportRow, Topic, VocabCatalog, VocabInput } from './types';
 
-const aliases: Record<keyof Omit<VocabInput, 'id' | 'topic_id'>, string[]> = {
+const aliases: Record<keyof Omit<VocabInput, 'id' | 'topic_id' | 'topic_ids'>, string[]> = {
   word: ['word', 'vocab', 'tu', 'tu vung', 'từ', 'từ vựng'],
   cefr: ['cefr', 'level', 'cap do', 'cấp độ'],
   ipa: ['ipa', 'pronunciation', 'phien am', 'phiên âm'],
@@ -16,7 +17,10 @@ const aliases: Record<keyof Omit<VocabInput, 'id' | 'topic_id'>, string[]> = {
   word_family: ['word_family', 'word family', 'gia dinh tu', 'gia đình từ'],
   synonymous: ['synonymous', 'synonym', 'dong nghia', 'đồng nghĩa'],
   antonym: ['antonym', 'opposite', 'trai nghia', 'trái nghĩa'],
-  bonus: ['bonus', 'note', 'ghi chu', 'ghi chú']
+  collocation: ['collocation', 'collocations', 'cụm từ thường đi cùng'],
+  formula: ['formula', 'mẫu cấu trúc', 'công thức'],
+  note: ['note', 'notes', 'ghi chu', 'ghi chú', 'ghi chú cách dùng'],
+  bonus: ['bonus', 'thông tin mở rộng']
 };
 
 function normalizeHeader(value: string) {
@@ -38,6 +42,10 @@ function readCell(row: unknown[], headers: string[], field: keyof typeof aliases
 
 export async function parseVocabularyWorkbook(file: File, topicId: string | null): Promise<ImportRow[]> {
   const sheetRows = (await readSheet(file)) as unknown as unknown[][];
+  return parseVocabularyRows(sheetRows, topicId);
+}
+
+export function parseVocabularyRows(sheetRows: unknown[][], topicId: string | null): ImportRow[] {
   const headers = (sheetRows[0] ?? []).map((cell: unknown) => String(cell ?? ''));
   const rows = sheetRows.slice(1);
 
@@ -54,13 +62,17 @@ export async function parseVocabularyWorkbook(file: File, topicId: string | null
       v_meaning: readCell(row, headers, 'v_meaning'),
       e_example: readCell(row, headers, 'e_example'),
       v_example: readCell(row, headers, 'v_example'),
-      word_family: readCell(row, headers, 'word_family'),
-      synonymous: readCell(row, headers, 'synonymous'),
-      antonym: readCell(row, headers, 'antonym'),
-      bonus: readCell(row, headers, 'bonus')
+      word_family: normalizeSupplementaryText(readCell(row, headers, 'word_family')) ?? '',
+      synonymous: normalizeSupplementaryText(readCell(row, headers, 'synonymous')) ?? '',
+      antonym: normalizeSupplementaryText(readCell(row, headers, 'antonym')) ?? '',
+      collocation: normalizeSupplementaryText(readCell(row, headers, 'collocation')) ?? '',
+      formula: normalizeSupplementaryText(readCell(row, headers, 'formula')) ?? '',
+      note: normalizeSupplementaryText(readCell(row, headers, 'note')) ?? '',
+      bonus: normalizeSupplementaryText(readCell(row, headers, 'bonus')) ?? ''
     };
 
-    if (!parsed.word) parsed.error = 'Thiếu từ vựng';
+    const error = vocabularyContentError(parsed);
+    if (error) parsed.error = error;
     return parsed;
   });
 }
@@ -79,6 +91,9 @@ export async function exportVocabularyWorkbook(topic: Topic, vocabs: VocabCatalo
     'word_family',
     'synonymous',
     'antonym',
+    'collocation',
+    'formula',
+    'note',
     'bonus'
   ];
 
@@ -98,6 +113,9 @@ export async function exportVocabularyWorkbook(topic: Topic, vocabs: VocabCatalo
         vocab.word_family,
         vocab.synonymous,
         vocab.antonym,
+        vocab.collocation,
+        vocab.formula,
+        vocab.note,
         vocab.bonus
       ].map((value) => ({ value: value ?? '' }))
     )

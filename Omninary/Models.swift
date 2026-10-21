@@ -2,6 +2,7 @@ import Foundation
 
 struct Vocabulary: Identifiable, Codable, Hashable {
     var id: String?
+    var topicMemberships: [UserTopic]?
     var catalog_id: String?
     var user_vocabulary_id: String?
     var created_at: String?
@@ -22,6 +23,9 @@ struct Vocabulary: Identifiable, Codable, Hashable {
     var word_family: String?
     var synonymous: String?
     var antonym: String?
+    var collocation: String?
+    var formula: String?
+    var note: String?
     var bonus: String?
     var user_id: String?
     var learning_level: Int?
@@ -30,6 +34,7 @@ struct Vocabulary: Identifiable, Codable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case id = "ID"
+        case topicMemberships
         case catalog_id
         case user_vocabulary_id
         case created_at
@@ -50,6 +55,9 @@ struct Vocabulary: Identifiable, Codable, Hashable {
         case word_family
         case synonymous
         case antonym
+        case collocation
+        case formula
+        case note
         case bonus
         case user_id
         case learning_level
@@ -58,6 +66,7 @@ struct Vocabulary: Identifiable, Codable, Hashable {
     }
     
     init(id: String? = UUID().uuidString,
+         topicMemberships: [UserTopic]? = nil,
          catalog_id: String? = nil,
          user_vocabulary_id: String? = nil,
          created_at: String? = nil,
@@ -78,12 +87,16 @@ struct Vocabulary: Identifiable, Codable, Hashable {
          word_family: String? = nil,
          synonymous: String? = nil,
          antonym: String? = nil,
+         collocation: String? = nil,
+         formula: String? = nil,
+         note: String? = nil,
          bonus: String? = nil,
          user_id: String? = nil,
-         learning_level: Int? = 0,
+         learning_level: Int? = nil,
          next_review: String? = nil,
          pronunciation_score: Int? = nil) {
         self.id = id
+        self.topicMemberships = topicMemberships
         self.catalog_id = catalog_id
         self.user_vocabulary_id = user_vocabulary_id
         self.created_at = created_at
@@ -104,6 +117,9 @@ struct Vocabulary: Identifiable, Codable, Hashable {
         self.word_family = word_family
         self.synonymous = synonymous
         self.antonym = antonym
+        self.collocation = collocation
+        self.formula = formula
+        self.note = note
         self.bonus = bonus
         self.user_id = user_id
         self.learning_level = learning_level
@@ -136,6 +152,7 @@ extension Vocabulary {
     }
 
     var downloadIdentityKey: String? {
+        if let catalogId = catalog_id { return catalogId.lowercased() }
         guard let normalizedWord else { return nil }
         return [
             normalizedWord,
@@ -146,20 +163,83 @@ extension Vocabulary {
         ].joined(separator: "|")
     }
 
+    /// Explicit empty memberships mean uncategorized; do not revive a legacy topic.
+    var collectionTopics: [UserTopic] {
+        if let topicMemberships { return topicMemberships }
+        guard let topic_id, let topics else { return [] }
+        return [UserTopic(id: topic_id, name: topics, description: nil, visibility: nil, owner_id: nil, created_at: nil)]
+    }
+
+    /// The catalog ID identifies the learning item, never its spelling.
+    var vocabularyIdentity: String { catalog_id ?? id ?? "" }
+
+    static func sortedItems(_ vocabs: [Vocabulary]) -> [Vocabulary] {
+        var seen: Set<String> = []
+        return vocabs.filter { seen.insert($0.vocabularyIdentity).inserted }.sorted {
+            let order = ($0.vocab ?? "").localizedStandardCompare($1.vocab ?? "")
+            return order == .orderedSame ? $0.vocabularyIdentity < $1.vocabularyIdentity : order == .orderedAscending
+        }
+    }
+
+    static func groupedByTopic(_ vocabs: [Vocabulary], uncategorizedName: String = "Chủ đề chung") -> [String: [Vocabulary]] {
+        var result: [String: [Vocabulary]] = [:]
+        for vocab in vocabs {
+            let memberships = vocab.collectionTopics
+            if memberships.isEmpty { result[uncategorizedName, default: []].append(vocab) }
+            for topic in memberships {
+                var contextual = vocab
+                contextual.topic_id = topic.id
+                contextual.topics = topic.name
+                result[topic.name, default: []].append(contextual)
+            }
+        }
+        return result
+    }
+
     private func normalizedText(_ value: String?) -> String {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
 }
 
-struct UpdateLearningData: Encodable {
-    let learning_level: Int
-    let next_review: String
+extension Vocabulary {
+    static func supplementaryValues(_ text: String?) -> [String] {
+        (text ?? "").components(separatedBy: ";")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    static func normalizedSupplementaryText(_ text: String?) -> String? {
+        let values = supplementaryValues(text)
+        return values.isEmpty ? nil : values.joined(separator: "; ")
+    }
+
+    func validateContent() throws {
+        let required: [(String, String?)] = [
+            ("Từ vựng", vocab), ("Trình độ ngôn ngữ", CEFR), ("Phiên âm", IPA),
+            ("Từ loại", word_form), ("Nghĩa tiếng Anh", E_meaning),
+            ("Dịch nghĩa tiếng Anh", EV_meaning), ("Nghĩa tiếng Việt", V_meaning),
+            ("Ví dụ tiếng Anh", Self.normalizedExample(E_example)),
+            ("Ví dụ tiếng Việt", Self.normalizedExample(V_example))
+        ]
+        let missing = required.filter { ($0.1 ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map(\.0)
+        if !missing.isEmpty {
+            throw VocabularyContentError(message: "Vui lòng bổ sung: \(missing.joined(separator: ", ")).")
+        }
+        let values = required.map(\.1) + [word_family, synonymous, antonym, collocation, formula, note, bonus]
+        let hasReviewAnnotation = values.contains { value in
+            (value ?? "").components(separatedBy: .newlines).dropFirst().contains { line in
+                (1...3).contains { priority in line.hasPrefix("(Nhận xét ưu tiên \(priority):") }
+            }
+        }
+        if hasReviewAnnotation {
+            throw VocabularyContentError(message: "Hãy xử lý và xoá nhận xét rà dữ liệu trước khi lưu từ vựng.")
+        }
+    }
 }
 
-struct UpdateMasterData: Encodable {
-    let learning_level: Int
-    let next_review: String
-    let pronunciation_score: Int
+struct VocabularyContentError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }
 
 struct UpdatePronunciationScore: Encodable {
@@ -184,6 +264,9 @@ struct UserStats: Codable {
     var user_id: String
     var streak_count: Int
     var last_learning_date: String?
+    var streak_freeze_date: String? = nil
+    var saved_streak_count: Int? = 0
+    var streak_restore_expires_at: String? = nil
 }
 
 struct Notification: Identifiable, Codable {
@@ -219,6 +302,9 @@ struct TopicDraftWordInput: Identifiable, Codable {
     var wordFamily: String = ""
     var synonymous: String = ""
     var antonym: String = ""
+    var collocation: String = ""
+    var formula: String = ""
+    var note: String = ""
     var bonus: String = ""
 }
 

@@ -10,6 +10,55 @@ import Testing
 @testable import Omninary
 
 struct OmninaryTests {
+    @Test func sameSpellingItemsHaveIndependentProgress() {
+        let root = UserTopic(id: "root", name: "Chưa xác định", visibility: "private", owner_id: "learner")
+        let first = Vocabulary(topicMemberships: [root], catalog_id: "finance", vocab: "bank", IPA: "/bæŋk/", word_form: "noun", V_meaning: "ngân hàng", learning_level: 4)
+        let second = Vocabulary(topicMemberships: [root], catalog_id: "river", vocab: "bank", IPA: "/bæŋk/", word_form: "noun", V_meaning: "bờ sông", learning_level: 1)
+        let third = Vocabulary(topicMemberships: [root], catalog_id: "verb", vocab: "bank", word_form: "verb", V_meaning: "gửi tiền", learning_level: 0)
+        let entries = VocabularyFileEntry.entries(from: [first, second, third, first], topicID: "root")
+        #expect(entries.count == 3)
+        #expect(Set(entries.map(\.id)) == ["finance", "river", "verb"])
+        #expect(entries.first { $0.id == "finance" }?.vocabulary.learning_level == 4)
+        #expect(entries.first { $0.id == "river" }?.vocabulary.learning_level == 1)
+        #expect(Vocabulary.sortedItems([first, second, third]).count == 3)
+        let plan = LearningSessionBuilder.build(from: [first, second, third, first])
+        #expect(plan.totalLearningWords == 2)
+        #expect(plan.selectedGroups.count == 2)
+        #expect(Set(plan.selectedGroups.flatMap { $0.compactMap(\.catalog_id) }) == ["finance", "river"])
+        #expect(plan.tasks.allSatisfy { $0.meanings.count == 1 })
+    }
+
+    @Test func sameMeaningInTwoTopicsHasOneLearningProgress() throws {
+        let business = UserTopic(id: "business", name: "Business", description: nil, visibility: "system", owner_id: nil, created_at: nil)
+        let exam = UserTopic(id: "exam", name: "IELTS", description: nil, visibility: "private", owner_id: "learner", created_at: nil)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let meaning = Vocabulary(id: "progress", topicMemberships: [business, exam], catalog_id: "bank-finance",
+            vocab: "bank", V_meaning: "ngân hàng", learning_level: 4,
+            next_review: ISO8601DateFormatter().string(from: now.addingTimeInterval(-60)))
+        let collections = Vocabulary.groupedByTopic([meaning])
+        #expect(collections["Business"]?.first?.id == "progress")
+        #expect(collections["IELTS"]?.first?.learning_level == 4)
+        let plan = LearningSessionBuilder.build(from: [meaning, meaning], now: now)
+        #expect(plan.totalLearningWords == 1)
+        #expect(plan.selectedGroups.count == 1)
+        #expect(plan.tasks.allSatisfy { $0.meanings.count == 1 && $0.meanings.first?.id == "progress" })
+    }
+
+    @Test func removedMembershipDoesNotFallBackToLegacyTopic() {
+        let meaning = Vocabulary(id: "progress", topicMemberships: [], catalog_id: "sense", topic_id: "legacy",
+            topics: "Legacy", vocab: "bank", learning_level: 4)
+        #expect(meaning.collectionTopics.isEmpty)
+        #expect(Vocabulary.groupedByTopic([meaning])["Legacy"] == nil)
+        #expect(Vocabulary.groupedByTopic([meaning])["Chủ đề chung"]?.count == 1)
+    }
+
+    @Test func downloadIdentitySurvivesContentEdits() {
+        let original = Vocabulary(catalog_id: "stable-sense", vocab: "bank", V_meaning: "ngân hàng")
+        let edited = Vocabulary(catalog_id: "stable-sense", vocab: "Bank", V_meaning: "một ngân hàng")
+        let different = Vocabulary(catalog_id: "different-sense", vocab: "bank", V_meaning: "bờ sông")
+        #expect(original.downloadIdentityKey == edited.downloadIdentityKey)
+        #expect(original.downloadIdentityKey != different.downloadIdentityKey)
+    }
 
     @Test func normalizesLearningText() async throws {
         #expect(LearningTextNormalizer.normalizedWords("Hello, world!") == ["hello", "world"])
@@ -191,24 +240,29 @@ struct OmninaryTests {
         #expect(ReviewScheduler.nextLearningLevel(from: 0) == 1)
         #expect(ReviewScheduler.nextLearningLevel(from: 5) == 6)
         #expect(ReviewScheduler.nextLearningLevel(from: 6) == 7)
-        #expect(ReviewScheduler.reviewDelayDays(for: 4) == 7)
-        #expect(ReviewScheduler.reviewDelayDays(for: 5) == 15)
-        #expect(ReviewScheduler.reviewDelayDays(for: 6) == 30)
-        #expect(ReviewScheduler.reviewDelayDays(for: 7) == 60)
-        #expect(ReviewScheduler.reviewDelayDays(for: 10) == 365)
+        #expect(ReviewScheduler.nextLearningLevel(from: 10) == 10)
+        #expect(ReviewScheduler.reviewDelayDays(for: 4) == 15)
+        #expect(ReviewScheduler.reviewDelayDays(for: 5) == 30)
+        #expect(ReviewScheduler.reviewDelayDays(for: 6) == 60)
+        #expect(ReviewScheduler.reviewDelayDays(for: 7) == 120)
+        #expect(ReviewScheduler.nextReviewDate(for: 10, from: Date()) == nil)
     }
 
     @Test func ditandnaryReviewScheduleUsesPublishedFixedIntervals() async throws {
-        #expect(OmninaryReviewSchedule.days(for: 1) == 0)
-        #expect(OmninaryReviewSchedule.days(for: 2) == 1)
-        #expect(OmninaryReviewSchedule.days(for: 3) == 3)
-        #expect(OmninaryReviewSchedule.days(for: 4) == 7)
-        #expect(OmninaryReviewSchedule.days(for: 5) == 15)
-        #expect(OmninaryReviewSchedule.days(for: 6) == 30)
-        #expect(OmninaryReviewSchedule.days(for: 7) == 60)
-        #expect(OmninaryReviewSchedule.days(for: 8) == 120)
-        #expect(OmninaryReviewSchedule.days(for: 9) == 240)
-        #expect(OmninaryReviewSchedule.days(for: 10) == 365)
+        #expect(OmninaryReviewSchedule.days(for: 0) == 0)
+        #expect(OmninaryReviewSchedule.days(for: 1) == 1)
+        #expect(OmninaryReviewSchedule.days(for: 2) == 3)
+        #expect(OmninaryReviewSchedule.days(for: 3) == 7)
+        #expect(OmninaryReviewSchedule.days(for: 4) == 15)
+        #expect(OmninaryReviewSchedule.days(for: 5) == 30)
+        #expect(OmninaryReviewSchedule.days(for: 6) == 60)
+        #expect(OmninaryReviewSchedule.days(for: 7) == 120)
+        #expect(OmninaryReviewSchedule.days(for: 8) == 240)
+        #expect(OmninaryReviewSchedule.days(for: 9) == 365)
+        #expect(LearningLevelDisplay.title(for: nil) == "New")
+        #expect(LearningLevelDisplay.title(for: 0) == "Cấp 0")
+        #expect(LearningLevelDisplay.title(for: 9) == "Master")
+        #expect(LearningLevelDisplay.title(for: 10) == "Super")
     }
 
     @Test func learningSessionBuilderAddsSentencePronunciationTasks() async throws {
@@ -255,6 +309,21 @@ struct OmninaryTests {
         #expect(plan.dueVocabsCount == 1)
         #expect(plan.selectedGroups.count == 1)
         #expect(plan.tasks.contains { $0.type == .pronunciationExample })
+    }
+
+    @Test func newAndSuperWordsNeverEnterAutomaticReview() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let newWord = Vocabulary(id: "new", vocab: "new", V_meaning: "mới")
+        let firstWord = Vocabulary(id: "first", vocab: "first", V_meaning: "đầu", learning_level: 0)
+        let superWord = Vocabulary(id: "super", vocab: "super", V_meaning: "siêu", learning_level: 10)
+
+        let plan = LearningSessionBuilder.build(from: [newWord, firstWord, superWord], now: now)
+
+        #expect(plan.totalLearningWords == 2)
+        #expect(plan.dueVocabsCount == 1)
+        #expect(plan.selectedGroups.first?.first?.id == "first")
+        #expect(plan.statsByLevel[0] == 1)
+        #expect(plan.statsByLevel[7] == 1)
     }
 
     @Test func learningSessionBuilderKeepsBaseExercisesWhenExampleIsMissing() async throws {

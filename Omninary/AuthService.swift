@@ -9,7 +9,9 @@ enum AuthService {
     static func listenToAuthChanges(_ handler: @MainActor @escaping (User?) async -> Void) -> Task<Void, Never> {
         Task {
             for await (_, session) in supabase.auth.authStateChanges {
-                await handler(session?.user)
+                // The initial local session can be expired. Never authenticate the UI
+                // from it until Supabase emits a refreshed, valid session.
+                await handler(session?.isExpired == true ? nil : session?.user)
             }
         }
     }

@@ -68,27 +68,11 @@ struct AuthView: View {
                     Button(action: {
                         Task { await authenticate() }
                     }) {
-                        if isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color(red: 0/255, green: 132/255, blue: 255/255))
-                                .cornerRadius(30)
-                                .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-                        } else {
-                            Text(isLogin ? "SIGN IN" : "SIGN UP")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color(red: 0/255, green: 132/255, blue: 255/255))
-                                .cornerRadius(30)
-                                .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-                        }
+                        if isLoading { ProgressView().tint(.white) }
+                        else { Text(isLogin ? "SIGN IN" : "SIGN UP") }
                     }
+                    .buttonStyle(AppActionButtonStyle(isExtra: interfaceMode.usesDarkTheme))
                     .disabled(isLoading || email.isEmpty || password.isEmpty || (!isLogin && displayName.isEmpty))
-                    .opacity((isLoading || email.isEmpty || password.isEmpty || (!isLogin && displayName.isEmpty)) ? 0.6 : 1.0)
                     .padding(.top, 10)
                 }
                 .padding(.horizontal, 30)
@@ -143,6 +127,7 @@ struct CustomTextField: View {
     var isSecure: Bool = false
     var keyboardType: UIKeyboardType = .default
     @State private var isPasswordVisible = false
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     
     var body: some View {
         HStack(spacing: 15) {
@@ -174,9 +159,7 @@ struct CustomTextField: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding()
-        .background(Color(UIColor.secondarySystemBackground))
-        .cornerRadius(30)
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme)
     }
 }

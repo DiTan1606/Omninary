@@ -1,5 +1,7 @@
+import { requireVocabularyContent, normalizeSupplementaryText } from './vocabularyContent';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { catalogTopics, savedTopics, vocabularyIdentity } from './vocabularyCollections';
 import {
   AppNotification,
   ExploreTopic,
@@ -18,18 +20,20 @@ import {
 
 const catalogSelect = `
 id,created_at,topic_id,created_by,visibility,word,cefr,ipa,word_form,
-e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,bonus,
-topics(id,name,description,visibility,owner_id,created_at)
+e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,collocation,formula,note,bonus,
+topics!vocab_catalog_topic_id_fkey(id,name,description,visibility,owner_id,created_at),
+topic_vocab(topics(id,name,description,visibility,owner_id,created_at))
 `;
 
 const userVocabularySelect = `
 id,user_id,vocab_id,learning_level,next_review,pronunciation_score,saved_at,
+user_topic_vocab(topics(id,name,description,visibility,owner_id,created_at)),
 vocab_catalog(${catalogSelect})
 `;
 
 const topicSubmissionSelect = `
 id,requester_id,topic_id,name,description,status,created_at,admin_note,reviewed_at,
-topic_submission_words(id,catalog_id,word,cefr,ipa,word_form,e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,bonus)
+topic_submission_words(id,catalog_id,word,cefr,ipa,word_form,e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,collocation,formula,note,bonus)
 `;
 
 function clean(value: string | null | undefined) {
@@ -76,6 +80,9 @@ export function emptyVocabInput(topicId: string | null = null): VocabInput {
     word_family: '',
     synonymous: '',
     antonym: '',
+    collocation: '',
+    formula: '',
+    note: '',
     bonus: ''
   };
 }
@@ -96,6 +103,9 @@ export function catalogToInput(vocab: VocabCatalog): VocabInput {
     word_family: vocab.word_family ?? '',
     synonymous: vocab.synonymous ?? '',
     antonym: vocab.antonym ?? '',
+    collocation: vocab.collocation ?? '',
+    formula: vocab.formula ?? '',
+    note: vocab.note ?? '',
     bonus: vocab.bonus ?? ''
   };
 }
@@ -115,16 +125,19 @@ function toPrivateCatalogInsert(input: VocabInput, userId: string) {
     v_meaning: clean(input.v_meaning),
     e_example: cleanExample(input.e_example),
     v_example: cleanExample(input.v_example),
-    word_family: clean(input.word_family),
-    synonymous: clean(input.synonymous),
-    antonym: clean(input.antonym),
-    bonus: clean(input.bonus)
+    word_family: normalizeSupplementaryText(input.word_family),
+    synonymous: normalizeSupplementaryText(input.synonymous),
+    antonym: normalizeSupplementaryText(input.antonym),
+    collocation: normalizeSupplementaryText(input.collocation),
+    formula: normalizeSupplementaryText(input.formula),
+    note: normalizeSupplementaryText(input.note),
+    bonus: normalizeSupplementaryText(input.bonus)
   };
 }
 
 function toCatalogUpdate(input: VocabInput) {
+  requireVocabularyContent(input);
   return {
-    topic_id: input.topic_id,
     word: clean(input.word) ?? 'Untitled',
     cefr: clean(input.cefr),
     ipa: clean(input.ipa),
@@ -134,10 +147,13 @@ function toCatalogUpdate(input: VocabInput) {
     v_meaning: clean(input.v_meaning),
     e_example: cleanExample(input.e_example),
     v_example: cleanExample(input.v_example),
-    word_family: clean(input.word_family),
-    synonymous: clean(input.synonymous),
-    antonym: clean(input.antonym),
-    bonus: clean(input.bonus)
+    word_family: normalizeSupplementaryText(input.word_family),
+    synonymous: normalizeSupplementaryText(input.synonymous),
+    antonym: normalizeSupplementaryText(input.antonym),
+    collocation: normalizeSupplementaryText(input.collocation),
+    formula: normalizeSupplementaryText(input.formula),
+    note: normalizeSupplementaryText(input.note),
+    bonus: normalizeSupplementaryText(input.bonus)
   };
 }
 
@@ -187,7 +203,7 @@ export async function fetchPrivateTopics(userId: string) {
 }
 
 function wordKey(vocab: VocabCatalog) {
-  return vocab.word?.trim().toLowerCase() || vocab.id;
+  return vocabularyIdentity(vocab);
 }
 
 function uniqueCatalogWordCount(vocabs: VocabCatalog[]) {
@@ -209,7 +225,7 @@ export async function fetchExploreTopics(userId: string): Promise<ExploreTopic[]
         .order('word', { ascending: true }),
       supabase
         .from('user_vocabulary')
-        .select('vocab_id')
+        .select('vocab_id,user_topic_vocab(topic_id)')
         .eq('user_id', userId)
     ]);
 
@@ -217,16 +233,24 @@ export async function fetchExploreTopics(userId: string): Promise<ExploreTopic[]
   if (catalogError) throw catalogError;
   if (userError) throw userError;
 
-  const downloadedIds = new Set((userRows ?? []).map((row) => row.vocab_id).filter(Boolean));
+  const downloadedByTopic = new Map<string, Set<string>>();
+  for (const row of userRows ?? []) {
+    for (const link of row.user_topic_vocab ?? []) {
+      const ids = downloadedByTopic.get(link.topic_id) ?? new Set<string>();
+      ids.add(row.vocab_id);
+      downloadedByTopic.set(link.topic_id, ids);
+    }
+  }
   const vocabsByTopic = new Map<string, VocabCatalog[]>();
-
   ((catalogRows ?? []) as unknown as VocabCatalog[]).forEach((vocab) => {
-    if (!vocab.topic_id) return;
-    vocabsByTopic.set(vocab.topic_id, [...(vocabsByTopic.get(vocab.topic_id) ?? []), vocab]);
+    for (const topic of catalogTopics(vocab)) {
+      vocabsByTopic.set(topic.id, [...(vocabsByTopic.get(topic.id) ?? []), vocab]);
+    }
   });
 
   return ((topics ?? []) as Topic[]).map((topic) => {
     const vocabs = vocabsByTopic.get(topic.id) ?? [];
+    const downloadedIds = downloadedByTopic.get(topic.id) ?? new Set<string>();
     const downloadedVocabs = vocabs.filter((vocab) => downloadedIds.has(vocab.id));
     const newVocabs = vocabs.filter((vocab) => !downloadedIds.has(vocab.id));
 
@@ -241,44 +265,38 @@ export async function fetchExploreTopics(userId: string): Promise<ExploreTopic[]
   });
 }
 
+export async function saveMeaningsToTopic(catalogIds: string[], topicId: string | null) {
+  if (!catalogIds.length) return { added_meanings: 0 };
+  const { data, error } = await supabase.rpc('save_vocabulary_to_topic', {
+    p_vocab_ids: [...new Set(catalogIds)], p_topic_id: topicId
+  });
+  if (error) throw error;
+  return data as { added_meanings: number };
+}
+
+export async function removeMeaningsFromTopic(catalogIds: string[], topicId: string) {
+  const { error } = await supabase.rpc('remove_vocabulary_from_topic', {
+    p_vocab_ids: [...new Set(catalogIds)], p_topic_id: topicId
+  });
+  if (error) throw error;
+}
+
+export async function searchAvailableMeanings(word: string) {
+  const { data, error } = await supabase.from('vocab_catalog').select(catalogSelect)
+    .ilike('word', word.trim()).order('word').limit(50);
+  if (error) throw error;
+  return (data ?? []) as unknown as VocabCatalog[];
+}
+
 export async function downloadSystemTopic(userId: string, topicId: string): Promise<TopicDownloadResult> {
-  const [{ data: catalogRows, error: catalogError }, { data: userRows, error: userError }] = await Promise.all([
-    supabase
-      .from('vocab_catalog')
-      .select(catalogSelect)
-      .eq('topic_id', topicId)
-      .eq('visibility', 'system'),
-    supabase
-      .from('user_vocabulary')
-      .select('vocab_id')
-      .eq('user_id', userId)
-  ]);
-
-  if (catalogError) throw catalogError;
-  if (userError) throw userError;
-
-  const downloadedIds = new Set((userRows ?? []).map((row) => row.vocab_id).filter(Boolean));
-  const newVocabs = ((catalogRows ?? []) as unknown as VocabCatalog[]).filter((vocab) => !downloadedIds.has(vocab.id));
-
-  if (newVocabs.length > 0) {
-    const payload = newVocabs.map((vocab) => ({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      vocab_id: vocab.id,
-      learning_level: 0,
-      next_review: null,
-      pronunciation_score: null
-    }));
-    const { error } = await supabase
-      .from('user_vocabulary')
-      .upsert(payload, { onConflict: 'user_id,vocab_id', ignoreDuplicates: true });
-    if (error) throw error;
-  }
-
-  return {
-    addedMeanings: newVocabs.length,
-    addedWords: uniqueCatalogWordCount(newVocabs)
-  };
+  const { data, error } = await supabase.from('vocab_catalog').select(catalogSelect).eq('visibility', 'system');
+  if (error) throw error;
+  const meanings = ((data ?? []) as unknown as VocabCatalog[]).filter((vocab) => catalogTopics(vocab).some((topic) => topic.id === topicId));
+  const saved = await fetchUserVocabs(userId);
+  const selectedIds = new Set(saved.filter((row) => savedTopics(row).some((topic) => topic.id === topicId)).map((row) => row.vocab_id));
+  const missing = meanings.filter((vocab) => !selectedIds.has(vocab.id));
+  await saveMeaningsToTopic(missing.map((vocab) => vocab.id), topicId);
+  return { addedMeanings: missing.length, addedWords: uniqueCatalogWordCount(missing) };
 }
 
 export async function createPrivateTopic(name: string, description: string, userId: string) {
@@ -301,15 +319,6 @@ export async function createPrivateTopic(name: string, description: string, user
 }
 
 export async function deletePrivateTopic(topic: Topic, userId: string) {
-  const { data: linkedVocabs, error: vocabError } = await supabase
-    .from('vocab_catalog')
-    .select('id')
-    .eq('topic_id', topic.id)
-    .limit(1);
-
-  if (vocabError) throw vocabError;
-  if ((linkedVocabs ?? []).length > 0) throw new Error('Chỉ có thể xoá topic khi chưa có từ vựng nào.');
-
   const { data: pending, error: pendingError } = await supabase
     .from('topic_submissions')
     .select('id')
@@ -341,20 +350,10 @@ export async function deletePrivateTopic(topic: Topic, userId: string) {
 }
 
 export async function createPrivateVocab(input: VocabInput, userId: string) {
-  const catalog = toPrivateCatalogInsert(input, userId);
-  const { error: catalogError } = await supabase.from('vocab_catalog').insert(catalog);
-  if (catalogError) throw catalogError;
-
-  const { error: linkError } = await supabase.from('user_vocabulary').insert({
-    id: crypto.randomUUID(),
-    user_id: userId,
-    vocab_id: catalog.id,
-    learning_level: 0,
-    next_review: null,
-    pronunciation_score: null
+  const { error } = await supabase.rpc('create_vocabulary_item', {
+    p_vocab: toPrivateCatalogInsert(input, userId), p_topic_id: input.topic_id, p_as_system: false
   });
-
-  if (linkError) throw linkError;
+  if (error) throw error;
 }
 
 export async function importPrivateVocabs(rows: VocabInput[], userId: string) {
@@ -467,10 +466,13 @@ export async function submitPrivateTopicForReview(topic: Topic, vocabs: UserVoca
       v_meaning: clean(vocab?.v_meaning),
       e_example: cleanExample(vocab?.e_example),
       v_example: cleanExample(vocab?.v_example),
-      word_family: clean(vocab?.word_family),
-      synonymous: clean(vocab?.synonymous),
-      antonym: clean(vocab?.antonym),
-      bonus: clean(vocab?.bonus)
+      word_family: normalizeSupplementaryText(vocab?.word_family),
+      synonymous: normalizeSupplementaryText(vocab?.synonymous),
+      antonym: normalizeSupplementaryText(vocab?.antonym),
+      collocation: normalizeSupplementaryText(vocab?.collocation),
+      formula: normalizeSupplementaryText(vocab?.formula),
+      note: normalizeSupplementaryText(vocab?.note),
+      bonus: normalizeSupplementaryText(vocab?.bonus)
     };
   });
 
@@ -494,15 +496,6 @@ export async function deleteRejectedTopicSubmission(submissionId: string, userId
 
   if (error) throw error;
   if (!data?.length) throw new Error('Không xoá được request này. Bạn cần chạy SQL cập nhật quyền xoá topic bị từ chối trên Supabase.');
-}
-
-export async function updateLearningData(rowId: string, learningLevel: number, nextReview: string | null) {
-  const { error } = await supabase
-    .from('user_vocabulary')
-    .update({ learning_level: learningLevel, next_review: nextReview })
-    .eq('id', rowId);
-
-  if (error) throw error;
 }
 
 export async function fetchNotifications(userId: string) {
@@ -614,15 +607,11 @@ export function computeStats(
   wordSubmissions: UserVocabSubmission[],
   topicSubmissions: UserTopicSubmission[]
 ): UserDashboardStats {
-  const uniqueWords = new Set(
-    vocabs
-      .map((row) => row.vocab_catalog?.word?.trim().toLowerCase())
-      .filter((word): word is string => Boolean(word))
-  );
+  const uniqueWords = new Set(vocabs.map((row) => row.vocab_id ?? row.vocab_catalog?.id ?? row.id));
   const now = Date.now();
   const dueWords = vocabs.filter((row) => {
-    const level = row.learning_level ?? 0;
-    if (level <= 0) return false;
+    const level = row.learning_level;
+    if (level === null || level < 0 || level >= 10) return false;
     if (!row.next_review) return true;
     return new Date(row.next_review).getTime() <= now;
   }).length;
@@ -636,9 +625,9 @@ export function computeStats(
   return {
     savedWords: vocabs.length,
     uniqueWords: uniqueWords.size,
-    learningWords: vocabs.filter((row) => (row.learning_level ?? 0) > 0).length,
+    learningWords: vocabs.filter((row) => row.learning_level !== null && row.learning_level >= 0).length,
     dueWords,
-    masteredWords: vocabs.filter((row) => (row.learning_level ?? 0) >= 6).length,
+    masteredWords: vocabs.filter((row) => row.learning_level !== null && row.learning_level >= 6).length,
     privateTopics: privateTopics.length,
     pendingRequests,
     rejectedRequests
@@ -646,24 +635,25 @@ export function computeStats(
 }
 
 export function isDue(row: UserVocabulary) {
-  if ((row.learning_level ?? 0) <= 0) return false;
+  if (row.learning_level === null || row.learning_level < 0 || row.learning_level >= 10) return false;
   if (!row.next_review) return true;
   return new Date(row.next_review).getTime() <= Date.now();
 }
 
 export function nextReviewDateForLevel(level: number) {
   const delayByLevel: Record<number, number> = {
-    1: 0,
-    2: 1,
-    3: 3,
-    4: 7,
-    5: 15,
-    6: 30,
-    7: 60,
-    8: 120,
-    9: 240
+    1: 1,
+    2: 3,
+    3: 7,
+    4: 15,
+    5: 30,
+    6: 60,
+    7: 120,
+    8: 240,
+    9: 365
   };
-  const delayDays = level >= 10 ? 365 : delayByLevel[level] ?? 365;
+  if (level >= 10) return null;
+  const delayDays = delayByLevel[level] ?? 0;
   const date = new Date();
   date.setDate(date.getDate() + delayDays);
   return date.toISOString();

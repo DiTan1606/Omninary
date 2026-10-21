@@ -423,8 +423,8 @@
 		9E2CCBB22F9A8AC900EAE10C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "OmniExtraordinaryAppIcon ExtraordinaryAppIcon OmniStreak30AppIcon OmniStreak100AppIcon OmniStreak200AppIcon OmniStreak300AppIcon OmniSolarFlameAppIcon OmniEmeraldForestAppIcon OmniCyberIceAppIcon OmniSeasonSpringAppIcon OmniSeasonSummerAppIcon OmniSeasonAutumnAppIcon OmniSeasonWinterAppIcon OmniLegendaryCelestialOracleAppIcon OmniLegendaryImperialKoiAppIcon OmniMythicJadeDragonAppIcon OmniMythicImperialChronoAppIcon OmniMythicSolarSystemAppIcon OmniAISC26AppIcon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = ExtraordinaryAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -457,8 +457,8 @@
 		9E2CCBB32F9A8AC900EAE10C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "OmniExtraordinaryAppIcon ExtraordinaryAppIcon OmniStreak30AppIcon OmniStreak100AppIcon OmniStreak200AppIcon OmniStreak300AppIcon OmniSolarFlameAppIcon OmniEmeraldForestAppIcon OmniCyberIceAppIcon OmniSeasonSpringAppIcon OmniSeasonSummerAppIcon OmniSeasonAutumnAppIcon OmniSeasonWinterAppIcon OmniLegendaryCelestialOracleAppIcon OmniLegendaryImperialKoiAppIcon OmniMythicJadeDragonAppIcon OmniMythicImperialChronoAppIcon OmniMythicSolarSystemAppIcon OmniAISC26AppIcon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = ExtraordinaryAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

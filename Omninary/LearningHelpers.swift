@@ -24,27 +24,28 @@ enum LearningTextNormalizer {
 
 enum ReviewScheduler {
     static func nextLearningLevel(from currentLevel: Int) -> Int {
-        currentLevel + 1
+        min(currentLevel + 1, 10)
     }
 
     static func reviewDelayDays(for learningLevel: Int) -> Int {
         OmninaryReviewSchedule.days(for: learningLevel)
     }
 
-    static func nextReviewDate(for learningLevel: Int, from date: Date) -> Date {
-        Calendar.current.date(
+    static func nextReviewDate(for learningLevel: Int, from date: Date) -> Date? {
+        guard learningLevel < 10 else { return nil }
+        return Calendar.current.date(
             byAdding: .day,
             value: reviewDelayDays(for: learningLevel),
             to: date
         ) ?? date
     }
 
-    static func reviewString(for learningLevel: Int, from date: Date, formatter: ISO8601DateFormatter) -> String {
-        formatter.string(from: nextReviewDate(for: learningLevel, from: date))
+    static func reviewString(for learningLevel: Int, from date: Date, formatter: ISO8601DateFormatter) -> String? {
+        nextReviewDate(for: learningLevel, from: date).map { formatter.string(from: $0) }
     }
 
     static func isDue(_ vocab: Vocabulary, now: Date) -> Bool {
-        guard let level = vocab.learning_level, level > 0 else { return false }
+        guard let level = vocab.learning_level, (0..<10).contains(level) else { return false }
         guard let nextReview = vocab.next_review else { return true }
 
         let fractionalFormatter = ISO8601DateFormatter()
@@ -63,37 +64,37 @@ enum OmninaryReviewSchedule {
     static func days(for level: Int) -> Int {
         switch level {
         case ..<1: return 0
-        case 1: return 0
-        case 2: return 1
-        case 3: return 3
-        case 4: return 7
-        case 5: return 15
-        case 6: return 30
-        case 7: return 60
-        case 8: return 120
-        case 9: return 240
-        default: return 365
+        case 1: return 1
+        case 2: return 3
+        case 3: return 7
+        case 4: return 15
+        case 5: return 30
+        case 6: return 60
+        case 7: return 120
+        case 8: return 240
+        case 9: return 365
+        default: return 0 // Super has no automatic review.
         }
     }
 
     static let visiblePlan: [(title: String, subtitle: String)] = [
-        ("Cấp 0", "Mới tải về, bấm đưa từ này vào học để lên Cấp 1"),
-        ("Cấp 1 -> 2", "Ôn lại trong ngày"),
-        ("Cấp 2 -> 3", "Ôn lại sau 1 ngày"),
-        ("Cấp 3 -> 4", "Ôn lại sau 3 ngày"),
-        ("Cấp 4 -> 5", "Ôn lại sau 7 ngày"),
-        ("Cấp 5 -> 6", "Ôn lại sau 15 ngày"),
-        ("Cấp 6+", "Master, tiếp tục ôn sau 30, 60, 120, 240, rồi 365 ngày")
+        ("New", "Đưa vào danh sách học để lên Cấp 0"),
+        ("Cấp 0", "Học lần đầu ngay"),
+        ("Cấp 1–5", "Ôn sau 1, 3, 7, 15, rồi 30 ngày"),
+        ("Master", "Ôn sau 60, 120, 240, rồi 365 ngày"),
+        ("Super", "Hoàn thành, không còn lịch ôn tự động")
     ]
 }
 
 enum LearningLevelDisplay {
     static func bucket(for level: Int) -> Int {
-        level >= 6 ? 6 : max(level, 0)
+        level >= 10 ? 7 : min(max(level, 0), 6)
     }
 
-    static func title(for level: Int) -> String {
-        level >= 6 ? "Master" : "Cấp \(level)"
+    static func title(for level: Int?) -> String {
+        guard let level else { return "New" }
+        if level >= 10 { return "Super" }
+        return level >= 6 ? "Master" : "Cấp \(level)"
     }
 }
 
@@ -129,96 +130,94 @@ enum ReviewTimeFormatter {
 
 enum LearningSessionBuilder {
     static func build(from vocabs: [Vocabulary], now: Date = Date(), maxWords: Int = 5) -> LearningSessionPlan {
-        let allGrouped = Dictionary(grouping: vocabs, by: {
-            $0.vocab?.trimmingCharacters(in: .whitespaces).lowercased() ?? "unknown"
-        })
+        // Collection projections may contain the same item more than once. Learning
+        // and telemetry always use one entry per catalog ID.
+        var seenMeaningIDs = Set<String>()
+        let uniqueVocabs = vocabs.filter { vocab in
+            guard let identity = vocab.catalog_id ?? vocab.user_vocabulary_id ?? vocab.id else { return true }
+            return seenMeaningIDs.insert(identity).inserted
+        }
+        let allDistinctMeanings = Array(Set(uniqueVocabs.compactMap { $0.V_meaning?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }))
 
-        let allJoinedMeanings = Array(Set(allGrouped.values.compactMap { group -> String? in
-            let meanings = group.compactMap { $0.V_meaning }.filter { !$0.isEmpty }
-            return meanings.isEmpty ? nil : meanings.joined(separator: " / ")
-        }))
-
-        var dueGroups: [[Vocabulary]] = []
-        var stats = [1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0]
+        var dueMeanings: [Vocabulary] = []
+        var stats = Dictionary(uniqueKeysWithValues: (0...7).map { ($0, 0) })
         var totalLearningWords = 0
 
-        for group in allGrouped.values {
-            let isLearning = group.contains { ($0.learning_level ?? 0) > 0 }
-            guard isLearning else { continue }
+        for vocab in uniqueVocabs {
+            guard let level = vocab.learning_level, level >= 0 else { continue }
 
             totalLearningWords += 1
-            let level = group.first(where: { ($0.learning_level ?? 0) > 0 })?.learning_level ?? 1
             stats[LearningLevelDisplay.bucket(for: level), default: 0] += 1
 
-            let isDue = group.contains { ReviewScheduler.isDue($0, now: now) }
-            if isDue {
-                dueGroups.append(group)
+            if ReviewScheduler.isDue(vocab, now: now) {
+                dueMeanings.append(vocab)
             }
         }
 
-        let dueCount = dueGroups.count
-        var selectedDueGroups = dueGroups
-        selectedDueGroups.shuffle()
-        let selectedGroups = Array(selectedDueGroups.prefix(maxWords))
-        let wordsWithoutExampleExercises = selectedGroups.compactMap { group -> String? in
-            group.contains(where: { $0.englishExample != nil }) ? nil : group.first?.vocab
+        let dueCount = dueMeanings.count
+        var selectedDueMeanings = dueMeanings
+        selectedDueMeanings.shuffle()
+        let selectedMeanings = Array(selectedDueMeanings.prefix(maxWords))
+        let selectedGroups = selectedMeanings.map { [$0] }
+
+        let wordsWithoutExampleExercises = selectedMeanings.compactMap { meaning -> String? in
+            meaning.englishExample != nil ? nil : meaning.vocab
         }
-        let tasks = buildLearningTasks(from: selectedGroups, allJoinedMeanings: allJoinedMeanings).shuffled()
+        let tasks = buildLearningTasks(from: selectedMeanings, allDistinctMeanings: allDistinctMeanings).shuffled()
 
         return LearningSessionPlan(
             selectedGroups: selectedGroups,
             tasks: tasks,
             statsByLevel: stats,
             totalLearningWords: totalLearningWords,
-            totalSavedWords: allGrouped.count,
+            totalSavedWords: uniqueVocabs.count,
             dueVocabsCount: dueCount,
             wordsWithoutExampleExercises: wordsWithoutExampleExercises.sorted()
         )
     }
 
-    private static func buildLearningTasks(from groups: [[Vocabulary]], allJoinedMeanings: [String]) -> [LearningTask] {
+    private static func buildLearningTasks(from meanings: [Vocabulary], allDistinctMeanings: [String]) -> [LearningTask] {
         var tasks: [LearningTask] = []
 
-        for group in groups {
-            guard let word = group.first?.vocab else { continue }
+        for meaning in meanings {
+            guard let word = meaning.vocab?.trimmingCharacters(in: .whitespacesAndNewlines), !word.isEmpty else { continue }
+            let singleMeaningGroup = [meaning]
 
-            tasks.append(LearningTask(word: word, meanings: group, type: .listenAndType))
-            tasks.append(LearningTask(word: word, meanings: group, type: .meaningAndType))
+            tasks.append(LearningTask(word: word, meanings: singleMeaningGroup, type: .listenAndType))
+            tasks.append(LearningTask(word: word, meanings: singleMeaningGroup, type: .meaningAndType))
 
-            let correctMeaning = group.compactMap { $0.V_meaning }.filter { !$0.isEmpty }.joined(separator: " / ")
-            let correctOption = correctMeaning.isEmpty ? "Không có nghĩa" : correctMeaning
-            var options = [correctOption]
-            let distractors = allJoinedMeanings.filter { $0 != correctOption }.shuffled()
-            options.append(contentsOf: distractors.prefix(3))
+            if let correctOption = meaning.V_meaning?.trimmingCharacters(in: .whitespacesAndNewlines), !correctOption.isEmpty {
+                var options = [correctOption]
+                let distractors = allDistinctMeanings.filter { $0 != correctOption }.shuffled()
+                options.append(contentsOf: distractors.prefix(3))
 
-            if options.count >= 2 {
-                options.shuffle()
-                tasks.append(LearningTask(word: word, meanings: group, type: .multipleChoice, options: options))
+                if options.count >= 2 {
+                    options.shuffle()
+                    tasks.append(LearningTask(word: word, meanings: singleMeaningGroup, type: .multipleChoice, options: options))
+                }
             }
 
-            for meaning in group {
-                if let example = meaning.englishExample {
-                    let words = LearningTextNormalizer.sentenceScrambleWords(example)
+            if let example = meaning.englishExample {
+                let words = LearningTextNormalizer.sentenceScrambleWords(example)
 
-                    if words.count >= 3 {
-                        tasks.append(LearningTask(
-                            word: word,
-                            meanings: group,
-                            type: .sentenceScramble,
-                            correctSentence: example,
-                            scrambledWords: words.shuffled(),
-                            vHint: meaning.vietnameseExample
-                        ))
-                    }
-
+                if words.count >= 3 {
                     tasks.append(LearningTask(
                         word: word,
-                        meanings: group,
-                        type: .pronunciationExample,
-                        pronunciationMeaning: meaning,
-                        pronunciationExample: example
+                        meanings: singleMeaningGroup,
+                        type: .sentenceScramble,
+                        correctSentence: example,
+                        scrambledWords: words.shuffled(),
+                        vHint: meaning.vietnameseExample
                     ))
                 }
+
+                tasks.append(LearningTask(
+                    word: word,
+                    meanings: singleMeaningGroup,
+                    type: .pronunciationExample,
+                    pronunciationMeaning: meaning,
+                    pronunciationExample: example
+                ))
             }
         }
 

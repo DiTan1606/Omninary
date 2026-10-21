@@ -1,5 +1,7 @@
+import { requireVocabularyContent, normalizeSupplementaryText } from './vocabularyContent';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { catalogTopics } from './vocabularyCollections';
 import {
   DashboardStats,
   Profile,
@@ -14,8 +16,8 @@ import {
 
 const catalogSelect = `
 id,created_at,topic_id,created_by,visibility,word,cefr,ipa,word_form,
-e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,bonus,
-topics(id,name)
+e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,collocation,formula,note,bonus,
+topics!vocab_catalog_topic_id_fkey(id,name),topic_vocab(topics(id,name,visibility,owner_id))
 `;
 
 const wordSubmissionSelect = `
@@ -25,7 +27,7 @@ vocab_catalog(${catalogSelect})
 
 const topicSubmissionSelect = `
 id,requester_id,topic_id,name,description,status,created_at,admin_note,
-topic_submission_words(id,catalog_id,word,cefr,ipa,word_form,e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,bonus)
+topic_submission_words(id,catalog_id,word,cefr,ipa,word_form,e_meaning,ev_meaning,v_meaning,e_example,v_example,word_family,synonymous,antonym,collocation,formula,note,bonus)
 `;
 
 function clean(value: string | null | undefined) {
@@ -43,6 +45,7 @@ function nowIso() {
 }
 
 function toCatalogInsert(input: VocabInput, userId: string, visibility = 'system') {
+  requireVocabularyContent(input);
   return {
     id: input.id ?? crypto.randomUUID(),
     topic_id: input.topic_id,
@@ -57,16 +60,19 @@ function toCatalogInsert(input: VocabInput, userId: string, visibility = 'system
     v_meaning: clean(input.v_meaning),
     e_example: cleanExample(input.e_example),
     v_example: cleanExample(input.v_example),
-    word_family: clean(input.word_family),
-    synonymous: clean(input.synonymous),
-    antonym: clean(input.antonym),
-    bonus: clean(input.bonus)
+    word_family: normalizeSupplementaryText(input.word_family),
+    synonymous: normalizeSupplementaryText(input.synonymous),
+    antonym: normalizeSupplementaryText(input.antonym),
+    collocation: normalizeSupplementaryText(input.collocation),
+    formula: normalizeSupplementaryText(input.formula),
+    note: normalizeSupplementaryText(input.note),
+    bonus: normalizeSupplementaryText(input.bonus)
   };
 }
 
 function toCatalogUpdate(input: VocabInput) {
+  requireVocabularyContent(input);
   return {
-    topic_id: input.topic_id,
     word: clean(input.word) ?? 'Untitled',
     cefr: clean(input.cefr),
     ipa: clean(input.ipa),
@@ -76,10 +82,13 @@ function toCatalogUpdate(input: VocabInput) {
     v_meaning: clean(input.v_meaning),
     e_example: cleanExample(input.e_example),
     v_example: cleanExample(input.v_example),
-    word_family: clean(input.word_family),
-    synonymous: clean(input.synonymous),
-    antonym: clean(input.antonym),
-    bonus: clean(input.bonus)
+    word_family: normalizeSupplementaryText(input.word_family),
+    synonymous: normalizeSupplementaryText(input.synonymous),
+    antonym: normalizeSupplementaryText(input.antonym),
+    collocation: normalizeSupplementaryText(input.collocation),
+    formula: normalizeSupplementaryText(input.formula),
+    note: normalizeSupplementaryText(input.note),
+    bonus: normalizeSupplementaryText(input.bonus)
   };
 }
 
@@ -98,6 +107,9 @@ export function emptyVocabInput(topicId: string | null = null): VocabInput {
     word_family: '',
     synonymous: '',
     antonym: '',
+    collocation: '',
+    formula: '',
+    note: '',
     bonus: ''
   };
 }
@@ -106,6 +118,7 @@ export function catalogToInput(vocab: VocabCatalog): VocabInput {
   return {
     id: vocab.id,
     topic_id: vocab.topic_id,
+    topic_ids: catalogTopics(vocab).filter((topic) => topic.visibility !== 'private').map((topic) => topic.id),
     word: vocab.word ?? '',
     cefr: vocab.cefr ?? '',
     ipa: vocab.ipa ?? '',
@@ -118,6 +131,9 @@ export function catalogToInput(vocab: VocabCatalog): VocabInput {
     word_family: vocab.word_family ?? '',
     synonymous: vocab.synonymous ?? '',
     antonym: vocab.antonym ?? '',
+    collocation: vocab.collocation ?? '',
+    formula: vocab.formula ?? '',
+    note: vocab.note ?? '',
     bonus: vocab.bonus ?? ''
   };
 }
@@ -192,13 +208,13 @@ export async function updateProfile(profile: Profile) {
 }
 
 export async function fetchTopics() {
-  const { data, error } = await supabase.from('topics').select('id,name').order('name');
+  const { data, error } = await supabase.from('topics').select('id,name,visibility,owner_id').eq('visibility', 'system').order('name');
   if (error) throw error;
   return (data ?? []) as Topic[];
 }
 
 export async function createTopic(name: string) {
-  const topic = { id: crypto.randomUUID(), name: name.trim() };
+  const topic = { id: crypto.randomUUID(), name: name.trim(), visibility: 'system' };
   const { data, error } = await supabase.from('topics').insert(topic).select('id,name').single<Topic>();
   if (error) throw error;
   return data;
@@ -221,36 +237,40 @@ export async function fetchSystemVocabs(options: { topicId?: string; search?: st
     .eq('visibility', 'system')
     .order('created_at', { ascending: false });
 
-  if (options.uncategorized) query = query.is('topic_id', null);
-  else if (options.topicId) query = query.eq('topic_id', options.topicId);
+
   if (options.search?.trim()) query = query.ilike('word', `%${options.search.trim()}%`);
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as unknown as VocabCatalog[];
+  const rows = (data ?? []) as unknown as VocabCatalog[];
+  return rows.filter((row) => options.uncategorized ? catalogTopics(row).filter((topic) => topic.visibility === 'system').length === 0 :
+    !options.topicId || catalogTopics(row).some((topic) => topic.id === options.topicId));
 }
 
 export async function fetchAllSystemVocabsForTopic(topicId: string) {
-  const { data, error } = await supabase
-    .from('vocab_catalog')
-    .select(catalogSelect)
-    .eq('visibility', 'system')
-    .eq('topic_id', topicId)
-    .order('word');
+  return fetchSystemVocabs({ topicId });
+}
 
+async function setCatalogTopics(id: string, input: VocabInput) {
+  const { error } = await supabase.rpc('set_catalog_topics', {
+    p_vocab_id: id, p_topic_ids: input.topic_ids ?? (input.topic_id ? [input.topic_id] : [])
+  });
   if (error) throw error;
-  return (data ?? []) as unknown as VocabCatalog[];
 }
 
 export async function createSystemVocab(input: VocabInput, adminId: string) {
-  const { error } = await supabase.from('vocab_catalog').insert(toCatalogInsert(input, adminId));
+  const { data, error } = await supabase.rpc('create_vocabulary_meaning', {
+    p_vocab: toCatalogInsert(input, adminId), p_topic_id: input.topic_id, p_as_system: true
+  });
   if (error) throw error;
+  await setCatalogTopics(data as string, input);
 }
 
 export async function updateSystemVocab(input: VocabInput) {
   if (!input.id) throw new Error('Thiếu ID từ vựng.');
   const { error } = await supabase.from('vocab_catalog').update(toCatalogUpdate(input)).eq('id', input.id);
   if (error) throw error;
+  await setCatalogTopics(input.id, input);
 }
 
 export async function deleteSystemVocab(id: string) {
@@ -259,9 +279,7 @@ export async function deleteSystemVocab(id: string) {
 }
 
 export async function importSystemVocabs(rows: VocabInput[], adminId: string) {
-  const payload = rows.map((row) => toCatalogInsert(row, adminId));
-  const { error } = await supabase.from('vocab_catalog').insert(payload);
-  if (error) throw error;
+  for (const row of rows) await createSystemVocab(row, adminId);
 }
 
 export async function fetchPendingVocabSubmissions() {
@@ -310,7 +328,7 @@ export async function markVocabSubmission(
       status,
       reviewed_by: reviewerId,
       reviewed_at: nowIso(),
-      admin_note: clean(note)
+      admin_note: normalizeSupplementaryText(note)
     })
     .eq('id', id);
 
@@ -352,35 +370,12 @@ async function getOrCreateTopic(name: string) {
     .from('topics')
     .select('id,name')
     .eq('name', trimmed)
+    .eq('visibility', 'system')
     .limit(1);
 
   if (fetchError) throw fetchError;
   if (existing?.[0]) return existing[0] as Topic;
   return createTopic(trimmed);
-}
-
-function draftKey(word: TopicSubmissionWord) {
-  return [word.word, word.e_meaning, word.ev_meaning, word.v_meaning]
-    .map((value) => clean(value)?.toLowerCase() ?? '')
-    .join('|');
-}
-
-function catalogKey(word: VocabCatalog) {
-  return [word.word, word.e_meaning, word.ev_meaning, word.v_meaning]
-    .map((value) => clean(value)?.toLowerCase() ?? '')
-    .join('|');
-}
-
-async function fetchReusableCatalogRows(topicId: string, requesterId: string) {
-  const { data, error } = await supabase
-    .from('vocab_catalog')
-    .select(catalogSelect)
-    .eq('topic_id', topicId)
-    .eq('created_by', requesterId)
-    .eq('visibility', 'system');
-
-  if (error) throw error;
-  return (data ?? []) as unknown as VocabCatalog[];
 }
 
 export async function markTopicSubmission(
@@ -395,7 +390,7 @@ export async function markTopicSubmission(
       status,
       reviewed_by: reviewerId,
       reviewed_at: nowIso(),
-      admin_note: clean(note)
+      admin_note: normalizeSupplementaryText(note)
     })
     .eq('id', id);
 
@@ -441,25 +436,12 @@ export async function approveTopicSubmission(
 
   const topic = await getOrCreateTopic(submission.name);
   const approvedWords = (submission.topic_submission_words ?? []).filter((word) => approvedWordIds.has(word.id));
-  const reusable = await fetchReusableCatalogRows(topic.id, submission.requester_id);
-  const reusableByKey = new Map<string, VocabCatalog[]>();
-
-  reusable.forEach((row) => {
-    const key = catalogKey(row);
-    reusableByKey.set(key, [...(reusableByKey.get(key) ?? []), row]);
-  });
-
   const newRows: ReturnType<typeof toCatalogInsert>[] = [];
   const approvedCatalogIds: string[] = [];
 
   approvedWords.forEach((word) => {
-    const key = draftKey(word);
-    const reusableRows = reusableByKey.get(key) ?? [];
-    const existing = reusableRows.pop();
-    reusableByKey.set(key, reusableRows);
-
-    if (existing) {
-      approvedCatalogIds.push(existing.id);
+    if (word.catalog_id) {
+      approvedCatalogIds.push(word.catalog_id);
       return;
     }
 
@@ -479,12 +461,21 @@ export async function approveTopicSubmission(
       v_meaning: clean(word.v_meaning),
       e_example: cleanExample(word.e_example),
       v_example: cleanExample(word.v_example),
-      word_family: clean(word.word_family),
-      synonymous: clean(word.synonymous),
-      antonym: clean(word.antonym),
-      bonus: clean(word.bonus)
+      word_family: normalizeSupplementaryText(word.word_family),
+      synonymous: normalizeSupplementaryText(word.synonymous),
+      antonym: normalizeSupplementaryText(word.antonym),
+      collocation: normalizeSupplementaryText(word.collocation),
+      formula: normalizeSupplementaryText(word.formula),
+      note: normalizeSupplementaryText(word.note),
+      bonus: normalizeSupplementaryText(word.bonus)
     });
   });
+
+  for (const word of approvedWords) {
+    if (!word.catalog_id) continue;
+    const { error } = await supabase.from('vocab_catalog').update({ visibility: 'system' }).eq('id', word.catalog_id);
+    if (error) throw error;
+  }
 
   if (newRows.length > 0) {
     const { error } = await supabase.from('vocab_catalog').insert(newRows);
@@ -496,14 +487,17 @@ export async function approveTopicSubmission(
       id: crypto.randomUUID(),
       user_id: submission.requester_id,
       vocab_id: catalogId,
-      learning_level: 0,
+      learning_level: null,
       next_review: null,
       pronunciation_score: null
     }));
 
-    const { error } = await supabase.from('user_vocabulary').insert(links);
+    const { error } = await supabase.from('user_vocabulary').upsert(links, { onConflict: 'user_id,vocab_id', ignoreDuplicates: true });
     if (error) throw error;
   }
+
+  const { error: membershipError } = await supabase.rpc('attach_reviewed_topic_meanings', { p_topic_id: topic.id, p_vocab_ids: approvedCatalogIds, p_user_id: submission.requester_id });
+  if (membershipError) throw membershipError;
 
   await markTopicSubmission(submission.id, 'approved', adminId);
   await sendNotification(

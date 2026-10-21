@@ -48,3 +48,8 @@ admin-web/vite.config.d.ts
 
 # Python bytecode from local lesson-processing tools
 tools/__pycache__/
+
+# Local scratch output (simulator results, screenshots, design build caches)
+tmp/
+/scratch_*.png
+AISC26/**/.build/

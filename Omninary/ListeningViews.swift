@@ -2,9 +2,14 @@ import AVFoundation
 import SwiftUI
 
 struct ListeningDictationView: View {
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     let lesson: ListeningLesson
     var startsNewAttempt = false
     var onFinished: () -> Void = {}
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var audioPlayer = ListeningAudioPlayer()
@@ -23,6 +28,9 @@ struct ListeningDictationView: View {
     @State private var isRecordingProgress = false
     @State private var isFinishingLesson = false
     @State private var isRestartingLesson = false
+    @State private var activitySessionID = UUID()
+    @State private var didKeepStreak = false
+    @State private var completedSession = false
     @State private var errorMessage: String?
     @FocusState private var isInputFocused: Bool
 
@@ -70,26 +78,36 @@ struct ListeningDictationView: View {
     }
 
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Đang tải câu nghe...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            } else if segments.isEmpty {
-                ContentUnavailableView(
-                    "Bài này chưa có câu nghe",
-                    systemImage: "waveform.slash",
-                    description: Text("Bạn kiểm tra lại dữ liệu import lesson trong Supabase nha.")
-                )
-            } else if let completedLessonScore {
-                completionContent(score: completedLessonScore)
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                lessonContent
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            }
+
+            Group {
+                if isLoading {
+                    ProgressView("Đang tải câu nghe...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .foregroundStyle(isExtra ? .white : .primary)
+                } else if segments.isEmpty {
+                    ContentUnavailableView(
+                        "Bài này chưa có câu nghe",
+                        systemImage: "waveform.slash",
+                        description: Text("Bạn kiểm tra lại dữ liệu import lesson trong Supabase nha.")
+                    )
+                } else if let completedLessonScore {
+                    completionContent(score: completedLessonScore)
+                } else {
+                    lessonContent
+                }
             }
         }
+        .streakRescueWarning(onLeave: { exitPracticeRoom() })
         .navigationTitle(lesson.title)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden()
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
@@ -122,7 +140,7 @@ struct ListeningDictationView: View {
 
     private var lessonContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: AppSpacing.section) {
                 progressHeader
 
                 if let currentSegment {
@@ -131,17 +149,17 @@ struct ListeningDictationView: View {
 
                 Spacer(minLength: 80)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
+            .padding(.horizontal, AppSpacing.page)
+            .padding(.top, AppSpacing.row)
             .padding(.bottom, 28)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        .background(Color.clear)
     }
 
     private func completionContent(score: Double) -> some View {
         let attemptPassed = ListeningScoreCalculator.hasPassed(score: score)
-        let resultTint: Color = attemptPassed || lessonHasPassed ? .green : .orange
+        let resultTint: Color = attemptPassed || lessonHasPassed ? AppSemanticColor.success : AppSemanticColor.attention
 
         return ScrollView {
             VStack(spacing: 22) {
@@ -151,7 +169,7 @@ struct ListeningDictationView: View {
 
                 VStack(spacing: 6) {
                     Text(resultTitle(score: score))
-                        .font(.title2.bold())
+                        .font(AppTypography.metric)
                         .multilineTextAlignment(.center)
 
                     Text(resultSubtitle(score: score))
@@ -179,7 +197,7 @@ struct ListeningDictationView: View {
                 }
                 .frame(width: 170, height: 170)
 
-                resultSummary
+                resultSummary(tint: resultTint)
 
                 Button {
                     Task { await restartLesson() }
@@ -190,12 +208,12 @@ struct ListeningDictationView: View {
                             : (lessonHasPassed ? "Luyện lại từ đầu" : "Luyện lại để đạt 80 điểm"),
                         systemImage: "arrow.counterclockwise"
                     )
-                    .font(.headline)
+                    .font(AppTypography.action)
                     .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(isRestartingLesson ? Color.gray : Color.orange)
-                    .cornerRadius(12)
+                    .padding(.horizontal, AppSpacing.row)
+                    .padding(.vertical, AppSpacing.item)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .modifier(AppActionFill(isExtra: isExtra))
                 }
                 .disabled(isRestartingLesson)
 
@@ -203,11 +221,11 @@ struct ListeningDictationView: View {
                     dismiss()
                 }
                 .font(.headline)
-                .foregroundColor(.blue)
+                .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
             }
             .padding(24)
         }
-        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        .background(Color.clear)
     }
 
     private func resultTitle(score: Double) -> String {
@@ -228,7 +246,7 @@ struct ListeningDictationView: View {
         return "Bạn cần thêm \(ListeningScoreCalculator.display(remainingScore)) điểm để pass bài này."
     }
 
-    private var resultSummary: some View {
+    private func resultSummary(tint: Color) -> some View {
         let totalWordCount = resultsBySegmentId.values.reduce(0) { $0 + $1.wordCount }
         let hintedWordCount = resultsBySegmentId.values.reduce(0) { $0 + $1.hintedWordCount }
 
@@ -241,18 +259,18 @@ struct ListeningDictationView: View {
                 value: "\(ListeningScoreCalculator.display(max(bestLessonScore, completedLessonScore ?? 0)))/100"
             )
         }
-        .padding(18)
-        .background(Color(UIColor.secondarySystemGroupedBackground))
-        .cornerRadius(12)
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private func resultSummaryRow(title: String, value: String) -> some View {
         HStack {
             Text(title)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
             Spacer()
             Text(value)
                 .fontWeight(.semibold)
+                .foregroundColor(isExtra ? .white : .primary)
         }
     }
 
@@ -261,19 +279,19 @@ struct ListeningDictationView: View {
             HStack(spacing: 8) {
                 Label("Câu \(currentIndex + 1)/\(segments.count)", systemImage: "waveform")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(isExtra ? .white : .primary)
 
                 Spacer(minLength: 8)
 
                 if let duration = currentSegment?.duration_seconds {
                     Text(durationText(duration))
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                 }
 
-            Text("\(ListeningScoreCalculator.display(currentLessonScore))/100")
+                Text("\(ListeningScoreCalculator.display(currentLessonScore))/100")
                     .font(.caption.weight(.bold))
-                    .foregroundColor(.orange)
+                    .foregroundColor(AppSemanticColor.attention)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color.orange.opacity(0.12))
@@ -281,7 +299,7 @@ struct ListeningDictationView: View {
             }
 
             ProgressView(value: Double(currentIndex + 1), total: Double(max(segments.count, 1)))
-                .tint(.blue)
+                .tint(AppTheme(isExtra: isExtra).accent)
         }
     }
 
@@ -293,12 +311,17 @@ struct ListeningDictationView: View {
                 .autocorrectionDisabled(true)
                 .submitLabel(.next)
                 .padding(16)
-                .background(Color(UIColor.systemBackground))
+                .background(
+                    isExtra
+                        ? AnyShapeStyle(Color.white.opacity(0.12))
+                        : AnyShapeStyle(Color(UIColor.systemBackground))
+                )
                 .cornerRadius(14)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(inputBorderColor, lineWidth: 2)
                 )
+                .foregroundStyle(isExtra ? .white : .primary)
                 .disabled(isReviewingCurrentSegment)
                 .onSubmit {
                     if canMoveForward {
@@ -313,18 +336,18 @@ struct ListeningDictationView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Label("Câu đã hoàn thành", systemImage: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundColor(.green)
+                        .foregroundColor(AppSemanticColor.success)
 
                     if let vietnameseText = segment.vietnamese_text, !vietnameseText.isEmpty {
                         Text(vietnameseText)
                             .font(.subheadline)
-                            .foregroundColor(.primary)
+                            .foregroundColor(isExtra ? Color.white.opacity(0.85) : .primary)
                     }
 
                     if let ipa = segment.ipa, !ipa.isEmpty {
                         Text(ipa)
                             .font(.subheadline)
-                            .foregroundColor(.blue)
+                            .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
                     }
                 }
             } else if maskProgress.hasMistake {
@@ -335,12 +358,12 @@ struct ListeningDictationView: View {
                 HStack(spacing: 6) {
                     Label("Chính xác", systemImage: "checkmark.circle.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(.green)
+                        .foregroundColor(AppSemanticColor.success)
 
                     if let result = resultsBySegmentId[segment.id] {
                         Text(sentencePointText(result))
                             .font(.caption.bold())
-                            .foregroundColor(.orange)
+                            .foregroundColor(AppSemanticColor.attention)
                     } else if isRecordingProgress {
                         ProgressView()
                             .controlSize(.small)
@@ -351,8 +374,8 @@ struct ListeningDictationView: View {
     }
 
     private var inputBorderColor: Color {
-        if isReviewingCurrentSegment || maskProgress.isComplete { return .green }
-        if maskProgress.hasMistake { return .red }
+        if isReviewingCurrentSegment || maskProgress.isComplete { return AppSemanticColor.success }
+        if maskProgress.hasMistake { return AppSemanticColor.error }
         return isInputFocused ? .blue : Color.secondary.opacity(0.25)
     }
 
@@ -412,7 +435,7 @@ struct ListeningDictationView: View {
                             .font(.title3.weight(.bold))
                             .foregroundColor(.white)
                             .frame(width: 56, height: 56)
-                            .background(Color.blue)
+                            .background(AppTheme(isExtra: isExtra).primaryGradient)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -433,12 +456,7 @@ struct ListeningDictationView: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .background(Color(UIColor.systemBackground))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.secondary.opacity(0.16))
-                .frame(height: 1)
-        }
+        .appActionBar()
     }
 
     private var speedPicker: some View {
@@ -463,9 +481,9 @@ struct ListeningDictationView: View {
                     .font(.caption2.weight(.bold))
             }
             .font(.caption.weight(.bold))
-            .foregroundColor(.primary)
+            .foregroundColor(isExtra ? .white : .primary)
             .frame(minWidth: 72, minHeight: 44)
-            .background(Color.secondary.opacity(0.12))
+            .background(isExtra ? Color.white.opacity(0.12) : Color.secondary.opacity(0.12))
             .cornerRadius(10)
         }
         .accessibilityLabel("Tốc độ phát \(playbackRateLabel(playbackRate))")
@@ -480,7 +498,7 @@ struct ListeningDictationView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.title3.weight(.semibold))
-                .foregroundColor(isEnabled ? .primary : .secondary.opacity(0.4))
+                .foregroundColor(isEnabled ? (isExtra ? Color.white : .primary) : (isExtra ? Color.white.opacity(0.3) : .secondary.opacity(0.4)))
                 .frame(width: 38, height: 44)
         }
         .buttonStyle(.plain)
@@ -567,6 +585,9 @@ struct ListeningDictationView: View {
             if !loadedSegments.isEmpty, completedSegmentIds.count == loadedSegments.count {
                 if startsNewAttempt, AuthManager.shared.currentUser != nil {
                     try await ListeningRepository.restartLesson(lessonId: lesson.id)
+                    activitySessionID = UUID()
+                    completedSession = false
+                    didKeepStreak = false
                     completedSegmentIds = []
                     resultsBySegmentId = [:]
                     hintedWordIndicesBySegmentId = [:]
@@ -630,7 +651,6 @@ struct ListeningDictationView: View {
                         segmentId: segment.id,
                         result: result
                     )
-                    await recordListeningActivity()
                 }
 
                 await MainActor.run {
@@ -668,15 +688,8 @@ struct ListeningDictationView: View {
         audioPlayer.stop()
         onFinished()
         dismiss()
-    }
-
-    private func recordListeningActivity() async {
-        guard let userId = AuthManager.shared.currentUser?.id.uuidString else { return }
-
-        do {
-            try await UserProgressRepository.recordDailyActivityAndUpdateStreak(userId: userId)
-        } catch {
-            print("Không thể ghi nhận hoạt động luyện nghe: \(error)")
+        if completedSession {
+            NotificationCenter.default.post(name: didKeepStreak ? .returnToHomeAfterLearning : .returnToLearningTab, object: nil)
         }
     }
 
@@ -712,9 +725,13 @@ struct ListeningDictationView: View {
             let score: Double
             if AuthManager.shared.currentUser != nil {
                 score = try await ListeningRepository.markLessonCompleted(lessonId: lesson.id)
+                if let userId = AuthManager.shared.currentUser?.id.uuidString {
+                    didKeepStreak = try await UserProgressRepository.recordDailyActivityAndUpdateStreak(userId: userId, sessionId: activitySessionID)
+                }
             } else {
                 score = currentLessonScore
             }
+            completedSession = true
             completedLessonScore = score
             bestLessonScore = max(bestLessonScore, score)
             onFinished()
@@ -734,6 +751,9 @@ struct ListeningDictationView: View {
             }
 
             audioPlayer.stop()
+            activitySessionID = UUID()
+            completedSession = false
+            didKeepStreak = false
             completedSegmentIds = []
             resultsBySegmentId = [:]
             hintedWordIndices = []
@@ -830,11 +850,11 @@ private struct ListeningWordHintChip: View {
         case .partial:
             return .blue
         case .correct:
-            return .green
+            return AppSemanticColor.success
         case .wrong:
-            return .red
+            return AppSemanticColor.error
         case .hinted:
-            return .orange
+            return AppSemanticColor.attention
         }
     }
 

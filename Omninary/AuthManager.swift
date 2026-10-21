@@ -26,11 +26,11 @@ class AuthManager: ObservableObject {
             self.currentUser = user
             self.isAuthenticated = true
             await fetchUserRole(userId: user.id.uuidString)
+            await OmniRewardRepository.syncServerToLocal(userId: user.id.uuidString)
         } catch {
             self.isAuthenticated = false
             self.currentUser = nil
             self.currentUserRole = "user"
-            await AppIconManager.synchronize(hasExtraordinaryAccess: false)
         }
         self.isCheckingAuth = false
     }
@@ -54,9 +54,9 @@ class AuthManager: ObservableObject {
 
             if let userId = user?.id.uuidString {
                 await self.fetchUserRole(userId: userId)
+                await OmniRewardRepository.syncServerToLocal(userId: userId)
             } else {
                 self.currentUserRole = "user"
-                await AppIconManager.synchronize(hasExtraordinaryAccess: false)
             }
         }
     }
@@ -74,7 +74,6 @@ class AuthManager: ObservableObject {
         self.isAuthenticated = false
         self.currentUser = nil
         self.currentUserRole = "user"
-        await AppIconManager.synchronize(hasExtraordinaryAccess: false)
     }
     
     func updateDisplayName(_ name: String) async throws {

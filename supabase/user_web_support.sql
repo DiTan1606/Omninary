@@ -7,7 +7,7 @@ with ranked_duplicates as (
     row_number() over (
       partition by user_id, vocab_id
       order by
-        coalesce(learning_level, 0) desc,
+        coalesce(learning_level, -1) desc,
         coalesce(pronunciation_score, 0) desc,
         saved_at asc nulls last,
         id

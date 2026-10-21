@@ -4,11 +4,11 @@ extension PronunciationFeedbackLevel {
     var foregroundColor: Color {
         switch self {
         case .good:
-            return .green
+            return AppSemanticColor.success
         case .needsImprovement:
-            return .orange
+            return AppSemanticColor.attention
         case .retry:
-            return .red
+            return AppSemanticColor.error
         }
     }
 
@@ -47,7 +47,12 @@ struct PronunciationWordFeedbackSheet: View {
     let feedback: AzurePronunciationAssessment.WordFeedback
     @ObservedObject var pronunciationManager: PronunciationManager
 
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @Environment(\.dismiss) private var dismiss
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     private var level: PronunciationFeedbackLevel {
         PronunciationPassingRule.feedbackLevel(for: feedback)
@@ -72,32 +77,39 @@ struct PronunciationWordFeedbackSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    VStack(spacing: 8) {
-                        Text(feedback.word)
-                            .font(.title2.bold())
+            ZStack {
+                if isExtra {
+                    AuroraBackdrop()
+                } else {
+                    Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+                }
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text(feedback.word)
+                                .font(.title2.bold())
+                                .foregroundColor(level.foregroundColor)
+
+                            if !phonemeText.isEmpty {
+                                Text("/\(phonemeText)/")
+                                    .font(.title3.monospaced())
+                                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                            }
+
+                            Label(
+                                "\(Int(feedback.accuracy.rounded())) điểm - \(level.title)",
+                                systemImage: level.symbolName
+                            )
+                            .font(.subheadline.weight(.semibold))
                             .foregroundColor(level.foregroundColor)
-
-                        if !phonemeText.isEmpty {
-                            Text("/\(phonemeText)/")
-                                .font(.title3.monospaced())
-                                .foregroundColor(.secondary)
                         }
-
-                        Label(
-                            "\(Int(feedback.accuracy.rounded())) điểm - \(level.title)",
-                            systemImage: level.symbolName
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(level.backgroundColor)
                         )
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(level.foregroundColor)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(level.backgroundColor)
-                    )
 
                     HStack(spacing: 12) {
                         Button {
@@ -106,8 +118,7 @@ struct PronunciationWordFeedbackSheet: View {
                             Label("Omninary đọc", systemImage: "speaker.wave.2.fill")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.blue)
+                        .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
 
                         if let recordedWordTiming {
                             Button {
@@ -126,8 +137,7 @@ struct PronunciationWordFeedbackSheet: View {
                                 )
                                 .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(pronunciationManager.isPlaying ? .red : .orange)
+                            .buttonStyle(AppActionButtonStyle(isExtra: isExtra, emphasis: .secondary))
                         }
                     }
 
@@ -141,12 +151,13 @@ struct PronunciationWordFeedbackSheet: View {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Phân tích âm vị")
                             .font(.headline)
+                            .foregroundColor(isExtra ? .white : .primary)
                             .padding(.bottom, 10)
 
                         if feedback.phonemes.isEmpty {
                             Text("Azure chưa trả dữ liệu âm vị cho từ này.")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                                 .padding(.vertical, 8)
                         } else {
                             ForEach(Array(feedback.phonemes.enumerated()), id: \.offset) { index, phoneme in
@@ -156,12 +167,12 @@ struct PronunciationWordFeedbackSheet: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("/\(phoneme.phoneme)/")
                                             .font(.body.monospaced())
-                                            .foregroundColor(.primary)
+                                            .foregroundColor(isExtra ? .white : .primary)
 
                                         if let heardAs = PronunciationPassingRule.heardAs(for: phoneme) {
                                             Text("Azure nghe gần /\(heardAs)/")
                                                 .font(.caption)
-                                                .foregroundColor(.orange)
+                                                .foregroundColor(AppSemanticColor.attention)
                                         }
                                     }
 
@@ -170,6 +181,7 @@ struct PronunciationWordFeedbackSheet: View {
                                     VStack(alignment: .trailing, spacing: 4) {
                                         Text("\(Int(phoneme.accuracy.rounded())) điểm")
                                             .font(.subheadline.weight(.semibold))
+                                            .foregroundColor(isExtra ? .white : .primary)
 
                                         Text(phonemeLevel.title)
                                             .font(.caption.weight(.medium))
@@ -185,21 +197,21 @@ struct PronunciationWordFeedbackSheet: View {
                             }
                         }
                     }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemGroupedBackground))
-                    )
+                    .padding(AppSpacing.row)
+                    .appSurface(.row, isExtra: isExtra)
                 }
                 .padding()
             }
+            }
             .navigationTitle("Chi tiết phát âm")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xong") {
                         dismiss()
                     }
+                    .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
                 }
             }
         }

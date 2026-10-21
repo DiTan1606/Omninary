@@ -4,6 +4,7 @@ struct ShadowingPracticeView: View {
     let lesson: ListeningLesson
     var onFinished: () -> Void = {}
 
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @Environment(\.dismiss) private var dismiss
     @StateObject private var sampleAudioPlayer = ListeningAudioPlayer()
     @StateObject private var pronunciationManager = PronunciationManager()
@@ -18,8 +19,16 @@ struct ShadowingPracticeView: View {
     @State private var selectedWordIndex: Int?
     @State private var isLoading = true
     @State private var isSubmitting = false
+    @State private var activitySessionID = UUID()
+    @State private var didKeepStreak = false
+    @State private var streakRecorded = false
+    @State private var completedThisSession = false
     @State private var isShowingCompletion = false
     @State private var errorMessage: String?
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     private var currentSegment: ListeningSegment? {
         guard segments.indices.contains(currentIndex) else { return nil }
@@ -51,31 +60,43 @@ struct ShadowingPracticeView: View {
     }
 
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Đang tải bài Shadowing...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            } else if segments.isEmpty {
-                ContentUnavailableView(
-                    "Bài này chưa có câu luyện",
-                    systemImage: "waveform.slash",
-                    description: Text("Bạn kiểm tra lại dữ liệu bài nghe trong Supabase.")
-                )
-            } else if isShowingCompletion {
-                completionContent
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                practiceContent
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            }
+
+            Group {
+                if isLoading {
+                    ProgressView("Đang tải bài Shadowing...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .foregroundStyle(isExtra ? .white : .primary)
+                } else if segments.isEmpty {
+                    ContentUnavailableView(
+                        "Bài này chưa có câu luyện",
+                        systemImage: "waveform.slash",
+                        description: Text("Bạn kiểm tra lại dữ liệu bài nghe trong Supabase.")
+                    )
+                    .foregroundStyle(isExtra ? .white : .primary)
+                } else if isShowingCompletion {
+                    completionContent
+                } else {
+                    practiceContent
+                }
             }
         }
+        .streakRescueWarning(onLeave: { exitPracticeRoom() })
         .navigationTitle(lesson.title)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden()
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Thoát") {
                     exitPracticeRoom()
                 }
+                .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -110,7 +131,7 @@ struct ShadowingPracticeView: View {
 
     private var practiceContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: AppSpacing.section) {
                 progressHeader
 
                 if let currentSegment {
@@ -125,11 +146,11 @@ struct ShadowingPracticeView: View {
 
                 Spacer(minLength: 100)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
+            .padding(.horizontal, AppSpacing.page)
+            .padding(.top, AppSpacing.row)
             .padding(.bottom, 28)
         }
-        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        .background(Color.clear)
     }
 
     private var progressHeader: some View {
@@ -137,15 +158,16 @@ struct ShadowingPracticeView: View {
             HStack(spacing: 8) {
                 Label("Câu \(currentIndex + 1)/\(segments.count)", systemImage: "waveform.and.mic")
                     .font(.subheadline.weight(.semibold))
+                    .foregroundColor(isExtra ? .white : .primary)
 
                 Spacer(minLength: 8)
 
                 Text("\(completedSentenceCount)/\(segments.count) đạt")
                     .font(.caption.weight(.bold))
-                    .foregroundColor(.purple)
+                    .foregroundColor(AppTheme(isExtra: isExtra).accent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.purple.opacity(0.12))
+                    .background(AppTheme(isExtra: isExtra).accent.opacity(0.12))
                     .cornerRadius(7)
             }
 
@@ -153,7 +175,7 @@ struct ShadowingPracticeView: View {
                 value: Double(currentIndex + 1),
                 total: Double(max(segments.count, 1))
             )
-            .tint(.purple)
+            .tint(AppTheme(isExtra: isExtra).accent)
         }
     }
 
@@ -162,41 +184,39 @@ struct ShadowingPracticeView: View {
             HStack {
                 Label("Câu mẫu", systemImage: "text.quote")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.purple)
+                    .foregroundColor(isExtra ? ExtraAuroraPalette.champagne : .purple)
 
                 Spacer()
 
                 if currentIsPassed {
                     Label("Đã đạt", systemImage: "checkmark.seal.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(.green)
+                        .foregroundColor(AppSemanticColor.success)
                 }
             }
 
             Text(segment.english_text)
                 .font(.title3.weight(.semibold))
+                .foregroundColor(isExtra ? .white : .primary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let vietnamese = segment.vietnamese_text, !vietnamese.isEmpty {
                 Text(vietnamese)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if let ipa = segment.ipa, !ipa.isEmpty {
                 Text(ipa)
                     .font(.subheadline)
-                    .foregroundColor(.blue)
+                    .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.purple.opacity(0.08))
-        )
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private func sampleControls(for segment: ListeningSegment) -> some View {
@@ -208,12 +228,12 @@ struct ShadowingPracticeView: View {
                     sampleAudioPlayer.isPlaying ? "Dừng câu mẫu" : "Nghe câu mẫu",
                     systemImage: sampleAudioPlayer.isPlaying ? "stop.fill" : "play.fill"
                 )
-                .font(.headline)
+                .font(AppTypography.action)
                 .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(12)
+                .padding(.horizontal, AppSpacing.row)
+                .padding(.vertical, AppSpacing.item)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .modifier(AppActionFill(isExtra: isExtra))
             }
             .buttonStyle(.plain)
 
@@ -237,8 +257,7 @@ struct ShadowingPracticeView: View {
                     )
                     .font(.subheadline.weight(.semibold))
                 }
-                .buttonStyle(.bordered)
-                .tint(pronunciationManager.isPlaying ? .red : .orange)
+                .buttonStyle(AppActionButtonStyle(isExtra: isExtra, emphasis: .secondary))
             }
 
             Button {
@@ -246,14 +265,14 @@ struct ShadowingPracticeView: View {
             } label: {
                 Image(systemName: pronunciationManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
                     .font(.system(size: 68))
-                    .foregroundColor(pronunciationManager.isRecording ? .red : .purple)
+                    .foregroundColor(pronunciationManager.isRecording ? AppSemanticColor.attention : AppTheme(isExtra: isExtra).accent)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(recordingInstruction)
 
             Text(recordingInstruction)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
 
             if pronunciationManager.hasRecorded, assessment == nil {
                 Button {
@@ -265,58 +284,55 @@ struct ShadowingPracticeView: View {
                         }
                         Text(isSubmitting ? "Đang chấm..." : "Chấm phát âm")
                     }
-                    .font(.headline)
+                    .font(AppTypography.action)
                     .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .cornerRadius(12)
+                    .padding(.horizontal, AppSpacing.row)
+                    .padding(.vertical, AppSpacing.item)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .modifier(AppActionFill(isExtra: isExtra))
                 }
                 .disabled(isSubmitting)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-        )
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private func assessmentResult(_ assessment: AzurePronunciationAssessment) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Kết quả phát âm")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(isExtra ? Color.white.opacity(0.85) : .secondary)
 
                 Spacer()
 
                 if didCurrentAttemptPass {
                     Label("Đạt", systemImage: "checkmark.seal.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.green)
+                        .foregroundColor(AppSemanticColor.success)
                 } else if currentIsPassed {
                     Label("Đã đạt từ trước", systemImage: "checkmark.seal.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.green)
+                        .foregroundColor(AppSemanticColor.success)
                 } else {
                     Label("Chưa đạt", systemImage: "exclamationmark.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.red)
+                        .font(AppTypography.label)
+                        .foregroundColor(AppSemanticColor.attention)
                 }
             }
 
             if let transcript = displayTranscript(from: assessment) {
                 Text("Bạn đọc: \(transcript)")
                     .font(.subheadline)
-                    .foregroundColor(.blue)
+                    .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
                     .italic()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.blue.opacity(0.08))
+                            .fill(isExtra ? ExtraAuroraPalette.ice.opacity(0.12) : Color.blue.opacity(0.08))
                     )
             }
 
@@ -343,17 +359,14 @@ struct ShadowingPracticeView: View {
                     ForEach(ShadowingPassingRule.failureReasons(for: assessment), id: \.self) { reason in
                         Label(reason, systemImage: "exclamationmark.circle")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-        )
+        .padding(AppSpacing.row)
+        .appSurface(.row, isExtra: isExtra)
     }
 
     private var practiceControlPanel: some View {
@@ -372,9 +385,9 @@ struct ShadowingPracticeView: View {
                 } label: {
                     Image(systemName: "gobackward")
                         .font(.title3.weight(.semibold))
-                        .foregroundColor(.purple)
+                        .foregroundColor(AppTheme(isExtra: isExtra).accent)
                         .frame(width: 44, height: 44)
-                        .background(Color.purple.opacity(0.12))
+                        .background(AppTheme(isExtra: isExtra).accent.opacity(0.12))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -395,12 +408,7 @@ struct ShadowingPracticeView: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .background(Color(UIColor.systemBackground))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.secondary.opacity(0.16))
-                .frame(height: 1)
-        }
+        .appActionBar()
     }
 
     private var speedPicker: some View {
@@ -425,9 +433,9 @@ struct ShadowingPracticeView: View {
                     .font(.caption2.weight(.bold))
             }
             .font(.caption.weight(.bold))
-            .foregroundColor(.primary)
+            .foregroundColor(isExtra ? .white : .primary)
             .frame(minWidth: 72, minHeight: 44)
-            .background(Color.secondary.opacity(0.12))
+            .background(isExtra ? Color.white.opacity(0.12) : Color.secondary.opacity(0.12))
             .cornerRadius(10)
         }
         .accessibilityLabel("Tốc độ phát \(playbackRateLabel(playbackRate))")
@@ -438,34 +446,35 @@ struct ShadowingPracticeView: View {
             VStack(spacing: 22) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 58))
-                    .foregroundColor(.green)
+                    .foregroundColor(AppSemanticColor.success)
 
                 VStack(spacing: 6) {
                     Text("Đã pass bài Shadowing")
-                        .font(.title2.bold())
+                        .font(AppTypography.metric)
+                        .foregroundColor(isExtra ? .white : .primary)
                         .multilineTextAlignment(.center)
 
                     Text(lesson.title)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                         .multilineTextAlignment(.center)
                 }
 
                 ZStack {
                     Circle()
-                        .stroke(Color.purple.opacity(0.16), lineWidth: 14)
+                        .stroke(AppSemanticColor.success.opacity(0.16), lineWidth: 14)
                     Circle()
                         .trim(from: 0, to: min(max(bestLessonScore / 100, 0), 1))
-                        .stroke(Color.purple, style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                        .stroke(AppSemanticColor.success, style: StrokeStyle(lineWidth: 14, lineCap: .round))
                         .rotationEffect(.degrees(-90))
 
                     VStack(spacing: 2) {
                         Text(ListeningScoreCalculator.display(bestLessonScore))
                             .font(.system(size: 42, weight: .bold))
-                            .foregroundColor(.purple)
+                            .foregroundColor(AppTheme(isExtra: isExtra).accent)
                         Text("điểm tốt nhất")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     }
                 }
                 .frame(width: 170, height: 170)
@@ -474,41 +483,46 @@ struct ShadowingPracticeView: View {
                     completionRow(title: "Câu đã đạt", value: "\(completedSentenceCount)/\(segments.count)")
                     completionRow(title: "Điểm bài", value: "\(ListeningScoreCalculator.display(bestLessonScore))/100")
                 }
-                .padding(18)
-                .background(Color(UIColor.secondarySystemGroupedBackground))
-                .cornerRadius(12)
+                .padding(AppSpacing.row)
+                .appSurface(.row, isExtra: isExtra)
 
                 Button {
                     isShowingCompletion = false
+                    activitySessionID = UUID()
+                    completedThisSession = false
+                    passedSegmentIds = []
+                    attemptedSegmentIds = []
+                    streakRecorded = false
+                    didKeepStreak = false
                     selectSegment(at: 0)
                 } label: {
                     Label("Luyện lại", systemImage: "arrow.counterclockwise")
-                        .font(.headline)
+                        .font(AppTypography.action)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.purple)
-                        .cornerRadius(12)
+                        .modifier(AppActionFill(isExtra: isExtra))
                 }
 
                 Button("Quay lại") {
                     exitPracticeRoom()
                 }
-                .font(.headline)
-                .foregroundColor(.blue)
+                .font(AppTypography.cardTitle)
+                .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
             }
             .padding(24)
         }
-        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        .background(Color.clear)
     }
 
     private func completionRow(title: String, value: String) -> some View {
         HStack {
             Text(title)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
             Spacer()
             Text(value)
                 .fontWeight(.semibold)
+                .foregroundColor(isExtra ? .white : .primary)
         }
     }
 
@@ -536,6 +550,7 @@ struct ShadowingPracticeView: View {
             attemptedSegmentIds = Set(lessonProgress.map(\.segment_id))
             bestLessonScore = entry?.shadowing_best_score ?? 0
             currentIndex = loadedSegments.firstIndex { !passedSegmentIds.contains($0.id) } ?? 0
+            if lessonIsCompleted { isShowingCompletion = true }
         } catch {
             errorMessage = "Không tải được bài Shadowing: \(error.localizedDescription)"
         }
@@ -606,13 +621,12 @@ struct ShadowingPracticeView: View {
                     audioURL: audioURL,
                     segmentId: currentSegment.id
                 )
-                await recordShadowingActivity()
 
                 await MainActor.run {
                     assessment = result
                     attemptedSegmentIds.insert(currentSegment.id)
 
-                    if result.shadowingProgress?.status == "passed" {
+                    if result.shadowingProgress?.attemptPassed ?? ShadowingPassingRule.passes(result) {
                         passedSegmentIds.insert(currentSegment.id)
                     }
 
@@ -633,7 +647,7 @@ struct ShadowingPracticeView: View {
     }
 
     private func moveForward() {
-        guard currentHasAttempt else { return }
+        guard currentHasAttempt, !isSubmitting else { return }
 
         if currentIndex < segments.count - 1 {
             selectSegment(at: currentIndex + 1)
@@ -641,7 +655,18 @@ struct ShadowingPracticeView: View {
         }
 
         if lessonIsCompleted {
-            isShowingCompletion = true
+            isSubmitting = true
+            Task {
+                defer { isSubmitting = false }
+                do {
+                    if !streakRecorded, let userId = AuthManager.shared.currentUser?.id.uuidString {
+                        didKeepStreak = try await UserProgressRepository.recordDailyActivityAndUpdateStreak(userId: userId, sessionId: activitySessionID)
+                        streakRecorded = true
+                    }
+                    completedThisSession = true
+                    isShowingCompletion = true
+                } catch { errorMessage = "Chưa thể ghi nhận phiên học: \(error.localizedDescription)" }
+            }
             return
         }
 
@@ -659,15 +684,8 @@ struct ShadowingPracticeView: View {
         pronunciationManager.stopPlayback()
         onFinished()
         dismiss()
-    }
-
-    private func recordShadowingActivity() async {
-        guard let userId = AuthManager.shared.currentUser?.id.uuidString else { return }
-
-        do {
-            try await UserProgressRepository.recordDailyActivityAndUpdateStreak(userId: userId)
-        } catch {
-            print("Không thể ghi nhận hoạt động Shadowing: \(error)")
+        if completedThisSession {
+            NotificationCenter.default.post(name: didKeepStreak ? .returnToHomeAfterLearning : .returnToLearningTab, object: nil)
         }
     }
 
@@ -697,7 +715,7 @@ struct ShadowingPracticeView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.title3.weight(.semibold))
-                .foregroundColor(enabled ? .primary : .secondary.opacity(0.4))
+                .foregroundColor(enabled ? (isExtra ? Color.white : .primary) : (isExtra ? Color.white.opacity(0.3) : .secondary.opacity(0.4)))
                 .frame(width: 38, height: 44)
         }
         .buttonStyle(.plain)
@@ -719,8 +737,8 @@ struct ShadowingPracticeView: View {
     @ViewBuilder
     private var selectedWordFeedbackSheet: some View {
         if let selectedWordIndex,
-           let assessment,
-           assessment.words.indices.contains(selectedWordIndex) {
+            let assessment,
+            assessment.words.indices.contains(selectedWordIndex) {
             PronunciationWordFeedbackSheet(
                 feedback: assessment.words[selectedWordIndex],
                 pronunciationManager: pronunciationManager
@@ -734,6 +752,7 @@ struct ShadowingPracticeView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Kết quả từng từ")
                 .font(.subheadline.weight(.semibold))
+                .foregroundColor(isExtra ? Color.white.opacity(0.85) : .primary)
 
             FlowLayout(spacing: 8) {
                 PronunciationFeedbackLegend(level: .good)
@@ -775,9 +794,14 @@ struct ShadowingPracticeView: View {
 }
 
 struct ShadowingPracticeDashboardView: View {
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @State private var items: [ListeningLibraryItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     private var completedLessonCount: Int {
         items.filter(\.isShadowingCompleted).count
@@ -788,25 +812,33 @@ struct ShadowingPracticeDashboardView: View {
     }
 
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Đang tải tiến độ Shadowing...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                ScrollView {
-                    VStack(spacing: 20) {
-                        screenTitle
-                        progressCard
-                        practiceCard
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            }
+
+            Group {
+                if isLoading {
+                    ProgressView("Đang tải tiến độ Shadowing...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .foregroundStyle(isExtra ? .white : .primary)
+                } else {
+                    ScrollView {
+                        VStack(spacing: AppSpacing.section) {
+                            progressCard
+                            practiceCard
+                        }
+                        .padding()
                     }
-                    .padding()
                 }
-                .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
             }
         }
         .navigationTitle("Luyện Shadowing")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear {
             Task { await loadItems() }
         }
@@ -820,84 +852,72 @@ struct ShadowingPracticeDashboardView: View {
         }
     }
 
-    private var screenTitle: some View {
-        Text("Luyện\nShadowing")
-            .font(.system(size: 32, weight: .bold))
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
     private var progressCard: some View {
         HStack(spacing: 22) {
             ListeningCompletionRing(
                 completed: completedLessonCount,
                 total: items.count,
-                tint: .purple
+                tint: AppSemanticColor.success
             )
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Tiến độ Shadowing")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
 
                 Text("\(completedLessonCount) / \(items.count) bài")
-                    .font(.title2.bold())
+                    .font(AppTypography.metric)
+                    .foregroundColor(isExtra ? .white : .primary)
 
                 Text(items.isEmpty ? "Hãy tải một seri bài nghe từ Trang chủ." : "Số bài đã đạt trên tổng bài đã tải về.")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(22)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
-        )
+        .padding(AppSpacing.card)
+        .appSurface(.card, isExtra: isExtra)
     }
 
     private var practiceCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Bài đang luyện")
-                        .font(.headline)
+        NavigationLink {
+            ShadowingPracticeMenuView(items: activeItems)
+        } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Bài đang luyện")
+                            .font(AppTypography.cardTitle)
+                            .foregroundColor(isExtra ? .white : .primary)
 
-                    Text(activeItems.isEmpty ? "Hãy vào My Listening và đưa bài vào luyện Shadowing." : "Bạn đang có \(activeItems.count) bài sẵn sàng luyện.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        Text(activeItems.isEmpty ? "Hãy vào My Listening và đưa bài vào luyện Shadowing." : "Bạn đang có \(activeItems.count) bài sẵn sàng luyện.")
+                            .font(.subheadline)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "waveform.and.mic")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundColor(activeItems.isEmpty ? (isExtra ? Color.white.opacity(0.4) : .secondary) : .purple)
                 }
 
-                Spacer()
-
-                Image(systemName: "waveform.and.mic")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundColor(activeItems.isEmpty ? .secondary : .purple)
-            }
-
-            NavigationLink {
-                ShadowingPracticeMenuView(items: activeItems)
-            } label: {
                 Label("Luyện Shadowing", systemImage: "play.fill")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(activeItems.isEmpty ? Color.gray.opacity(0.45) : Color.purple)
-                    .cornerRadius(18)
+                    .font(AppTypography.action)
+                    .foregroundStyle(activeItems.isEmpty ? AppTheme(isExtra: isExtra).secondaryText : Color.white)
+                    .padding(.horizontal, AppSpacing.row)
+                    .padding(.vertical, AppSpacing.item)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .modifier(AppActionFill(isExtra: isExtra, enabled: !activeItems.isEmpty))
             }
-            .disabled(activeItems.isEmpty)
+            .padding(AppSpacing.card)
+            .appSurface(.card, isExtra: isExtra)
         }
-        .padding(22)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
-        )
+        .buttonStyle(.plain)
+        .disabled(activeItems.isEmpty)
+        .accessibilityIdentifier("shadowing-practice-card")
     }
 
     @MainActor
@@ -921,36 +941,52 @@ struct ShadowingPracticeDashboardView: View {
 struct ShadowingPracticeMenuView: View {
     @State private var activeItems: [ListeningLibraryItem]
     @State private var selectedItem: ListeningLibraryItem?
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+
+    private var isExtra: Bool {
+        (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
+    }
 
     init(items: [ListeningLibraryItem]) {
         _activeItems = State(initialValue: items)
     }
 
     var body: some View {
-        Group {
-            if activeItems.isEmpty {
-                ContentUnavailableView(
-                    "Chưa có bài đang luyện",
-                    systemImage: "waveform.and.mic",
-                    description: Text("Bạn cần đưa bài từ My Listening vào Luyện Shadowing trước.")
-                )
+        ZStack {
+            if isExtra {
+                AuroraBackdrop()
             } else {
-                List {
-                    Section("Bài đang luyện") {
-                        ForEach(activeItems) { item in
-                            Button {
-                                selectedItem = item
-                            } label: {
-                                ListeningLibraryLessonRow(item: item)
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            }
+
+            Group {
+                if activeItems.isEmpty {
+                    ContentUnavailableView(
+                        "Chưa có bài đang luyện",
+                        systemImage: "waveform.and.mic",
+                        description: Text("Bạn cần đưa bài từ My Listening vào Luyện Shadowing trước.")
+                    )
+                    .foregroundStyle(isExtra ? .white : .primary)
+                } else {
+                    List {
+                        Section("Bài đang luyện") {
+                            ForEach(activeItems) { item in
+                                Button {
+                                    selectedItem = item
+                                } label: {
+                                    ListeningLibraryLessonRow(item: item, isExtra: isExtra)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
+                    .scrollContentBackground(isExtra ? .hidden : .automatic)
                 }
             }
         }
         .navigationTitle("Chọn bài luyện")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             Task { await refreshItems() }
         }
