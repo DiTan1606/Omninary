@@ -333,7 +333,7 @@ BEGIN
                    ELSE now() + make_interval(days => (v_decision ->> 'days')::integer) END;
     v_level_attempt := CASE WHEN v_kind = 'hold' AND COALESCE(v_profile.is_holding, false)
                             THEN COALESCE(v_profile.hold_attempt, 1) + 1
-                            WHEN v_kind = 'hold' THEN 1 ELSE 1 END;
+                            ELSE 1 END;
 
     IF v_is_extra THEN
       UPDATE public.user_vocabulary
@@ -382,6 +382,14 @@ BEGIN
                                         'word_results', v_words);
 END;
 $$;
+
+-- Pure helpers never depend on the caller's search_path.
+ALTER FUNCTION public.extra_v1_review_days(integer) SET search_path = '';
+ALTER FUNCTION public.extra_v1_decide(integer, boolean, integer, integer) SET search_path = '';
+ALTER FUNCTION public.extra_v1_type_weight(text) SET search_path = '';
+ALTER FUNCTION public.extra_v1_ewma(jsonb, jsonb) SET search_path = '';
+REVOKE EXECUTE ON FUNCTION public.extra_v1_decide(integer, boolean, integer, integer) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.extra_v1_ewma(jsonb, jsonb) FROM anon;
 
 REVOKE ALL ON FUNCTION public.complete_vocabulary_learning_session_v2(uuid, text[], integer, jsonb, timestamptz) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.complete_vocabulary_learning_session_v2(uuid, text[], integer, jsonb, timestamptz) TO authenticated;
