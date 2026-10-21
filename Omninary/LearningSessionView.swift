@@ -62,6 +62,7 @@ struct LearningSessionView: View {
     
     @State private var inputText = ""
     @State private var currentResult: TaskResult? = nil
+    @State private var isReviewingWord = false
     
     // Scramble logic state
     @State private var selectedScrambleWords: [String] = []
@@ -107,7 +108,7 @@ struct LearningSessionView: View {
                     Color(UIColor.systemGroupedBackground).ignoresSafeArea()
                 }
 
-                VStack {
+                VStack(spacing: 8) {
                     if isCompleted {
                         completionView
                     } else if let saveErrorMessage {
@@ -116,7 +117,7 @@ struct LearningSessionView: View {
                         savingProgressView
                     } else if let task = currentTask {
                         ProgressView(value: progress)
-                            .padding()
+                            .padding(.horizontal)
                             .tint(isExtra ? ExtraAuroraPalette.ice : .blue)
 
                         Text("Câu \(currentTaskIndex + 1) / \(tasks.count)")
@@ -137,20 +138,25 @@ struct LearningSessionView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         } else {
                             ScrollView {
-                                VStack(spacing: 20) {
+                                VStack(spacing: 10) {
                                     questionView(for: task)
-                                        .padding(.top)
-                                    inputArea(for: task)
+                                        .padding(.top, 4)
+                                    if task.type == .multipleChoice || task.type == .sentenceScramble {
+                                        inputArea(for: task)
+                                    }
                                 }
-                                .padding(.bottom, 30)
+                                .padding(.bottom, 8)
                             }
                             .scrollDismissesKeyboard(.interactively)
+                            .scrollBounceBehavior(.basedOnSize)
                             .safeAreaInset(edge: .bottom, spacing: 0) {
                                 learningActionBar(for: task)
                             }
                         }
                     }
                 }
+                .accessibilityHidden(currentResult != nil)
+                .allowsHitTesting(currentResult == nil)
             }
             .navigationTitle(isCompleted ? "Hoàn thành" : "Đang học")
             .navigationBarTitleDisplayMode(.inline)
@@ -200,12 +206,17 @@ struct LearningSessionView: View {
                 if newValue.count < oldValue.count { signals.deletions += 1 }
                 if !newValue.isEmpty { markFirstInteraction() }
             }
-            .sheet(item: $currentResult, onDismiss: {
-                nextTask()
-            }) { result in
-                resultView(for: result)
-                    .presentationDetents([.fraction(1.0), .large])
-                    .presentationDragIndicator(.visible)
+            .overlay {
+                if let result = currentResult {
+                    LearningCenteredPopup(isExtra: isExtra, fitsContent: !isReviewingWord) {
+                        if isReviewingWord {
+                            wordReview(for: result.task)
+                        } else {
+                            resultView(for: result)
+                        }
+                    }
+                    .id(isReviewingWord)
+                }
             }
             .onDisappear {
                 CelebrationFeedbackPlayer.shared.stop()
@@ -410,7 +421,7 @@ struct LearningSessionView: View {
     func questionView(for task: LearningTask) -> some View {
         let meaning = task.meanings.first
         let theme = AppTheme(isExtra: isExtra)
-        return VStack(spacing: 16) {
+        return VStack(spacing: 10) {
             if let skill = task.reinforcedSkill {
                 Label("Tăng cường: \(skill.title)", systemImage: "bolt.heart.fill")
                     .font(.caption.weight(.semibold))
@@ -425,10 +436,10 @@ struct LearningSessionView: View {
             case .listenAndType:
                 Button(action: { replayListening(task) }) {
                     Image(systemName: "speaker.wave.3.fill")
-                        .font(.system(size: 52))
-                        .foregroundColor(.blue)
-                        .padding()
-                        .background(Circle().fill(Color.blue.opacity(0.1)))
+                        .font(.system(size: 28))
+                        .foregroundColor(AppTheme(isExtra: isExtra).accent)
+                        .padding(12)
+                        .background(Circle().fill(AppTheme(isExtra: isExtra).accent.opacity(0.1)))
                 }
                 .accessibilityLabel("Nghe lại")
                 Text("Nghe và viết lại từ hoặc cụm từ")
@@ -461,15 +472,12 @@ struct LearningSessionView: View {
                 Text("Ghép các từ để hoàn thiện câu:")
                     .font(.subheadline)
                     .foregroundColor(theme.secondaryText)
-                promptCard(task.vHint ?? meaning?.V_meaning ?? "", font: .headline)
+                promptCard(task.vHint ?? meaning?.V_meaning ?? "", font: .subheadline)
 
             case .pronunciationExample:
                 EmptyView()
             }
 
-            if signals.hintLevel > 0 {
-                hintPanel(for: task)
-            }
         }
         .padding(.horizontal)
     }
@@ -499,17 +507,17 @@ struct LearningSessionView: View {
             }
             if let vMeaning = meaning?.V_meaning, !vMeaning.isEmpty {
                 Text(vMeaning)
-                    .font(.title3.bold())
+                    .font(.headline)
                     .foregroundColor(isExtra ? .white : .primary)
             }
             if let eMeaning = meaning?.E_meaning, !eMeaning.isEmpty {
                 Text(eMeaning)
-                    .font(.body)
+                    .font(.subheadline)
                     .foregroundColor(isExtra ? .white : .primary)
             }
             if let evMeaning = meaning?.EV_meaning, !evMeaning.isEmpty {
                 Text(evMeaning)
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
             }
         }
@@ -521,19 +529,20 @@ struct LearningSessionView: View {
     @ViewBuilder
     private func hintPanel(for task: LearningTask) -> some View {
         let meaning = task.meanings.first
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             ForEach(1...min(signals.hintLevel, 2), id: \.self) { level in
                 if let text = hintText(level: level, task: task, meaning: meaning) {
                     Label(text, systemImage: "lightbulb.fill")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(isExtra ? Color.white : Color.primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(AppSpacing.row)
+        .padding(8)
         .background(RoundedRectangle(cornerRadius: 14).fill(AppSemanticColor.attention.opacity(0.1)))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("learning-hint-panel")
     }
 
@@ -553,7 +562,7 @@ struct LearningSessionView: View {
     }
     @ViewBuilder
     func inputArea(for task: LearningTask) -> some View {
-        VStack {
+        VStack(spacing: 10) {
             if task.type == .pronunciationExample {
                 PronunciationExampleExerciseView(task: task) { isCorrect, details in
                     completePronunciationTask(task, isCorrect: isCorrect, details: details)
@@ -575,44 +584,39 @@ struct LearningSessionView: View {
                 }
             } else if task.type == .sentenceScramble {
                 sentenceScrambleInput
-            } else {
-                TextField("Nhập từ tiếng Anh...", text: $inputText)
-                    .textFieldStyle(.plain)
-                    .font(.title2)
-                    .padding(14)
-                    .background(
-                        isExtra
-                            ? AnyShapeStyle(Color.white.opacity(0.12))
-                            : AnyShapeStyle(Color(UIColor.systemBackground))
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isExtra ? ExtraAuroraPalette.ice.opacity(0.4) : Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
-                    .foregroundStyle(isExtra ? .white : .primary)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
-                    .submitLabel(.done)
-                    .focused($isAnswerFieldFocused)
-                    .onAppear {
-                        scheduleTypedAnswerFocus(for: task)
-                    }
-                    .onSubmit {
-                        submitTypedAnswer(for: task)
-                    }
-                    .accessibilityIdentifier("learning-answer-field")
             }
 
-            if task.type != .pronunciationExample {
-                if awaitingRescue {
-                    rescueBanner(for: task)
-                } else {
-                    supportBar(for: task)
-                }
-            }
         }
-        .padding(task.type == .pronunciationExample ? 0 : 16)
+        .padding(.horizontal, task.type == .pronunciationExample ? 0 : 16)
+    }
+
+    private func typedAnswerField(for task: LearningTask) -> some View {
+        TextField("Nhập từ tiếng Anh...", text: $inputText)
+            .textFieldStyle(.plain)
+            .font(.headline)
+            .padding(12)
+            .background(
+                isExtra
+                    ? AnyShapeStyle(Color.white.opacity(0.12))
+                    : AnyShapeStyle(Color(UIColor.systemBackground))
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isExtra ? ExtraAuroraPalette.ice.opacity(0.4) : Color.secondary.opacity(0.3), lineWidth: 1)
+            )
+            .foregroundStyle(isExtra ? .white : .primary)
+            .textInputAutocapitalization(.never)
+            .disableAutocorrection(true)
+            .submitLabel(.done)
+            .focused($isAnswerFieldFocused)
+            .onAppear {
+                scheduleTypedAnswerFocus(for: task)
+            }
+            .onSubmit {
+                submitTypedAnswer(for: task)
+            }
+            .accessibilityIdentifier("learning-answer-field")
     }
 
     /// Give up and the hint ladder. Every use is recorded and priced.
@@ -673,7 +677,7 @@ struct LearningSessionView: View {
     }
 
     private var sentenceScrambleInput: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 10) {
             selectedScrambleWordsPanel
             availableScrambleWordsPanel
         }
@@ -685,7 +689,7 @@ struct LearningSessionView: View {
             HStack(spacing: 10) {
                 Label("Câu của bạn", systemImage: "text.bubble.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.blue)
+                    .foregroundColor(AppTheme(isExtra: isExtra).accent)
 
                 Spacer()
 
@@ -712,9 +716,9 @@ struct LearningSessionView: View {
                     Text("Chạm các từ gợi ý để tạo câu")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 126)
+                        .frame(maxWidth: .infinity, minHeight: 72)
                 } else {
-                    FlowLayout(spacing: 9) {
+                    FlowLayout(spacing: 6) {
                         ForEach(Array(selectedScrambleWords.enumerated()), id: \.offset) { index, word in
                             Button {
                                 let removed = selectedScrambleWords.remove(at: index)
@@ -722,13 +726,13 @@ struct LearningSessionView: View {
                                 signals.undoCount += 1
                             } label: {
                                 Text(word)
-                                    .font(.body.weight(.medium))
+                                    .font(.subheadline.weight(.medium))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.75)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
                                     .foregroundColor(.white)
-                                    .background(Color.blue)
+                                    .background(AppTheme(isExtra: isExtra).accent)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                             }
                             .buttonStyle(.plain)
@@ -739,7 +743,7 @@ struct LearningSessionView: View {
                 }
             }
             .scrollIndicators(.visible)
-            .frame(height: 150)
+            .frame(height: 96)
         }
         .padding(14)
         .background(
@@ -773,9 +777,9 @@ struct LearningSessionView: View {
                     Label("Đã dùng hết từ gợi ý", systemImage: "checkmark.circle.fill")
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(AppSemanticColor.success)
-                        .frame(maxWidth: .infinity, minHeight: 126)
+                        .frame(maxWidth: .infinity, minHeight: 72)
                 } else {
-                    FlowLayout(spacing: 9) {
+                    FlowLayout(spacing: 6) {
                         ForEach(Array(availableScrambleWords.enumerated()), id: \.offset) { index, word in
                             Button {
                                 selectedScrambleWords.append(word)
@@ -784,11 +788,11 @@ struct LearningSessionView: View {
                                 markFirstInteraction()
                             } label: {
                                 Text(word)
-                                    .font(.body.weight(.medium))
+                                    .font(.subheadline.weight(.medium))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.75)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
                                     .foregroundColor(isExtra ? .white : .primary)
                                     .background(
                                         isExtra
@@ -810,7 +814,7 @@ struct LearningSessionView: View {
                 }
             }
             .scrollIndicators(.visible)
-            .frame(height: 150)
+            .frame(height: 96)
         }
         .padding(AppSpacing.row)
         .appSurface(.row, isExtra: isExtra)
@@ -821,48 +825,59 @@ struct LearningSessionView: View {
         selectedScrambleWords.count + availableScrambleWords.count
     }
 
-    @ViewBuilder
     private func learningActionBar(for task: LearningTask) -> some View {
-        switch task.type {
-        case .sentenceScramble:
-            sentenceScrambleCheckBar(for: task)
-        case .listenAndType, .meaningAndType:
-            typedAnswerCheckBar(for: task)
-        case .multipleChoice, .pronunciationExample:
-            EmptyView()
+        VStack(spacing: 6) {
+            if task.type == .listenAndType || task.type == .meaningAndType {
+                typedAnswerField(for: task)
+                    .id(task.id)
+            }
+            ScrollView {
+                if signals.hintLevel > 0 { hintPanel(for: task) }
+            }
+            .frame(height: 48)
+            .scrollBounceBehavior(.basedOnSize)
+            if awaitingRescue {
+                rescueBanner(for: task)
+            } else {
+                supportBar(for: task)
+            }
+            if task.type == .sentenceScramble {
+                sentenceScrambleCheckBar(for: task)
+            } else if task.type == .listenAndType || task.type == .meaningAndType {
+                typedAnswerCheckBar(for: task)
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .appActionBar()
     }
 
     private func sentenceScrambleCheckBar(for task: LearningTask) -> some View {
-        LearningBottomActionBar {
-            Button {
-                checkAnswer(for: task)
-            } label: {
-                LearningActionButtonLabel(
-                    title: "Kiểm tra",
-                    systemImage: "checkmark.circle.fill"
-                )
-            }
-            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
-            .disabled(!availableScrambleWords.isEmpty || selectedScrambleWords.isEmpty)
-            .accessibilityIdentifier("learning-check")
+        Button {
+            checkAnswer(for: task)
+        } label: {
+            LearningActionButtonLabel(
+                title: "Kiểm tra",
+                systemImage: "checkmark.circle.fill"
+            )
         }
+        .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
+        .disabled(!availableScrambleWords.isEmpty || selectedScrambleWords.isEmpty)
+        .accessibilityIdentifier("learning-check")
     }
 
     private func typedAnswerCheckBar(for task: LearningTask) -> some View {
-        LearningBottomActionBar {
-            Button {
-                submitTypedAnswer(for: task)
-            } label: {
-                LearningActionButtonLabel(
-                    title: "Kiểm tra",
-                    systemImage: "checkmark.circle.fill"
-                )
-            }
-            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
-            .disabled(!isTypedAnswerReady)
-            .accessibilityIdentifier("learning-check")
+        Button {
+            submitTypedAnswer(for: task)
+        } label: {
+            LearningActionButtonLabel(
+                title: "Kiểm tra",
+                systemImage: "checkmark.circle.fill"
+            )
         }
+        .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
+        .disabled(!isTypedAnswerReady)
+        .accessibilityIdentifier("learning-check")
     }
 
     private var isTypedAnswerReady: Bool {
@@ -895,7 +910,10 @@ struct LearningSessionView: View {
             correctAnswersCount += 1
         }
         shouldRetryCurrentTask = !LearningScoring.passes(score)
-        nextTask()
+        lastAttemptScore = score
+        lastFeeLines = []
+        isReviewingWord = true
+        currentResult = TaskResult(task: task, isCorrect: isCorrect, selectedOption: nil, answerText: "")
     }
 
     private func scheduleTypedAnswerFocus(for task: LearningTask) {
@@ -915,165 +933,122 @@ struct LearningSessionView: View {
     
     @ViewBuilder
     func resultView(for result: TaskResult) -> some View {
+        VStack(spacing: 15) {
+            ViewThatFits(in: .vertical) {
+                resultDetails(for: result)
+                ScrollView { resultDetails(for: result) }
+                    .scrollBounceBehavior(.basedOnSize)
+            }
+
+            Button("OK") { isReviewingWord = true }
+                .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
+                .accessibilityIdentifier("learning-result-ok")
+        }
+        .padding(20)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func resultDetails(for result: TaskResult) -> some View {
         let task = result.task
         let isCorrect = result.isCorrect
-        
-        VStack(spacing: 15) {
-            HStack(spacing: 8) {
-                Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .foregroundColor(isCorrect ? .green : .red)
-                Text(isCorrect ? "Chính xác!" : "Chưa đúng rồi!")
-                    .font(.headline)
-                    .foregroundColor(isCorrect ? .green : .red)
+        return VStack(spacing: 15) {
+                    HStack(spacing: 8) {
+                        Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(isCorrect ? .green : .red)
+                        Text(isCorrect ? "Chính xác!" : "Chưa đúng rồi!")
+                            .font(.headline)
+                            .foregroundColor(isCorrect ? .green : .red)
 
-                Text("\(lastAttemptScore)/100")
-                    .font(.subheadline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(LearningScoring.passes(lastAttemptScore) ? AppSemanticColor.success : AppSemanticColor.attention)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.secondary.opacity(0.12)))
-                    .accessibilityIdentifier("learning-attempt-score")
-            }
+                        Text("\(lastAttemptScore)/100")
+                            .font(.subheadline.weight(.bold).monospacedDigit())
+                            .foregroundStyle(LearningScoring.passes(lastAttemptScore) ? AppSemanticColor.success : AppSemanticColor.attention)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color.secondary.opacity(0.12)))
+                            .accessibilityIdentifier("learning-attempt-score")
+                    }
 
-            VStack(spacing: 3) {
-                ForEach(lastFeeLines, id: \.self) { line in
-                    Text(line).font(.caption).foregroundStyle(.secondary)
-                }
-                if !LearningScoring.passes(lastAttemptScore) {
-                    Text("Từ 50 điểm trở xuống: câu này sẽ quay lại cuối phiên để luyện tiếp.")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppSemanticColor.attention)
-                        .multilineTextAlignment(.center)
-                }
-            }
-
-            if !isCorrect {
-                if task.type == .multipleChoice {
-                    Text("Bạn chọn: \(result.selectedOption ?? ""). Đáp án đúng: \(task.word)")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                } else if task.type == .sentenceScramble {
-                    Text("Câu đúng: \(task.correctSentence ?? "")")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                } else {
-                    Text("Bạn nhập: \(result.answerText). Đáp án đúng: \(task.word)")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-            }
-            
-            ScrollView {
-                VStack(spacing: 20) {
-                    HStack {
-                        Text(task.word).font(.title).bold()
-                        Spacer()
-                        Button(action: {
-                            playAllAudios(for: task.word, meanings: task.meanings)
-                        }) {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .font(.title)
+                    VStack(spacing: 3) {
+                        ForEach(lastFeeLines, id: \.self) { line in
+                            Text(line).font(.caption).foregroundStyle(AppTheme(isExtra: isExtra).secondaryText)
+                        }
+                        if !LearningScoring.passes(lastAttemptScore) {
+                            Text("Từ 50 điểm trở xuống: câu này sẽ quay lại cuối phiên để luyện tiếp.")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppSemanticColor.attention)
+                                .multilineTextAlignment(.center)
                         }
                     }
-                    .padding(.horizontal)
-                    
-                    ForEach(Array(task.meanings.enumerated()), id: \.element.id) { index, meaning in
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(task.meanings.count > 1 ? "NGHĨA \(index + 1)" : "CHI TIẾT NGHĨA")
+
+                    if !isCorrect {
+                        if task.type == .multipleChoice {
+                            Text("Bạn chọn: \(result.selectedOption ?? ""). Đáp án đúng: \(task.word)")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 10)
-                            
-                            VStack(alignment: .leading, spacing: 12) {
-                                if let form = meaning.word_form, !form.isEmpty {
-                                    HStack {
-                                        DetailRow(title: "Từ loại (Word form)", content: form, color: .purple)
-                                        Spacer()
-                                        Button(action: {
-                                            SpeechManager.shared.speak(word: task.word, ipa: meaning.IPA)
-                                        }) {
-                                            Image(systemName: "speaker.wave.2.fill")
-                                                .foregroundColor(.blue)
-                                                .font(.title3)
-                                        }
-                                    }
-                                }
-                                if let ipa = meaning.IPA, !ipa.isEmpty {
-                                    DetailRow(title: "Phát âm (IPA)", content: ipa, color: .blue)
-                                }
-                                if let cefr = meaning.CEFR, !cefr.isEmpty {
-                                    DetailRow(title: "Cấp độ (CEFR)", content: cefr, color: .orange)
-                                }
-                                if let eMeaning = meaning.E_meaning, !eMeaning.isEmpty {
-                                    DetailRow(title: "Nghĩa Tiếng Anh", content: eMeaning, onSpeak: {
-                                        SpeechManager.shared.speak(word: eMeaning, ipa: nil)
-                                    })
-                                }
-                                if let evMeaning = meaning.EV_meaning, !evMeaning.isEmpty {
-                                    DetailRow(title: "Nghĩa Anh - Việt", content: evMeaning)
-                                }
-                                if let vMeaning = meaning.V_meaning, !vMeaning.isEmpty {
-                                    DetailRow(title: "Nghĩa Tiếng Việt", content: vMeaning)
-                                }
-                                if let eExample = meaning.englishExample {
-                                    DetailRow(title: "Ví dụ Tiếng Anh", content: eExample, isItalic: true, onSpeak: {
-                                        SpeechManager.shared.speak(
-                                            example: eExample,
-                                            targetWord: task.word,
-                                            ipa: meaning.IPA
-                                        )
-                                    })
-                                }
-                                if let vExample = meaning.vietnameseExample {
-                                    DetailRow(title: "Ví dụ Tiếng Việt", content: vExample)
-                                }
-                                if let family = meaning.word_family, !family.isEmpty {
-                                    DetailRow(title: "Từ cùng họ (Word family)", content: family, isExtra: isExtra, isMultiple: true)
-                                }
-                                if let synonymous = meaning.synonymous, !synonymous.isEmpty {
-                                    DetailRow(title: "Từ đồng nghĩa", content: synonymous, isExtra: isExtra, isMultiple: true)
-                                }
-                                if let antonym = meaning.antonym, !antonym.isEmpty {
-                                    DetailRow(title: "Từ trái nghĩa", content: antonym, isExtra: isExtra, isMultiple: true)
-                                }
-                                if let collocation = meaning.collocation, !collocation.isEmpty {
-                                    DetailRow(title: "Cụm từ thường đi cùng", content: collocation, isExtra: isExtra, isMultiple: true)
-                                }
-
-                                if let formula = meaning.formula, !formula.isEmpty {
-                                    DetailRow(title: "Mẫu cấu trúc", content: formula, isExtra: isExtra, isMultiple: true)
-                                }
-                                if let note = meaning.note, !note.isEmpty {
-                                    DetailRow(title: "Ghi chú cách dùng", content: note, isExtra: isExtra, isMultiple: true)
-                                }
-                                if let bonus = meaning.bonus, !bonus.isEmpty {
-                                    DetailRow(title: "Thông tin mở rộng", content: bonus, isExtra: isExtra, isMultiple: true)
-                                }
-                            }
-                            .padding(AppSpacing.row)
-                            .appSurface(.row, isExtra: isExtra)
+                                .foregroundColor(.red)
+                        } else if task.type == .sentenceScramble {
+                            Text("Câu đúng: \(task.correctSentence ?? "")")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        } else {
+                            Text(result.answerText.isEmpty ? "Đáp án đúng: \(task.word)" : "Bạn nhập: \(result.answerText). Đáp án đúng: \(task.word)")
+                                .font(.caption)
+                                .foregroundColor(.red)
                         }
                     }
+
                 }
-                .padding(.vertical)
+                .frame(maxWidth: .infinity)
+    }
+
+    private func wordReview(for task: LearningTask) -> some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(task.word)
+                        .font(.largeTitle.bold())
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(LearningLevelDisplay.title(for: task.meanings.first?.learning_level))
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color.black.opacity(0.18), in: Capsule())
+                    Button { playAllAudios(for: task.word, meanings: task.meanings) } label: {
+                        Image(systemName: "speaker.wave.2.fill").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Nghe phát âm")
+                }
+                if let meaning = task.meanings.first {
+                    VocabularyCardMetadata(item: meaning, onSpeak: {
+                        SpeechManager.shared.speak(word: task.word, ipa: meaning.IPA)
+                    })
+                }
             }
-            
-            Button {
-                currentResult = nil
-            } label: {
-                LearningActionButtonLabel(
-                    title: "Tiếp tục",
-                    systemImage: "arrow.right.circle.fill"
-                )
+            .foregroundStyle(.white)
+            .padding(16)
+            .background(AppTheme(isExtra: isExtra).primaryGradient)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    ForEach(task.meanings, id: \.vocabularyIdentity) { meaning in
+                        VocabularyCardContent(item: meaning, isExtra: isExtra)
+                    }
+                }
+                .padding(20)
+            }
+            .frame(maxHeight: .infinity)
+
+            Button { nextTask() } label: {
+                LearningActionButtonLabel(title: "Tiếp tục", systemImage: "arrow.right.circle.fill")
             }
             .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
+            .padding(16)
         }
-        .padding()
-        .onAppear {
-            playAllAudios(for: task.word, meanings: task.meanings)
-        }
+        .accessibilityElement(children: .contain)
+        .onAppear { playAllAudios(for: task.word, meanings: task.meanings) }
     }
-    
+
     func playAllAudios(for word: String, meanings: [Vocabulary]) {
         var seenIPAs = Set<String>()
         var count = 0
@@ -1204,6 +1179,7 @@ struct LearningSessionView: View {
         shouldRetryCurrentTask = !LearningScoring.passes(score)
         lastAttemptScore = score
         lastFeeLines = feeLines(for: task)
+        isReviewingWord = false
         currentResult = TaskResult(
             task: task,
             isCorrect: isCorrect,
@@ -1260,6 +1236,7 @@ struct LearningSessionView: View {
         
         inputText = ""
         currentResult = nil
+        isReviewingWord = false
         
         currentTaskIndex += 1
         
@@ -1473,3 +1450,59 @@ struct LearningSessionView: View {
         }
     }
 }
+
+/// Shared, bounded presentation for exercise feedback and vocabulary review.
+struct LearningCenteredPopup<Content: View>: View {
+    let isExtra: Bool
+    /// Size the card to its content (short feedback) instead of filling the screen.
+    var fitsContent = false
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.opacity(0.42).ignoresSafeArea()
+                content()
+                    .frame(maxWidth: 560)
+                    .frame(maxHeight: fitsContent ? nil : max(0, geometry.size.height - 40))
+                    .fixedSize(horizontal: false, vertical: fitsContent)
+                    .appSurface(.detail, isExtra: isExtra)
+                    .clipShape(RoundedRectangle(cornerRadius: AppSurfaceKind.detail.cornerRadius))
+                    .shadow(color: .black.opacity(0.2), radius: 24, y: 10)
+                    .padding(.horizontal, 20)
+                    .accessibilityAddTraits(.isModal)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+}
+
+#if DEBUG
+/// Local fixtures exercise the production layouts without changing account progress.
+struct LearningLayoutPreview: View {
+    static let words: [Vocabulary] = (0..<80).map { index in
+        Vocabulary(id: "layout-\(index)", vocab: index == 0 ? "apple" : "word \(index)",
+                   CEFR: "A1", IPA: "/ˈæp.əl/", word_form: "noun",
+                   E_meaning: "A round fruit with firm, white flesh and a green or red skin.",
+                   EV_meaning: "Một loại quả tròn, thịt trắng, vỏ xanh hoặc đỏ.", V_meaning: "Quả táo",
+                   E_example: "She eats an apple every morning.", V_example: "Cô ấy ăn một quả táo mỗi sáng.",
+                   learning_level: 0)
+    }
+
+    var body: some View {
+        if ProcessInfo.processInfo.arguments.contains("-LearningLayoutReview") {
+            VocabularyLearningView()
+        } else {
+            let tasks = [QuestionType.meaningAndType, .listenAndType, .sentenceScramble, .multipleChoice, .meaningAndType].map { type in
+                LearningTask(word: "apple", meanings: [Self.words[0]], type: type,
+                             options: ["apple", "pear", "orange", "peach"],
+                             correctSentence: "She eats an apple every morning",
+                             scrambledWords: ["every", "apple", "She", "morning", "an", "eats"],
+                             vHint: "Cô ấy ăn một quả táo mỗi sáng.",
+                             blankedExample: "She eats an _____ every morning.")
+            }
+            LearningSessionView(sessionID: UUID(), tasks: tasks, learningVocabGroups: [[Self.words[0]]], onClose: {})
+        }
+    }
+}
+#endif

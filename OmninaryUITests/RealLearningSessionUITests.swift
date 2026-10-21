@@ -52,6 +52,9 @@ final class RealLearningSessionUITests: XCTestCase {
             }
             if app.staticTexts["learning-attempt-score"].exists {
                 if shots.insert("result").inserted { snapshot(app, "04-answer-card") }
+                app.buttons["learning-result-ok"].tap()
+                XCTAssertTrue(app.buttons["Tiếp tục"].waitForExistence(timeout: 5))
+                snapshot(app, "04-vocabulary-review")
                 app.buttons["Tiếp tục"].firstMatch.tap()
                 continue
             }

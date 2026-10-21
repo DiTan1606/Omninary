@@ -83,11 +83,12 @@ struct PronunciationExampleExerciseView: View {
         } message: {
             Text(errorMessage)
         }
-        .sheet(isPresented: $isResultPresented, onDismiss: finishPendingContinuation) {
-            pronunciationResultSheet
-                .presentationDetents([.fraction(1.0), .large])
-                .presentationDragIndicator(.visible)
-                .interactiveDismissDisabled()
+        .overlay {
+            if isResultPresented {
+                LearningCenteredPopup(isExtra: isExtra) {
+                    pronunciationResultSheet
+                }
+            }
         }
         .onDisappear {
             if pronunciationManager.isRecording {
@@ -102,7 +103,7 @@ struct PronunciationExampleExerciseView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Label("Luyện phát âm câu ví dụ", systemImage: "mic.fill")
                     .font(AppTypography.cardTitle)
-                    .foregroundColor(.purple)
+                    .foregroundColor(AppTheme(isExtra: isExtra).accent)
 
                 HStack(spacing: 8) {
                     Text(task.word)
@@ -111,7 +112,7 @@ struct PronunciationExampleExerciseView: View {
                     if let ipa = meaning?.IPA, !ipa.isEmpty {
                         Text(ipa)
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(AppTheme(isExtra: isExtra).accent)
                     }
                 }
             }
@@ -232,9 +233,10 @@ struct PronunciationExampleExerciseView: View {
                 pendingContinuationResult = canContinue
                 pronunciationManager.stopPlayback()
                 isResultPresented = false
+                finishPendingContinuation()
             } label: {
                 LearningActionButtonLabel(
-                    title: "Tiếp tục",
+                    title: "OK",
                     systemImage: "arrow.right.circle.fill"
                 )
             }
@@ -344,7 +346,7 @@ struct PronunciationExampleExerciseView: View {
 
                     Text(azureTranscript)
                         .font(.subheadline)
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppTheme(isExtra: isExtra).accent)
                         .italic()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -474,13 +476,6 @@ struct PronunciationExampleExerciseView: View {
     private func finishPendingContinuation() {
         guard let result = pendingContinuationResult else { return }
         pendingContinuationResult = nil
-
-        if !result {
-            assessment = nil
-            selectedWordIndex = nil
-            isSubmitting = false
-            pronunciationManager.resetRecordingState()
-        }
 
         var details = PronunciationAttemptDetails(modelPlays: modelPlays, recordings: recordings,
                                                   firstRecordingMs: firstRecordingMs)

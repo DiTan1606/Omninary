@@ -27,7 +27,9 @@ import SwiftUI
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-UITesting") && ProcessInfo.processInfo.arguments.contains("-LayoutRefinementUITest") {
+            if ProcessInfo.processInfo.arguments.contains("-UITesting") && ProcessInfo.processInfo.arguments.contains("-LearningLayoutUITest") {
+                LearningLayoutPreview()
+            } else if ProcessInfo.processInfo.arguments.contains("-UITesting") && ProcessInfo.processInfo.arguments.contains("-LayoutRefinementUITest") {
                 ContentView()
             } else if ProcessInfo.processInfo.arguments.contains("-UITesting") && ProcessInfo.processInfo.arguments.contains("-DesignConsistencyUITest") {
                 DesignConsistencyPreview()

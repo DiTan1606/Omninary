@@ -124,6 +124,7 @@ struct SkillBars: View {
 struct ReviewPickerView: View {
     let candidates: [ReviewCandidate]
     let isExtra: Bool
+    let usesExtraAlgorithm: Bool
     let canStudy: Bool
     let onStart: ([ReviewCandidate]) -> Void
 
@@ -136,13 +137,7 @@ struct ReviewPickerView: View {
 
     private var canStart: Bool {
         guard canStudy else { return false }
-        return isExtra ? !selected.isEmpty : selected.count == requiredCount
-    }
-
-    private var instruction: String {
-        isExtra
-            ? "Chọn bao nhiêu từ cũng được. Danh sách đã xếp theo mức ưu tiên."
-            : "Chọn đúng \(requiredCount) từ cho mỗi lượt học. Danh sách đã xếp theo mức ưu tiên."
+        return usesExtraAlgorithm ? !selected.isEmpty : selected.count == requiredCount
     }
 
     var body: some View {
@@ -152,44 +147,28 @@ struct ReviewPickerView: View {
                     Text("Cần ôn tập ngay")
                         .font(AppTypography.cardTitle)
                         .foregroundStyle(isExtra ? Color.white : Color.primary)
-                    Text(instruction)
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryText)
                 }
                 Spacer()
-                Text(isExtra ? "\(selected.count) đã chọn" : "\(selected.count)/\(requiredCount)")
+                Text(usesExtraAlgorithm ? "\(selected.count) đã chọn" : "\(selected.count)/\(requiredCount)")
                     .font(.subheadline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(canStart ? AppSemanticColor.success : theme.secondaryText)
+                    .foregroundStyle(canStart ? theme.accent : theme.secondaryText)
             }
 
-            HStack(spacing: 8) {
-                Button("Chọn \(requiredCount) từ ưu tiên") {
-                    selected = Set(candidates.prefix(requiredCount).map(\.id))
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("review-pick-priority")
-                if isExtra {
-                    Button("Chọn tất cả") { selected = Set(candidates.map(\.id)) }
-                        .buttonStyle(.bordered)
-                }
-                Spacer()
-                if !selected.isEmpty {
-                    Button("Bỏ chọn") { selected.removeAll() }
-                        .font(.caption)
+            ScrollView {
+                LazyVStack(spacing: AppSpacing.inline) {
+                    ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
+                        row(candidate, rank: index + 1)
+                    }
                 }
             }
-
-            LazyVStack(spacing: AppSpacing.inline) {
-                ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
-                    row(candidate, rank: index + 1)
-                }
-            }
+            .frame(maxHeight: .infinity)
+            .scrollBounceBehavior(.basedOnSize)
 
             Button {
                 onStart(candidates.filter { selected.contains($0.id) })
             } label: {
                 LearningActionButtonLabel(
-                    title: canStart ? "Bắt đầu ôn \(selected.count) từ" : "Chọn từ để bắt đầu",
+                    title: "Ôn tập ngay",
                     systemImage: "play.circle.fill"
                 )
             }
@@ -209,7 +188,7 @@ struct ReviewPickerView: View {
         return Button {
             if isOn {
                 selected.remove(candidate.id)
-            } else if isExtra || selected.count < requiredCount {
+            } else if usesExtraAlgorithm || selected.count < requiredCount {
                 selected.insert(candidate.id)
             }
         } label: {
@@ -246,6 +225,7 @@ struct ReviewPickerView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, AppSpacing.item)
+            .appSurface(.row, isExtra: isExtra)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -669,99 +669,102 @@ struct VocabularyLearningView: View {
         }
     }
     
-    @ViewBuilder
-    func dashboardView() -> some View {
-        ScrollView {
-            VStack(spacing: AppSpacing.cardGap) {
-                // Progress Section
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Tiến độ học tập")
-                                .font(.headline)
-                                .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
-                            
-                            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                Text("\(totalLearningWords)")
-                                    .font(.system(size: 34, weight: .bold))
-                                    .foregroundColor(isExtra ? .white : .primary)
-                                Text("/ \(totalSavedWords)")
-                                    .font(.headline)
-                                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
-                                Text("nghĩa")
-                                    .font(.subheadline)
-                                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
-                            }
-                        }
-                        Spacer()
-                        
-                        Chart {
-                            ForEach(0...7, id: \.self) { level in
-                                SectorMark(
-                                    angle: .value("Số nghĩa", statsByLevel[level] ?? 0),
-                                    innerRadius: .ratio(0.6),
-                                    angularInset: 1.5
-                                )
-                                .foregroundStyle(colorForLevel(level))
-                                .cornerRadius(4)
-                            }
-                        }
-                        .frame(width: 80, height: 80)
-                    }
-                    
-                    Divider()
-                        .background(isExtra ? Color.white.opacity(0.12) : Color.black.opacity(0.08))
-                    
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("Phân bổ cấp độ")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+    private func dashboardView() -> some View {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: AppSpacing.cardGap) {
+                    progressCard
+                    reviewCard
+                        .frame(height: reviewCandidates.isEmpty ? nil : max(280, geometry.size.height - 32))
+                }
+                .padding(.vertical)
+            }
+        }
+    }
+
+    private var progressCard: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Tiến độ học tập")
+                        .font(.headline)
+                        .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(totalLearningWords)")
+                            .font(.system(size: 34, weight: .bold))
                             .foregroundColor(isExtra ? .white : .primary)
-                        
-                        Chart {
-                            ForEach(0...7, id: \.self) { level in
-                                BarMark(
-                                    x: .value("Cấp độ", LearningLevelDisplay.title(for: level == 7 ? 10 : level)),
-                                    y: .value("Số nghĩa", statsByLevel[level] ?? 0)
-                                )
-                                .foregroundStyle(colorForLevel(level))
-                                .cornerRadius(6)
-                                .annotation(position: .top) {
-                                    let count = statsByLevel[level] ?? 0
-                                    if count > 0 {
-                                        Text("\(count)")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
-                                    }
-                                }
-                            }
-                        }
-                        .frame(height: 150)
-                        .chartLegend(.hidden)
-                        .chartYAxis(.hidden)
+                        Text("/ \(totalSavedWords)")
+                            .font(.headline)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                        Text("từ")
+                            .font(.subheadline)
+                            .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     }
                 }
-                .padding(AppSpacing.card)
-                .appSurface(.card, isExtra: isExtra)
-                .padding(.horizontal)
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("vocabulary-learning-progress")
-                
-                reviewCard
+                Spacer()
 
+                Chart {
+                    ForEach(0...7, id: \.self) { level in
+                        SectorMark(
+                            angle: .value("Số từ", statsByLevel[level] ?? 0),
+                            innerRadius: .ratio(0.6),
+                            angularInset: 1.5
+                        )
+                        .foregroundStyle(colorForLevel(level))
+                        .cornerRadius(4)
+                    }
+                }
+                .frame(width: 80, height: 80)
             }
-            .padding(.vertical)
+
+            Divider()
+                .background(isExtra ? Color.white.opacity(0.12) : Color.black.opacity(0.08))
+
+            VStack(alignment: .leading, spacing: 15) {
+                Text("Phân bổ cấp độ")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(isExtra ? .white : .primary)
+
+                Chart {
+                    ForEach(0...7, id: \.self) { level in
+                        BarMark(
+                            x: .value("Cấp độ", LearningLevelDisplay.title(for: level == 7 ? 10 : level)),
+                            y: .value("Số từ", statsByLevel[level] ?? 0)
+                        )
+                        .foregroundStyle(colorForLevel(level))
+                        .cornerRadius(6)
+                        .annotation(position: .top) {
+                            let count = statsByLevel[level] ?? 0
+                            if count > 0 {
+                                Text("\(count)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 150)
+                .chartLegend(.hidden)
+                .chartYAxis(.hidden)
+            }
         }
-        .background(Color.clear)
+        .padding(AppSpacing.card)
+        .appSurface(.card, isExtra: isExtra)
+        .padding(.horizontal)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("vocabulary-learning-progress")
     }
-    
+
     private var reviewCard: some View {
         Group {
             if !reviewCandidates.isEmpty {
                 VStack(spacing: AppSpacing.item) {
                     ReviewPickerView(
                         candidates: reviewCandidates,
-                        isExtra: usesExtraAlgorithm,
+                        isExtra: isExtra,
+                        usesExtraAlgorithm: usesExtraAlgorithm,
                         canStudy: heartManager.canStudy,
                         onStart: startReview
                     )
@@ -917,6 +920,18 @@ struct VocabularyLearningView: View {
     private func prepareSession() async {
         isLoading = true
         defer { isLoading = false }
+
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-LearningLayoutUITest") {
+            allVocabs = LearningLayoutPreview.words
+            reviewCandidates = ReviewPriority.candidates(from: allVocabs, profiles: [:], now: Date())
+            totalLearningWords = 114
+            totalSavedWords = 321
+            dueVocabsCount = allVocabs.count
+            statsByLevel = [0: 25, 1: 30, 2: 22, 3: 15, 4: 12, 5: 5, 6: 3, 7: 2]
+            return
+        }
+        #endif
 
         do {
             await heartManager.refreshHearts()
