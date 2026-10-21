@@ -341,7 +341,7 @@ struct LearningSessionView: View {
         let answer = task.type == .sentenceScramble
             ? LearningTextNormalizer.sentenceScrambleWords(task.correctSentence ?? "").joined(separator: "|")
             : task.word
-        return "\(task.type.telemetryName)::\(answer)"
+        return "\(task.type.telemetryName)::\(answer)::\(task.word)"
     }
     #endif
 

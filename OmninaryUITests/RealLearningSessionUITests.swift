@@ -10,8 +10,21 @@ final class RealLearningSessionUITests: XCTestCase {
 
     @MainActor
     func testCompleteOneRealSession() throws {
+        try runSession(extraTheme: false, struggleWords: 0)
+    }
+
+    /// Extra: struggle on two words (give up first, right on retry) to see
+    /// hold decisions next to jumps for the words answered well.
+    @MainActor
+    func testExtraSessionWithStruggle() throws {
+        try runSession(extraTheme: true, struggleWords: 2)
+    }
+
+    @MainActor
+    private func runSession(extraTheme: Bool, struggleWords: Int) throws {
         let app = XCUIApplication()
         app.launchArguments = ["-UITesting", "-LearningInteractionUITest", "-LearningInteractionUITestReset", "-RealSessionUITest", "-RealSessionUITestNoSpeech"]
+        if extraTheme { app.launchArguments += ["-development_interface_mode", "extraordinary"] }
         app.launch()
 
         let card = app.descendants(matching: .any)["learning-card-vocabulary"].firstMatch
@@ -21,13 +34,15 @@ final class RealLearningSessionUITests: XCTestCase {
 
         let start = app.buttons["review-start"]
         XCTAssertTrue(start.waitForExistence(timeout: 30), "Review list did not appear (no due words or not signed in)")
-        snapshot(app, "01-review-list")
+        snapshot(app, extraTheme ? "11-extra-review-list" : "01-review-list")
         var swipes = 0
         while !start.isHittable && swipes < 8 { app.swipeUp(); swipes += 1 }
         start.tap()
 
-        var didRescue = false
-        var didHint = false
+        var didRescue = struggleWords > 0
+        var didHint = struggleWords > 0
+        var strugglingAnswers: [String] = []
+        var seenQuestions: [String: Int] = [:]
         var pronunciationTries = 0
         var shots: Set<String> = []
 
@@ -51,6 +66,21 @@ final class RealLearningSessionUITests: XCTestCase {
             let parts = marker.label.components(separatedBy: "::")
             let type = parts.first ?? ""
             let answer = parts.count > 1 ? parts[1] : ""
+            let wordKey = (parts.count > 2 ? parts[2] : answer).lowercased()
+            if !wordKey.isEmpty && strugglingAnswers.count < struggleWords && !strugglingAnswers.contains(wordKey) {
+                strugglingAnswers.append(wordKey)
+            }
+            let questionKey = "\(type)|\(answer)"
+            let seen = seenQuestions[questionKey, default: 0]
+            seenQuestions[questionKey] = seen + 1
+            let struggles = type != "pronunciation_example" && seen == 0
+                && strugglingAnswers.contains(wordKey)
+            if struggles {
+                let giveUp = app.buttons["learning-give-up"]
+                XCTAssertTrue(giveUp.waitForExistence(timeout: 5))
+                giveUp.tap()
+                continue
+            }
 
             switch type {
             case "listen_and_type", "meaning_and_type":
@@ -110,9 +140,9 @@ final class RealLearningSessionUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Hoàn thành bài học!"].waitForExistence(timeout: 60))
         let results = app.otherElements["learning-word-results"]
         _ = results.waitForExistence(timeout: 10)
-        snapshot(app, "05-completion")
+        snapshot(app, extraTheme ? "15-extra-completion" : "05-completion")
         if results.exists { results.swipeUp() }
-        snapshot(app, "06-completion-more")
+        snapshot(app, extraTheme ? "16-extra-completion-more" : "06-completion-more")
     }
 
     @MainActor

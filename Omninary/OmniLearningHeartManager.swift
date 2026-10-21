@@ -16,8 +16,11 @@ final class OmniLearningHeartManager: ObservableObject {
 
     private init() {}
 
+    /// Extra flag from the last learning access check; the settlement server uses the same rule.
+    @Published private(set) var serverIsExtra: Bool?
+
     var isExtra: Bool {
-        OmniExtraordinaryManager.shared.isActive
+        serverIsExtra ?? OmniExtraordinaryManager.shared.isActive
     }
 
     var canStudy: Bool { isExtra || remainingHearts > 0 }
@@ -44,6 +47,7 @@ final class OmniLearningHeartManager: ObservableObject {
 
         do {
             let state = try await OmniRewardRepository.fetchLearningAccessState()
+            serverIsExtra = state.is_extra
             syncFromRemote(
                 remainingHearts: state.remaining_hearts,
                 resetDate: state.reset_date,
@@ -56,6 +60,7 @@ final class OmniLearningHeartManager: ObservableObject {
     }
 
     func applySettlement(_ result: VocabularyLearningSettlementResult) {
+        serverIsExtra = result.is_extra
         syncFromRemote(
             remainingHearts: result.remaining_hearts,
             resetDate: result.reset_date,
