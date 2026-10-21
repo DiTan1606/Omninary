@@ -70,7 +70,7 @@ BEGIN
 
   IF NOT v_is_extra AND v_profile.learning_hearts_reset_date IS DISTINCT FROM v_today THEN
     UPDATE public.profiles
-    SET learning_hearts_remaining = 5,
+    SET learning_hearts_remaining = 10,
         learning_hearts_reset_date = v_today
     WHERE id = v_user_id
     RETURNING * INTO v_profile;
@@ -164,7 +164,7 @@ BEGIN
   IF p_session_id IS NULL THEN
     RAISE EXCEPTION 'Missing learning session id';
   END IF;
-  IF p_correct_answers < 0 OR p_correct_answers > 500 THEN
+  IF p_correct_answers < 0 OR p_correct_answers > 5000 THEN
     RAISE EXCEPTION 'Invalid answer count';
   END IF;
 
@@ -194,7 +194,8 @@ BEGIN
   WHERE NULLIF(btrim(value), '') IS NOT NULL;
 
   v_requested_count := cardinality(v_ids);
-  IF v_requested_count = 0 OR v_requested_count > 50 THEN
+  -- Extra lets the learner pick any number of due words for one session.
+  IF v_requested_count = 0 OR v_requested_count > 300 THEN
     RAISE EXCEPTION 'Invalid vocabulary selection';
   END IF;
 
@@ -209,10 +210,10 @@ BEGIN
 
   v_is_extra := COALESCE(v_profile.extraordinary_trial_until > now(), false);
 
-  -- Ditan gets exactly five sessions per Vietnam calendar day.
+  -- Ditan gets exactly ten sessions per Vietnam calendar day (experiment schedule).
   IF NOT v_is_extra AND v_profile.learning_hearts_reset_date IS DISTINCT FROM v_today THEN
     UPDATE public.profiles
-    SET learning_hearts_remaining = 5,
+    SET learning_hearts_remaining = 10,
         learning_hearts_reset_date = v_today
     WHERE id = v_user_id
     RETURNING * INTO v_profile;

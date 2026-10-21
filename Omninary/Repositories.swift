@@ -306,7 +306,7 @@ enum VocabularyRepository {
     ) async throws -> VocabularyLearningSettlementResult {
         try await supabase
             .rpc(
-                "complete_vocabulary_learning_session_extra_v1",
+                "complete_vocabulary_learning_session_v2",
                 params: CompleteLearningSessionParams(
                     p_session_id: sessionId,
                     p_user_vocabulary_ids: userVocabularyIds,
@@ -1035,7 +1035,74 @@ struct VocabularyLearningSettlementResult: Decodable {
     var streak_restored_on: String? = nil
     var previous_streak_count: Int? = nil
     var was_frozen_today: Bool? = nil
+    var word_results: [WordMasteryResult]? = nil
 
+}
+
+/// Server-side Extra v1 outcome for one word in a settled session.
+struct WordMasteryResult: Decodable, Identifiable, Equatable {
+    let user_vocabulary_id: String
+    let mode: String
+    let level_before: Int?
+    let reached_level: Int?
+    let stored_level: Int?
+    let level_attempt: Int
+    let exercise_scores: [String: Double]
+    let skill_scores: [String: Double]
+    let mastery: Int?
+    let previous_mastery: Int?
+    let decision: String
+    let next_review: String?
+    let attempt_count: Int
+    let reinforcement_count: Int
+
+    var id: String { user_vocabulary_id }
+    var decisionKind: LevelDecisionKind { LevelDecisionKind(rawValue: decision) ?? .advance }
+}
+
+enum LearningProfileRepository {
+    private struct ProfileRow: Decodable {
+        let user_vocabulary_id: String
+        let skill_ewma: [String: Double]
+        let exercise_ewma: [String: Double]
+        let spelling_cost_by_type: [String: Double]
+        let last_first_asked: [String: String]
+        let last_mastery: Int?
+        let is_holding: Bool
+        let hold_attempt: Int
+    }
+
+    static func fetchProfiles(userId: String) async throws -> [String: WordSkillProfile] {
+        let rows: [ProfileRow] = try await supabase
+            .from("learner_word_skill_profiles")
+            .select("user_vocabulary_id, skill_ewma, exercise_ewma, spelling_cost_by_type, last_first_asked, last_mastery, is_holding, hold_attempt")
+            .eq("user_id", value: userId)
+            .execute()
+            .value
+        var result: [String: WordSkillProfile] = [:]
+        for row in rows {
+            var profile = WordSkillProfile()
+            for (key, value) in row.skill_ewma {
+                if let skill = LearningSkill(rawValue: key) { profile.skills[skill] = value }
+            }
+            for (key, value) in row.exercise_ewma {
+                if let type = QuestionType(telemetryName: key) { profile.exercises[type] = value }
+            }
+            for (key, value) in row.spelling_cost_by_type {
+                if let type = QuestionType(telemetryName: key) { profile.spellingCostByType[type] = value }
+            }
+            for (key, value) in row.last_first_asked {
+                if let type = QuestionType(telemetryName: key), let date = ReviewPriority.parseDate(value) {
+                    profile.lastFirstAsked[type] = date
+                }
+            }
+            profile.lastMastery = row.last_mastery
+            profile.isHolding = row.is_holding
+            profile.holdAttempt = row.hold_attempt
+            result[row.user_vocabulary_id] = profile
+        }
+        return result
+    }
 }
 
 enum OmniRewardRepository {

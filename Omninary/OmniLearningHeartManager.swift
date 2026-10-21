@@ -5,7 +5,7 @@ import SwiftUI
 final class OmniLearningHeartManager: ObservableObject {
     static let shared = OmniLearningHeartManager()
 
-    static let defaultDailyHearts = 5
+    static let defaultDailyHearts = 10
     @Published private(set) var remainingHearts = defaultDailyHearts
     @Published private(set) var resetDate: String?
     @Published private(set) var resetCountdownString = ""

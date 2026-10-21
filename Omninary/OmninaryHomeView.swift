@@ -1516,7 +1516,7 @@ struct ExtraordinaryUpgradeSheet: View {
                                 .overlay(Color.white.opacity(0.12))
 
                             VStack(alignment: .leading, spacing: 10) {
-                                comparisonRow(icon: "clock.fill", text: "Giới hạn 5 lượt học mỗi ngày (dùng Tim)", isExtra: false)
+                                comparisonRow(icon: "clock.fill", text: "Giới hạn 10 lượt học mỗi ngày (dùng Tim)", isExtra: false)
                                 comparisonRow(icon: "calendar", text: "Lịch ôn tập cố định theo cấp độ tiêu chuẩn", isExtra: false)
                                 comparisonRow(icon: "gift", text: "Tích lũy 1 Điểm Omni cho mỗi câu trả lời đúng", isExtra: false)
                                 comparisonRow(icon: "app.badge", text: "Chỉ mở khóa biểu tượng Classic và mốc Streak", isExtra: false)

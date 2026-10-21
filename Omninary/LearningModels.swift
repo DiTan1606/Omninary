@@ -31,6 +31,12 @@ struct LearningTask: Identifiable {
     var vHint: String? = nil
     var pronunciationMeaning: Vocabulary? = nil
     var pronunciationExample: String? = nil
+    /// Example sentence with the studied word blanked out (listen–write context, hints).
+    var blankedExample: String? = nil
+    /// Extra reinforcement question added for a weak skill.
+    var reinforcedSkill: LearningSkill? = nil
+
+    var vocabularyID: String? { meanings.first?.id }
 
     func freshRetryCopy() -> LearningTask {
         LearningTask(
@@ -43,7 +49,9 @@ struct LearningTask: Identifiable {
             scrambledWords: scrambledWords,
             vHint: vHint,
             pronunciationMeaning: pronunciationMeaning,
-            pronunciationExample: pronunciationExample
+            pronunciationExample: pronunciationExample,
+            blankedExample: blankedExample,
+            reinforcedSkill: reinforcedSkill
         )
     }
 }
@@ -61,6 +69,10 @@ struct LearningAttemptTelemetry: Encodable, Identifiable {
     let response_duration_ms: Int
     let pronunciation_score: Int?
     let answered_at: String
+    let attempt_score: Int
+    let skill_costs: [String: Double]
+    let signals: AttemptSignals
+    let is_reinforcement: Bool
 
     enum CodingKeys: String, CodingKey {
         case id = "attempt_id"
@@ -73,6 +85,10 @@ struct LearningAttemptTelemetry: Encodable, Identifiable {
         case response_duration_ms
         case pronunciation_score
         case answered_at
+        case attempt_score
+        case skill_costs
+        case signals
+        case is_reinforcement
     }
 }
 

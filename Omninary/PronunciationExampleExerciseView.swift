@@ -1,10 +1,26 @@
 import SwiftUI
 import Foundation
 
+/// What the read-aloud attempt observed, for Extra v1 skill evidence.
+struct PronunciationAttemptDetails {
+    var finalScore: Int?
+    var targetWordAccuracy: Int?
+    var accuracy: Int?
+    var fluency: Int?
+    var completeness: Int?
+    var modelPlays = 0
+    var recordings = 0
+    var firstRecordingMs: Int?
+}
+
 struct PronunciationExampleExerciseView: View {
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     let task: LearningTask
-    let onContinue: (Bool, Int?) -> Void
+    let onContinue: (Bool, PronunciationAttemptDetails) -> Void
+    @State private var modelPlays = 0
+    @State private var recordings = 0
+    @State private var presentedAt = Date()
+    @State private var firstRecordingMs: Int?
 
     private var isExtra: Bool {
         (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
@@ -398,6 +414,10 @@ struct PronunciationExampleExerciseView: View {
         do {
             assessment = nil
             try pronunciationManager.startRecording()
+            recordings += 1
+            if firstRecordingMs == nil {
+                firstRecordingMs = Int(Date().timeIntervalSince(presentedAt) * 1_000)
+            }
         } catch {
             errorMessage = "Không thể bắt đầu thu âm: \(error.localizedDescription)"
             showError = true
@@ -462,8 +482,19 @@ struct PronunciationExampleExerciseView: View {
             pronunciationManager.resetRecordingState()
         }
 
-        let finalScore = assessment.map { Int(PronunciationScore(assessment: $0).finalScore.rounded()) }
-        onContinue(result, finalScore)
+        var details = PronunciationAttemptDetails(modelPlays: modelPlays, recordings: recordings,
+                                                  firstRecordingMs: firstRecordingMs)
+        if let assessment {
+            details.finalScore = Int(PronunciationScore(assessment: assessment).finalScore.rounded())
+            details.accuracy = Int(assessment.scores.accuracy.rounded())
+            details.fluency = Int(assessment.scores.fluency.rounded())
+            details.completeness = Int(assessment.scores.completeness.rounded())
+            let target = VocabularyPronunciationProgressRule.targetFeedback(in: assessment, targetWord: task.word)
+            if !target.isEmpty {
+                details.targetWordAccuracy = Int((target.map(\.accuracy).reduce(0, +) / Double(target.count)).rounded())
+            }
+        }
+        onContinue(result, details)
     }
 
     private var recordingInstruction: String {
@@ -515,6 +546,7 @@ struct PronunciationExampleExerciseView: View {
     }
 
     private func playSampleSentence() {
+        modelPlays += 1
         SpeechManager.shared.speak(
             example: example,
             targetWord: task.word,

@@ -614,6 +614,13 @@ struct VocabularyLearningView: View {
     @State private var statsByLevel: [Int: Int] = Dictionary(uniqueKeysWithValues: (0...7).map { ($0, 0) })
     @State private var errorMessage: String?
     @State private var learningSessionID = UUID()
+    @State private var reviewCandidates: [ReviewCandidate] = []
+    @State private var allVocabs: [Vocabulary] = []
+    @State private var skillProfiles: [String: WordSkillProfile] = [:]
+    @State private var sessionReasons: [String: String] = [:]
+
+    /// Algorithm mode follows the server entitlement, not the preview theme.
+    private var usesExtraAlgorithm: Bool { heartManager.isExtra }
     
     var body: some View {
         NavigationStack {
@@ -647,6 +654,7 @@ struct VocabularyLearningView: View {
                     sessionID: learningSessionID,
                     tasks: tasks,
                     learningVocabGroups: learningVocabGroups,
+                    reasons: sessionReasons,
                     onClose: {
                         showLearningSession = false
                     }
@@ -751,10 +759,26 @@ struct VocabularyLearningView: View {
     
     private var reviewCard: some View {
         Group {
-            if dueVocabsCount > 0 && !tasks.isEmpty {
-                Button(action: openReview) { reviewCardContent }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Ôn tập ngay")
+            if !reviewCandidates.isEmpty {
+                VStack(spacing: AppSpacing.item) {
+                    ReviewPickerView(
+                        candidates: reviewCandidates,
+                        isExtra: usesExtraAlgorithm,
+                        canStudy: heartManager.canStudy,
+                        onStart: startReview
+                    )
+                    if !heartManager.isExtra && heartManager.remainingHearts == 0 {
+                        Label(
+                            heartManager.resetCountdownString.isEmpty
+                                ? "Đang kiểm tra thời gian hồi lượt học..."
+                                : "10 lượt học sẽ hồi lại sau \(heartManager.resetCountdownString)",
+                            systemImage: "clock.arrow.circlepath"
+                        )
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(AppSemanticColor.attention)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
             } else {
                 reviewCardContent
             }
@@ -799,7 +823,7 @@ struct VocabularyLearningView: View {
                     Label(
                         heartManager.resetCountdownString.isEmpty
                             ? "Đang kiểm tra thời gian hồi lượt học..."
-                            : "05 lượt học sẽ hồi lại sau \(heartManager.resetCountdownString)",
+                            : "10 lượt học sẽ hồi lại sau \(heartManager.resetCountdownString)",
                         systemImage: "clock.arrow.circlepath"
                     )
                     .font(.caption.monospacedDigit())
@@ -841,6 +865,25 @@ struct VocabularyLearningView: View {
         }
         .padding(AppSpacing.card)
         .appSurface(.card, isExtra: isExtra)
+    }
+
+    private func startReview(_ picked: [ReviewCandidate]) {
+        guard !picked.isEmpty else { return }
+        let plan = AdaptiveSessionBuilder.build(
+            selected: picked.map(\.vocabulary),
+            distractorPool: allVocabs,
+            profiles: skillProfiles,
+            isExtra: usesExtraAlgorithm
+        )
+        guard !plan.tasks.isEmpty else {
+            errorMessage = "Không thể tạo bài ôn tập từ dữ liệu hiện có."
+            return
+        }
+        tasks = plan.tasks
+        learningVocabGroups = plan.selectedGroups
+        sessionReasons = plan.reasons
+        learningSessionID = UUID()
+        openReview()
     }
 
     private func openReview() {
@@ -891,6 +934,11 @@ struct VocabularyLearningView: View {
 
             let allResponse = try await VocabularyRepository.fetchUserVocabs(userId: userId)
             let plan = LearningSessionBuilder.build(from: allResponse)
+            // Profiles are optional evidence: a missing table or network hiccup
+            // must not block learning, it only removes personalisation.
+            skillProfiles = (try? await LearningProfileRepository.fetchProfiles(userId: userId)) ?? [:]
+            allVocabs = allResponse
+            reviewCandidates = ReviewPriority.candidates(from: allResponse, profiles: skillProfiles, now: Date())
 
             statsByLevel = plan.statsByLevel
             totalLearningWords = plan.totalLearningWords
