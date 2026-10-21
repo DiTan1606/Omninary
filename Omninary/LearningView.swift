@@ -602,22 +602,18 @@ struct VocabularyLearningView: View {
         (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
     }
 
-    @State private var learningVocabGroups: [[Vocabulary]] = []
-    @State private var tasks: [LearningTask] = []
     
     @State private var totalLearningWords = 0
     @State private var totalSavedWords = 0
     @State private var dueVocabsCount = 0
     @State private var wordsWithoutExampleExercises: [String] = []
     
-    @State private var showLearningSession = false
+    @State private var activeSession: ActiveLearningSession?
     @State private var statsByLevel: [Int: Int] = Dictionary(uniqueKeysWithValues: (0...7).map { ($0, 0) })
     @State private var errorMessage: String?
-    @State private var learningSessionID = UUID()
     @State private var reviewCandidates: [ReviewCandidate] = []
     @State private var allVocabs: [Vocabulary] = []
     @State private var skillProfiles: [String: WordSkillProfile] = [:]
-    @State private var sessionReasons: [String: String] = [:]
 
     /// Algorithm mode follows the server entitlement, not the preview theme.
     private var usesExtraAlgorithm: Bool { heartManager.isExtra }
@@ -647,16 +643,18 @@ struct VocabularyLearningView: View {
             .onAppear {
                 Task { await prepareSession() }
             }
-            .fullScreenCover(isPresented: $showLearningSession, onDismiss: {
+            // item-based presentation hands the exact session that was just
+            // built to the cover; isPresented would capture stale state.
+            .fullScreenCover(item: $activeSession, onDismiss: {
                 Task { await prepareSession() }
-            }) {
+            }) { session in
                 LearningSessionView(
-                    sessionID: learningSessionID,
-                    tasks: tasks,
-                    learningVocabGroups: learningVocabGroups,
-                    reasons: sessionReasons,
+                    sessionID: session.id,
+                    tasks: session.tasks,
+                    learningVocabGroups: session.groups,
+                    reasons: session.reasons,
                     onClose: {
-                        showLearningSession = false
+                        activeSession = nil
                     }
                 )
             }
@@ -807,7 +805,7 @@ struct VocabularyLearningView: View {
                     .foregroundColor(dueVocabsCount > 0 ? AppSemanticColor.attention : AppSemanticColor.success)
             }
 
-            if dueVocabsCount > 0 && !tasks.isEmpty {
+            if dueVocabsCount > 0 && !reviewCandidates.isEmpty {
                 HStack {
                     Text("Ôn tập ngay").bold()
                     Image(systemName: "arrow.right")
@@ -879,21 +877,25 @@ struct VocabularyLearningView: View {
             errorMessage = "Không thể tạo bài ôn tập từ dữ liệu hiện có."
             return
         }
-        tasks = plan.tasks
-        learningVocabGroups = plan.selectedGroups
-        sessionReasons = plan.reasons
-        learningSessionID = UUID()
-        openReview()
+        var sessionTasks = plan.tasks
+        #if DEBUG
+        // Simulator clones have no audio input; recording would abort the test run.
+        if ProcessInfo.processInfo.arguments.contains("-RealSessionUITestNoSpeech") {
+            sessionTasks.removeAll { $0.type == .pronunciationExample }
+        }
+        #endif
+        openReview(ActiveLearningSession(id: UUID(), tasks: sessionTasks,
+                                         groups: plan.selectedGroups, reasons: plan.reasons))
     }
 
-    private func openReview() {
+    private func openReview(_ session: ActiveLearningSession) {
         if !heartManager.canStudy {
             let countdown = heartManager.resetCountdownString.isEmpty
                 ? ""
                 : " Lượt học sẽ hồi lại sau \(heartManager.resetCountdownString)."
             errorMessage = "Bạn đã hết lượt học hôm nay (00 lượt).\(countdown) Bạn có thể vào My Omni đổi Trái tim bên lề hoặc nâng cấp Extraordinary để học không giới hạn."
         } else {
-            showLearningSession = true
+            activeSession = session
         }
     }
 
@@ -920,8 +922,6 @@ struct VocabularyLearningView: View {
             await heartManager.refreshHearts()
 
             guard let userId = AuthManager.shared.currentUser?.id.uuidString else {
-                learningVocabGroups = []
-                tasks = []
                 totalLearningWords = 0
                 totalSavedWords = 0
                 dueVocabsCount = 0
@@ -945,11 +945,18 @@ struct VocabularyLearningView: View {
             totalSavedWords = plan.totalSavedWords
             dueVocabsCount = plan.dueVocabsCount
             wordsWithoutExampleExercises = plan.wordsWithoutExampleExercises
-            learningVocabGroups = plan.selectedGroups
-            tasks = plan.tasks
-            learningSessionID = UUID()
+            // Session tasks are built only by startReview from the learner's
+            // picks; a late refresh must never replace them with a random plan.
         } catch {
             errorMessage = "Không tải được dữ liệu học từ vựng: \(error.localizedDescription)"
         }
     }
+}
+
+/// Everything a vocabulary session needs, built once when the learner starts it.
+struct ActiveLearningSession: Identifiable {
+    let id: UUID
+    let tasks: [LearningTask]
+    let groups: [[Vocabulary]]
+    let reasons: [String: String]
 }

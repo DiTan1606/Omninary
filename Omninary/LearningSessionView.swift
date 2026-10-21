@@ -122,6 +122,15 @@ struct LearningSessionView: View {
                         Text("Câu \(currentTaskIndex + 1) / \(tasks.count)")
                             .font(.caption)
                             .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                        #if DEBUG
+                        if let answer = uiTestAnswer(for: task) {
+                            // Lets the real-session UI test answer like a learner who knows the word.
+                            Text(answer)
+                                .font(.system(size: 1))
+                                .opacity(0.02)
+                                .accessibilityIdentifier("learning-debug-answer")
+                        }
+                        #endif
 
                         if task.type == .pronunciationExample {
                             inputArea(for: task)
@@ -325,6 +334,16 @@ struct LearningSessionView: View {
             startCelebrationIfNeeded()
         }
     }
+
+    #if DEBUG
+    private func uiTestAnswer(for task: LearningTask) -> String? {
+        guard ProcessInfo.processInfo.arguments.contains("-RealSessionUITest") else { return nil }
+        let answer = task.type == .sentenceScramble
+            ? LearningTextNormalizer.sentenceScrambleWords(task.correctSentence ?? "").joined(separator: "|")
+            : task.word
+        return "\(task.type.telemetryName)::\(answer)"
+    }
+    #endif
 
     private func wordText(for vocabularyID: String) -> String {
         learningVocabGroups.flatMap { $0 }.first { $0.id == vocabularyID }?.vocab ?? "Từ vựng"
@@ -784,6 +803,7 @@ struct LearningSessionView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint("Chạm để thêm từ vào câu")
+                            .accessibilityIdentifier("scramble-available-\(word)")
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -825,6 +845,7 @@ struct LearningSessionView: View {
             }
             .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
             .disabled(!availableScrambleWords.isEmpty || selectedScrambleWords.isEmpty)
+            .accessibilityIdentifier("learning-check")
         }
     }
 
@@ -840,6 +861,7 @@ struct LearningSessionView: View {
             }
             .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
             .disabled(!isTypedAnswerReady)
+            .accessibilityIdentifier("learning-check")
         }
     }
 

@@ -398,13 +398,14 @@ enum ReinforcementPlanner {
 
 enum SessionComposer {
     /// Base set first type: the type that has gone longest without being asked first.
+    /// Ties keep the order of `available`, which the builder has already shuffled.
     static func firstType(for profile: WordSkillProfile, available: [QuestionType]) -> QuestionType? {
-        available.min { lhs, rhs in
-            let l = profile.lastFirstAsked[lhs] ?? .distantPast
-            let r = profile.lastFirstAsked[rhs] ?? .distantPast
+        available.enumerated().min { lhs, rhs in
+            let l = profile.lastFirstAsked[lhs.element] ?? .distantPast
+            let r = profile.lastFirstAsked[rhs.element] ?? .distantPast
             if l != r { return l < r }
-            return (QuestionType.allCases.firstIndex(of: lhs) ?? 0) < (QuestionType.allCases.firstIndex(of: rhs) ?? 0)
-        }
+            return lhs.offset < rhs.offset
+        }?.element
     }
 
     /// Interleaves per-word queues round by round, keeping two questions of the same word apart.
