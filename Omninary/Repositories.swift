@@ -1055,6 +1055,7 @@ struct WordMasteryResult: Decodable, Identifiable, Equatable {
     let next_review: String?
     let attempt_count: Int
     let reinforcement_count: Int
+    var first_attempt_failures: Int? = nil
 
     var id: String { user_vocabulary_id }
     var decisionKind: LevelDecisionKind { LevelDecisionKind(rawValue: decision) ?? .advance }

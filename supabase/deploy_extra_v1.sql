@@ -267,10 +267,14 @@ CREATE TABLE IF NOT EXISTS public.learning_word_mastery (
   next_review timestamptz,
   attempt_count integer NOT NULL DEFAULT 0,
   reinforcement_count integer NOT NULL DEFAULT 0,
+  first_attempt_failures integer NOT NULL DEFAULT 0,
   algorithm_version text NOT NULL DEFAULT 'extra_v1',
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (session_id, user_vocabulary_id)
 );
+
+ALTER TABLE public.learning_word_mastery
+  ADD COLUMN IF NOT EXISTS first_attempt_failures integer NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS learning_word_mastery_user_word_idx
   ON public.learning_word_mastery (user_id, user_vocabulary_id, created_at DESC);
@@ -327,11 +331,15 @@ AS $$
 $$;
 
 -- Mirrors ExtraScheduler.decide in the app (LearningEngine.swift).
+-- p_first_failures: exercise types whose first base attempt scored ≤ 50; two or
+-- more force a hold even when retries lifted the mastery score above 60.
+DROP FUNCTION IF EXISTS public.extra_v1_decide(integer, boolean, integer, integer);
 CREATE OR REPLACE FUNCTION public.extra_v1_decide(
   p_level_before integer,
   p_is_holding boolean,
   p_mastery integer,
-  p_previous_mastery integer
+  p_previous_mastery integer,
+  p_first_failures integer DEFAULT 0
 )
 RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE
@@ -342,16 +350,18 @@ DECLARE
   v_drop integer;
   v_ratio numeric;
   v_days integer;
+  v_must_hold boolean;
 BEGIN
   v_reached := LEAST(CASE WHEN p_is_holding THEN GREATEST(v_level, 1) ELSE v_level + 1 END, 10);
   v_drop := GREATEST(0, COALESCE(p_previous_mastery, p_mastery) - p_mastery);
+  v_must_hold := p_mastery < 60 OR v_drop >= 20 OR COALESCE(p_first_failures, 0) >= 2;
 
-  IF p_mastery >= 85 AND v_drop <= 5 THEN
+  IF NOT v_must_hold AND p_mastery >= 85 AND v_drop <= 5 THEN
     RETURN jsonb_build_object('kind', 'jump', 'reached', v_reached,
       'stored', LEAST(v_reached + 1, 10), 'days', public.extra_v1_review_days(LEAST(v_reached + 1, 10)));
   END IF;
 
-  IF p_mastery < 60 OR v_drop >= 20 THEN
+  IF v_must_hold THEN
     v_ratio := LEAST(0.80, GREATEST(0.15, p_mastery / 100.0 - v_drop / 200.0));
     v_days := GREATEST(1, round(public.extra_v1_review_days(v_reached - 1) * v_ratio)::integer);
     RETURN jsonb_build_object('kind', 'hold', 'reached', v_reached, 'stored', v_reached,
@@ -421,6 +431,7 @@ DECLARE
   v_mastery integer;
   v_attempt_count integer;
   v_reinforcements integer;
+  v_first_failures integer;
   v_decision jsonb;
   v_kind text;
   v_stored integer;
@@ -552,9 +563,15 @@ BEGIN
     INTO v_attempt_count, v_reinforcements
     FROM pg_temp.extra_attempts WHERE v_word = ANY(user_vocabulary_ids);
 
+    -- Types whose first base attempt did not pass (wrong, gave up or ≤ 50 points).
+    SELECT count(DISTINCT task_type) INTO v_first_failures
+    FROM pg_temp.extra_attempts
+    WHERE v_word = ANY(user_vocabulary_ids) AND attempt_number = 1
+      AND NOT is_reinforcement AND attempt_score <= 50;
+
     IF v_is_extra AND v_mastery IS NOT NULL THEN
       v_decision := public.extra_v1_decide(v_level_before, COALESCE(v_profile.is_holding, false),
-                                           v_mastery, v_profile.last_mastery);
+                                           v_mastery, v_profile.last_mastery, v_first_failures);
     ELSE
       -- Ditan (or a session without evidence) keeps the fixed +1 step already applied.
       v_decision := jsonb_build_object('kind', 'advance', 'reached', v_level_before + 1,
@@ -599,14 +616,14 @@ BEGIN
     INSERT INTO public.learning_word_mastery (
       session_id, user_vocabulary_id, user_id, mode, level_before, reached_level, stored_level,
       level_attempt, exercise_scores, skill_scores, mastery, previous_mastery, decision,
-      next_review, attempt_count, reinforcement_count)
+      next_review, attempt_count, reinforcement_count, first_attempt_failures)
     VALUES (
       p_session_id, v_word, v_user_id, CASE WHEN v_is_extra THEN 'extraordinary' ELSE 'ditandnary' END,
       v_level_before, (v_decision ->> 'reached')::integer, v_stored, v_level_attempt,
       v_exercise, v_skills, v_mastery, v_profile.last_mastery, v_kind,
       CASE WHEN v_is_extra THEN v_next ELSE
         (SELECT next_review::timestamptz FROM public.user_vocabulary WHERE user_id = v_user_id AND id::text = v_word) END,
-      v_attempt_count, v_reinforcements);
+      v_attempt_count, v_reinforcements, v_first_failures);
   END LOOP;
 
   SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.user_vocabulary_id), '[]'::jsonb) INTO v_words
@@ -619,10 +636,10 @@ $$;
 
 -- Pure helpers never depend on the caller's search_path.
 ALTER FUNCTION public.extra_v1_review_days(integer) SET search_path = '';
-ALTER FUNCTION public.extra_v1_decide(integer, boolean, integer, integer) SET search_path = '';
+ALTER FUNCTION public.extra_v1_decide(integer, boolean, integer, integer, integer) SET search_path = '';
 ALTER FUNCTION public.extra_v1_type_weight(text) SET search_path = '';
 ALTER FUNCTION public.extra_v1_ewma(jsonb, jsonb) SET search_path = '';
-REVOKE EXECUTE ON FUNCTION public.extra_v1_decide(integer, boolean, integer, integer) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.extra_v1_decide(integer, boolean, integer, integer, integer) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.extra_v1_ewma(jsonb, jsonb) FROM anon;
 
 REVOKE ALL ON FUNCTION public.complete_vocabulary_learning_session_v2(uuid, text[], integer, jsonb, timestamptz) FROM PUBLIC, anon;

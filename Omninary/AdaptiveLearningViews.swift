@@ -57,6 +57,13 @@ struct WordMasteryResultRow: View {
 
             SkillBars(scores: result.skill_scores, isExtra: isExtra)
 
+            if let failures = result.first_attempt_failures, failures > 0 {
+                Text("Sai ở lần làm đầu: \(failures) dạng bài"
+                     + (result.decisionKind == .hold && failures >= ExtraScheduler.holdFirstAttemptFailures
+                        ? " → giữ cấp để ôn bù" : ""))
+                    .font(.caption2)
+                    .foregroundStyle(AppSemanticColor.attention)
+            }
             if let previous = result.previous_mastery, let mastery = result.mastery {
                 Text("Lần trước \(previous) → lần này \(mastery)")
                     .font(.caption2)

@@ -129,16 +129,21 @@ Base schedule: `days(level)` = 0, 1, 3, 7, 15, 30, 60, 120, 240, 365. **Levels o
 
 1. Finishing a session → **level reached** = current level + 1. If the word is in *hold* state, level reached = current level and the attempt count at that level goes up by 1 (4.1 → 4.2).
 2. `drop = max(0, previous M − M)`.
+3. `F` = number of **exercise types failed on the first try**: types whose first attempt of the base question (reinforcement questions excluded) scored ≤ 50, i.e. wrong, gave up, or needed heavy support.
+
+Hold is checked **before** jump:
 
 | Condition | Decision | Stored level | Next review after |
 |---|---|---|---|
-| M ≥ 85 and drop ≤ 5 | **Jump a level** | level reached + 1 | `days(level reached + 1)` |
-| M < 60, or drop ≥ 20 | **Hold the level, make-up review sooner** | level reached (marked hold) | `max(1, round(days(level reached − 1) × r))` |
+| M < 60, **or** drop ≥ 20, **or F ≥ 2** | **Hold the level, make-up review sooner** | level reached (marked hold) | `max(1, round(days(level reached − 1) × r))` |
+| M ≥ 85 and drop ≤ 5 (and not held) | **Jump a level** | level reached + 1 | `days(level reached + 1)` |
 | Everything else | **Level up normally** | level reached | `days(level reached)` |
 
 `r = clamp(M/100 − drop/200, 0.15, 0.80)`.
 
 Example: level 3 → 4th review after 7 days, M drops from 80 to 45. The word holds at **level 4 (attempt 1)**, `r = 0.275`, make-up review after **2 days**.
+
+**Why F ≥ 2** (added 22/10/2026 after a real session): a retry made right after seeing the answer still pulls the exercise score to 50, not 0. A word given up on in 3 of 4 types reached M = 63 and would have levelled up normally. Failing the first try in two or more types means the word was not really recalled, so it holds even when M ≥ 60. Example: level 3, M = 63, F = 3 → holds at **level 4 (attempt 1)**, make-up review after `round(7 × 0.63) = 4` days. One slip (F = 1) still allows a jump when M ≥ 85.
 
 Maximum level is 10 (Super). Ditan always takes "level up normally".
 
@@ -190,7 +195,7 @@ priority = days overdue / max(1, current interval) + (100 − last M)/100 + 0.5 
 - `learning_attempts` (already exists) gains: `attempt_score`, `signals` (jsonb: the section 3 signals), `skill_costs` (jsonb: per-skill costs).
 - `learning_word_mastery` (new): one row per word per review:
   - mode, level before / reached / stored, attempt count at the level;
-  - E for each type, score for each skill, M and previous M;
+  - E for each type, score for each skill, M and previous M, number of types failed on the first try (`first_attempt_failures`);
   - decision, next review date, reason, `algorithm_version`.
 - `learner_word_skill_profiles` (new): EWMA per skill and per type, number of observations, last time seen, last time asked first.
 - Everything is computed **on the server** from the attempt data in one transaction, so re-sending does not duplicate (keyed by session id).

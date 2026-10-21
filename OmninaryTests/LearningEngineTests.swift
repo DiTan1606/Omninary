@@ -145,6 +145,26 @@ struct LearningEngineTests {
         #expect(retry == LevelDecision(kind: .advance, reachedLevel: 4, storedLevel: 4, nextReviewDays: 15))
     }
 
+    @Test func twoFirstAttemptFailuresHoldEvenWithPassingMastery() {
+        // Gave up on 3 of 4 types then got them right on retry: M 63 would advance.
+        let lenient = ExtraScheduler.decide(currentLevel: 3, isHolding: false, mastery: 63, previousMastery: nil)
+        #expect(lenient.kind == .advance)
+
+        let strict = ExtraScheduler.decide(currentLevel: 3, isHolding: false, mastery: 63, previousMastery: nil,
+                                           firstAttemptFailures: 3)
+        // Hold level 4; review after round(7 × 0.63) = 4 days.
+        #expect(strict == LevelDecision(kind: .hold, reachedLevel: 4, storedLevel: 4, nextReviewDays: 4))
+
+        let oneSlip = ExtraScheduler.decide(currentLevel: 3, isHolding: false, mastery: 92, previousMastery: nil,
+                                            firstAttemptFailures: 1)
+        #expect(oneSlip.kind == .jump)
+
+        // Even a high M cannot jump past two first-try failures.
+        let highButShaky = ExtraScheduler.decide(currentLevel: 1, isHolding: false, mastery: 86, previousMastery: nil,
+                                                 firstAttemptFailures: 2)
+        #expect(highButShaky.kind == .hold)
+    }
+
     @Test func highScoreAfterADropDoesNotJump() {
         let decision = ExtraScheduler.decide(currentLevel: 4, isHolding: false, mastery: 86, previousMastery: 98)
         #expect(decision.kind == .advance)

@@ -308,16 +308,25 @@ struct LevelDecision: Equatable {
 }
 
 enum ExtraScheduler {
-    static func decide(currentLevel: Int?, isHolding: Bool, mastery: Int, previousMastery: Int?) -> LevelDecision {
+    /// Exercise types failed on the first try that force a hold, whatever M is.
+    static let holdFirstAttemptFailures = 2
+
+    /// - Parameter firstAttemptFailures: exercise types whose first (base) attempt
+    ///   did not pass (score ≤ 50) in this session.
+    static func decide(currentLevel: Int?, isHolding: Bool, mastery: Int, previousMastery: Int?,
+                       firstAttemptFailures: Int = 0) -> LevelDecision {
         let level = max(currentLevel ?? 0, 0)
         let reached = min(isHolding ? max(level, 1) : level + 1, 10)
         let drop = max(0, (previousMastery ?? mastery) - mastery)
 
-        if mastery >= 85 && drop <= 5 {
+        // Checked before the jump: retries right after seeing the answer can
+        // lift M above 60 while the word was not actually recalled.
+        let mustHold = mastery < 60 || drop >= 20 || firstAttemptFailures >= holdFirstAttemptFailures
+        if !mustHold && mastery >= 85 && drop <= 5 {
             let stored = min(reached + 1, 10)
             return LevelDecision(kind: .jump, reachedLevel: reached, storedLevel: stored, nextReviewDays: reviewDays(stored))
         }
-        if mastery < 60 || drop >= 20 {
+        if mustHold {
             let ratio = min(0.80, max(0.15, Double(mastery) / 100 - Double(drop) / 200))
             let reference = Double(OmninaryReviewSchedule.days(for: reached - 1))
             let days = max(1, Int((reference * ratio).rounded()))
