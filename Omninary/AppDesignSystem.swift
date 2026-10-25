@@ -72,11 +72,20 @@ struct AppSurfaceBackground: View {
     let isExtra: Bool
     var tint: Color? = nil
     var grouped = false
+    @Environment(\.omniV2) private var v2
+    @Environment(\.omniExtra) private var omniExtra
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: grouped ? 0 : kind.cornerRadius, style: .continuous)
+        // New interface: the dark flag picks the night palette so text colours chosen for it stay readable.
+        // Screens not yet redrawn colour text by the system scheme, so a dark scheme means the night palette too.
+        let palette = OmniPalette(night: isExtra || colorScheme == .dark, extra: omniExtra)
         Group {
-            if isExtra {
+            if v2 {
+                shape.fill(kind == .row ? palette.panel : palette.card)
+                    .overlay { if !grouped { shape.stroke(palette.line, lineWidth: 1) } }
+            } else if isExtra {
                 shape.fill(LinearGradient(
                     colors: [Color.white.opacity(0.11), (tint ?? ExtraAuroraPalette.violet).opacity(0.08), ExtraAuroraPalette.deepBlue.opacity(0.28)],
                     startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -87,7 +96,7 @@ struct AppSurfaceBackground: View {
                     .overlay { if !grouped { shape.stroke(Color.primary.opacity(0.045), lineWidth: 1) } }
             }
         }
-        .shadow(color: .black.opacity(kind == .row ? 0 : (isExtra ? 0.25 : 0.05)),
+        .shadow(color: v2 ? (kind == .row ? .clear : palette.shadow) : .black.opacity(kind == .row ? 0 : (isExtra ? 0.25 : 0.05)),
                 radius: kind == .detail ? 18 : 12, y: kind == .detail ? 8 : 4)
         .allowsHitTesting(false)
     }
@@ -164,13 +173,29 @@ private struct AppButtonBackground: View {
     let isExtra: Bool
     let emphasis: AppButtonEmphasis
     let enabled: Bool
+    @Environment(\.omniV2) private var v2
+    @Environment(\.omniExtra) private var omniExtra
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         let theme = AppTheme(isExtra: isExtra)
+        // Screens not yet redrawn colour text by the system scheme, so a dark scheme means the night palette too.
+        let palette = OmniPalette(night: isExtra || colorScheme == .dark, extra: omniExtra)
+        if v2 && emphasis == .primary {
+            RoundedRectangle(cornerRadius: AppSurfaceKind.row.cornerRadius, style: .continuous)
+                .fill(enabled ? palette.cta : palette.muted.opacity(0.25))
+                .background(
+                    RoundedRectangle(cornerRadius: AppSurfaceKind.row.cornerRadius, style: .continuous)
+                        .fill(enabled ? palette.ctaShadow : .clear)
+                        .offset(y: 3)
+                )
+                .allowsHitTesting(false)
+        } else {
         RoundedRectangle(cornerRadius: AppSurfaceKind.row.cornerRadius, style: .continuous)
             .fill(emphasis == .primary
                 ? (enabled ? AnyShapeStyle(theme.primaryGradient) : AnyShapeStyle(Color.secondary.opacity(isExtra ? 0.3 : 0.16)))
                 : AnyShapeStyle((emphasis == .destructive ? AppSemanticColor.destructive : theme.accent).opacity(0.1)))
             .allowsHitTesting(false)
+        }
     }
 }
 

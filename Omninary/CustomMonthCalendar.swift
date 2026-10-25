@@ -8,6 +8,12 @@ struct CustomMonthCalendar: View {
     var rescuedDates: Set<String> = []
     var isExtra: Bool = false
     let onCompletedDayTapped: (Date) -> Void
+    @Environment(\.omniV2) private var v2
+    @Environment(\.omniNight) private var night
+    @Environment(\.omniPalette) private var palette
+
+    /// Dark cell styling: the new interface follows day/night, the old one follows Extra.
+    private var dark: Bool { v2 ? night : isExtra }
 
     private let calendar = StreakClock.calendar
     private let daysOfWeek = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
@@ -20,7 +26,7 @@ struct CustomMonthCalendar: View {
                     Text(day)
                         .font(.caption2)
                         .fontWeight(.bold)
-                        .foregroundColor(isExtra ? Color.white.opacity(0.65) : .secondary)
+                        .foregroundColor(v2 ? palette.muted : (dark ? Color.white.opacity(0.65) : .secondary))
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -77,7 +83,7 @@ struct CustomMonthCalendar: View {
             // Chỉ báo nhỏ cho ngày hôm nay khi đã học
             if isToday && completed {
                 Circle()
-                    .fill(isExtra ? ExtraAuroraPalette.ice : Color(red: 0.46, green: 0.38, blue: 0.95))
+                    .fill(dark ? ExtraAuroraPalette.ice : Color(red: 0.46, green: 0.38, blue: 0.95))
                     .frame(width: 3.5, height: 3.5)
                     .offset(y: 11)
             }
@@ -101,14 +107,14 @@ struct CustomMonthCalendar: View {
 
         RoundedRectangle(cornerRadius: cornerRadius)
             .fill(
-                isExtra
+                dark
                     ? Color(red: 0.44, green: 0.36, blue: 0.96).opacity(0.38)
                     : Color(red: 0.08, green: 0.52, blue: 1.00).opacity(0.18)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
-                        isExtra
+                        dark
                             ? Color(red: 0.62, green: 0.52, blue: 1.00).opacity(isToday ? 0.90 : 0.55)
                             : Color(red: 0.08, green: 0.50, blue: 1.00).opacity(isToday ? 0.85 : 0.38),
                         lineWidth: isToday ? 1.5 : 1
@@ -116,7 +122,7 @@ struct CustomMonthCalendar: View {
             )
             .frame(width: squareSize, height: squareSize)
             .shadow(
-                color: isExtra
+                color: dark
                     ? Color(red: 0.52, green: 0.42, blue: 1.0).opacity(0.30)
                     : Color.blue.opacity(0.12),
                 radius: 4,
@@ -132,7 +138,7 @@ struct CustomMonthCalendar: View {
         RoundedRectangle(cornerRadius: cornerRadius)
             .fill(
                 LinearGradient(
-                    colors: isExtra
+                    colors: dark
                         ? [Color.cyan.opacity(0.35), Color.blue.opacity(0.20), Color.white.opacity(0.15)]
                         : [Color.cyan.opacity(0.25), Color.blue.opacity(0.12)],
                     startPoint: .topLeading,
@@ -160,10 +166,10 @@ struct CustomMonthCalendar: View {
 
     private var rescuedSquareBackground: some View {
         RoundedRectangle(cornerRadius: 8.5)
-            .fill(Color.red.opacity(isExtra ? 0.28 : 0.14))
+            .fill(Color.red.opacity(dark ? 0.28 : 0.14))
             .overlay {
                 RoundedRectangle(cornerRadius: 8.5)
-                    .stroke(Color.red.opacity(isExtra ? 0.85 : 0.55), lineWidth: 1.1)
+                    .stroke(Color.red.opacity(dark ? 0.85 : 0.55), lineWidth: 1.1)
             }
             .frame(width: 33, height: 33)
             .shadow(color: Color.red.opacity(0.18), radius: 4, y: 1.5)
@@ -177,27 +183,29 @@ struct CustomMonthCalendar: View {
             .strokeBorder(
                 style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
             )
-            .foregroundStyle(isExtra ? ExtraAuroraPalette.ice : Color(red: 0.08, green: 0.50, blue: 1.00))
+            .foregroundStyle(dark ? ExtraAuroraPalette.ice : Color(red: 0.08, green: 0.50, blue: 1.00))
             .frame(width: squareSize, height: squareSize)
     }
 
     private func dayTextColor(completed: Bool, isFrozen: Bool, isRescued: Bool, isToday: Bool, isSelectedMonth: Bool) -> Color {
         if completed {
-            return isExtra ? Color.white : Color(red: 0.04, green: 0.42, blue: 0.95)
+            return dark ? Color.white : Color(red: 0.04, green: 0.42, blue: 0.95)
         }
         if isFrozen {
-            return isExtra ? ExtraAuroraPalette.ice : Color.cyan
+            return dark ? ExtraAuroraPalette.ice : Color.cyan
         }
         if isRescued {
-            return isExtra ? Color(red: 1, green: 0.55, blue: 0.55) : Color(red: 0.72, green: 0.08, blue: 0.12)
+            return dark ? Color(red: 1, green: 0.55, blue: 0.55) : Color(red: 0.72, green: 0.08, blue: 0.12)
         }
         if isToday {
-            return isExtra ? ExtraAuroraPalette.ice : Color(red: 0.08, green: 0.50, blue: 1.00)
+            return dark ? ExtraAuroraPalette.ice : Color(red: 0.08, green: 0.50, blue: 1.00)
         }
         if isSelectedMonth {
-            return isExtra ? Color.white.opacity(0.88) : Color.primary
+            if v2 { return palette.text }
+            return dark ? Color.white.opacity(0.88) : Color.primary
         }
-        return isExtra ? Color.white.opacity(0.25) : Color.secondary.opacity(0.32)
+        if v2 { return palette.muted.opacity(0.4) }
+        return dark ? Color.white.opacity(0.25) : Color.secondary.opacity(0.32)
     }
 
     private func isDayCompleted(_ date: Date?) -> Bool {

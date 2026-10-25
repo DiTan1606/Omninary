@@ -870,6 +870,7 @@ struct ListeningLessonDetailView: View {
 
 struct ListeningPracticeDashboardView: View {
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    @Environment(\.omniV2) private var v2
     @State private var items: [ListeningLibraryItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -904,6 +905,8 @@ struct ListeningPracticeDashboardView: View {
                         VStack(spacing: AppSpacing.section) {
                             progressCard
                             practiceCard
+                            // Library is gone in the new interface, so My Listening lives here.
+                            if v2 { MyListeningLinkCard(isExtra: isExtra) }
                         }
                         .padding()
                     }
@@ -1448,5 +1451,40 @@ private final class ListeningSequenceAudioPlayer: ObservableObject {
             NotificationCenter.default.removeObserver(endObserver)
             self.endObserver = nil
         }
+    }
+}
+
+/// Entry to My Listening from the practice pages; the new interface has no Library tab.
+struct MyListeningLinkCard: View {
+    let isExtra: Bool
+
+    var body: some View {
+        NavigationLink {
+            MyListeningView()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "headphones")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme(isExtra: isExtra).accent)
+                    .frame(width: 44, height: 44)
+                    .background(AppTheme(isExtra: isExtra).accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 13))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("My Listening")
+                        .font(AppTypography.cardTitle)
+                        .foregroundColor(isExtra ? .white : .primary)
+                    Text("Các seri bài nghe bạn đã tải về")
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+            }
+            .padding(AppSpacing.card)
+            .appSurface(.card, isExtra: isExtra)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("listening-my-listening-card")
     }
 }

@@ -62,6 +62,11 @@ struct ProfileView: View {
         interfaceModeRaw == AppInterfaceMode.extraordinary.rawValue
     }
 
+    @Environment(\.omniV2) private var v2
+    @Environment(\.omniPalette) private var palette
+    /// Dark styling: the new interface follows day/night, the old one follows Extra.
+    private var dark: Bool { v2 ? palette.night : isExtra }
+
     private var effectiveStreak: Int {
         streakSimulator.isActive ? streakSimulator.displayedDays : freezeManager.currentStreak
     }
@@ -159,7 +164,14 @@ struct ProfileView: View {
         NavigationStack {
             ZStack {
                 ScrollView {
-                    VStack(spacing: AppSpacing.cardGap) {
+                    VStack(spacing: v2 ? 14 : AppSpacing.cardGap) {
+                        if v2 {
+                            Text("My Omni")
+                                .font(.omniDisplay(32, weight: 800))
+                                .foregroundStyle(palette.text)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 2)
+                        }
                         profileCard
                             .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("my-omni-profile-card")
@@ -176,9 +188,16 @@ struct ProfileView: View {
                 // Popup ở giữa màn hình
                 centerPopupOverlay
             }
+            .omniStatusBarBackdrop()
+            .omniTabRoot(.myOmni)
+            // New interface: this page follows day/night itself, even for Extra.
+            .environment(\.colorScheme, dark ? .dark : .light)
             .navigationTitle("My Omni")
+            .toolbar(v2 ? .hidden : .automatic, for: .navigationBar)
             .background {
-                if isExtra {
+                if v2 {
+                    PixelSkyBackground()
+                } else if isExtra {
                     AuroraBackdrop()
                 } else {
                     Color(UIColor.systemGroupedBackground).ignoresSafeArea()
@@ -264,7 +283,7 @@ struct ProfileView: View {
                     if isDragonEquipped {
                         LivingDragonOmniconView(isAwakened: isDragonAwakened, size: 70, cornerRadius: 18)
                             .shadow(
-                                color: isDragonAwakened ? Color(red: 1.0, green: 0.84, blue: 0.2).opacity(0.8) : (isExtra ? ExtraAuroraPalette.electricBlue.opacity(0.35) : Color.black.opacity(0.12)),
+                                color: isDragonAwakened ? Color(red: 1.0, green: 0.84, blue: 0.2).opacity(0.8) : (dark ? ExtraAuroraPalette.electricBlue.opacity(0.35) : Color.black.opacity(0.12)),
                                 radius: isDragonAwakened ? 14 : 8,
                                 y: isDragonAwakened ? 0 : 3
                             )
@@ -273,7 +292,7 @@ struct ProfileView: View {
                     } else if isChronoEquipped {
                         LivingChronoOmniconView(isAwakened: isChronoAwakened, mode: .liveVietnamTime, size: 70, cornerRadius: 18)
                             .shadow(
-                                color: isChronoAwakened ? Color(red: 1.0, green: 0.84, blue: 0.2).opacity(0.85) : (isExtra ? Color(red: 1.0, green: 0.75, blue: 0.15).opacity(0.4) : Color.black.opacity(0.15)),
+                                color: isChronoAwakened ? Color(red: 1.0, green: 0.84, blue: 0.2).opacity(0.85) : (dark ? Color(red: 1.0, green: 0.75, blue: 0.15).opacity(0.4) : Color.black.opacity(0.15)),
                                 radius: isChronoAwakened ? 16 : 8,
                                 y: isChronoAwakened ? 0 : 3
                             )
@@ -282,7 +301,7 @@ struct ProfileView: View {
                     } else if isSolarEquipped {
                         LivingSolarOmniconView(isAwakened: isSolarAwakened, size: 70, cornerRadius: 18)
                             .shadow(
-                                color: isSolarAwakened ? Color(red: 0.96, green: 0.62, blue: 0.04).opacity(0.85) : (isExtra ? Color(red: 0.22, green: 0.74, blue: 0.97).opacity(0.4) : Color.black.opacity(0.15)),
+                                color: isSolarAwakened ? Color(red: 0.96, green: 0.62, blue: 0.04).opacity(0.85) : (dark ? Color(red: 0.22, green: 0.74, blue: 0.97).opacity(0.4) : Color.black.opacity(0.15)),
                                 radius: isSolarAwakened ? 16 : 8,
                                 y: isSolarAwakened ? 0 : 3
                             )
@@ -294,7 +313,7 @@ struct ProfileView: View {
                             .scaledToFit()
                             .frame(width: 70, height: 70)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .shadow(color: isExtra ? ExtraAuroraPalette.electricBlue.opacity(0.35) : Color.black.opacity(0.12), radius: 8, y: 3)
+                            .shadow(color: dark ? ExtraAuroraPalette.electricBlue.opacity(0.35) : Color.black.opacity(0.12), radius: 8, y: 3)
                     }
                 }
                 .buttonStyle(.plain)
@@ -304,7 +323,7 @@ struct ProfileView: View {
                     HStack(spacing: 8) {
                         Text(auth.displayName)
                             .font(AppTypography.destinationTitle)
-                            .foregroundStyle(isExtra ? Color.white : Color.primary)
+                            .foregroundStyle(dark ? Color.white : Color.primary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
 
@@ -314,14 +333,14 @@ struct ProfileView: View {
                         } label: {
                             Image(systemName: "pencil.circle.fill")
                                 .font(.subheadline)
-                                .foregroundStyle(isExtra ? ExtraAuroraPalette.ice.opacity(0.7) : Color.blue.opacity(0.8))
+                                .foregroundStyle(dark ? ExtraAuroraPalette.ice.opacity(0.7) : Color.blue.opacity(0.8))
                         }
                     }
 
                     if let email = auth.currentUser?.email, !email.isEmpty {
                         Text(email)
                             .font(.caption)
-                            .foregroundStyle(isExtra ? Color.white.opacity(0.55) : .secondary)
+                            .foregroundStyle(dark ? Color.white.opacity(0.55) : .secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                     }
@@ -335,7 +354,7 @@ struct ProfileView: View {
 
             // Dấu gạch ngăn cách
             Rectangle()
-                .fill(isExtra ? Color.white.opacity(0.22) : Color.secondary.opacity(0.25))
+                .fill(dark ? Color.white.opacity(0.22) : Color.secondary.opacity(0.25))
                 .frame(height: 1)
 
             // Dưới dấu gạch: 5 vật phẩm (Extra - Tim - Băng - Sét - Lửa)
@@ -400,7 +419,7 @@ struct ProfileView: View {
             }
             .padding(.top, 2)
         }
-        .myOmniCardStyle(isExtra: isExtra)
+        .myOmniCardStyle(isExtra: dark)
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.25)
                 .sequenced(before: DragGesture(minimumDistance: 0))
@@ -456,14 +475,14 @@ struct ProfileView: View {
                 if isExtra {
                     Image(systemName: "infinity")
                         .font(.system(size: 14, weight: .black))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(dark ? Color.white : Color.red)
                 } else {
                     Text(heartManager.remainingHearts == 0 && !heartManager.resetCountdownString.isEmpty
                          ? heartManager.resetCountdownString
                          : String(format: "%02d", heartManager.remainingHearts))
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(heartManager.remainingHearts > 0 ? (isExtra ? Color.white : Color.primary) : Color.secondary)
+                        .foregroundStyle(heartManager.remainingHearts > 0 ? (dark ? Color.white : Color.primary) : Color.secondary)
                 }
             }
             .padding(.horizontal, 10)
@@ -471,7 +490,7 @@ struct ProfileView: View {
             .background(
                 Capsule()
                     .fill(
-                        isExtra
+                        dark
                             ? Color.white.opacity(0.12)
                             : Color.red.opacity(0.08)
                     )
@@ -479,7 +498,7 @@ struct ProfileView: View {
             .overlay(
                 Capsule()
                     .stroke(
-                        isExtra ? Color.white.opacity(0.2) : Color.red.opacity(0.22),
+                        dark ? Color.white.opacity(0.2) : Color.red.opacity(0.22),
                         lineWidth: 1
                     )
             )
@@ -513,7 +532,7 @@ struct ProfileView: View {
 
                 Text(title)
                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(isExtra ? ExtraAuroraPalette.champagne : Color.primary)
+                    .foregroundColor(dark ? ExtraAuroraPalette.champagne : Color.primary)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
@@ -556,7 +575,7 @@ struct ProfileView: View {
 
                 Text(needsRecharge ? "Hồi lượt" : title)
                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(needsRecharge ? (isExtra ? ExtraAuroraPalette.ice : Color.blue) : (isExtra ? ExtraAuroraPalette.champagne : Color.primary))
+                    .foregroundColor(needsRecharge ? (dark ? ExtraAuroraPalette.ice : Color.blue) : (dark ? ExtraAuroraPalette.champagne : Color.primary))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
@@ -637,22 +656,22 @@ struct ProfileView: View {
                             .foregroundColor(Color(hex: "8B5CF6"))
                         Text(extraManager.countdownString)
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundColor(isExtra ? Color(hex: "E9D5FF") : Color(hex: "6D28D9"))
+                            .foregroundColor(dark ? Color(hex: "E9D5FF") : Color(hex: "6D28D9"))
                     }
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                     .background(
                         Capsule()
-                            .fill(isExtra ? Color(hex: "7C3AED").opacity(0.3) : Color(hex: "EDE9FE"))
+                            .fill(dark ? Color(hex: "7C3AED").opacity(0.3) : Color(hex: "EDE9FE"))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color(hex: "A78BFA").opacity(isExtra ? 0.6 : 0.4), lineWidth: 0.8)
+                            .stroke(Color(hex: "A78BFA").opacity(dark ? 0.6 : 0.4), lineWidth: 0.8)
                     )
                 } else {
                     Text("Extra")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(isExtra ? ExtraAuroraPalette.champagne : Color.primary)
+                        .foregroundColor(dark ? ExtraAuroraPalette.champagne : Color.primary)
                         .lineLimit(1)
                 }
             }
@@ -724,22 +743,22 @@ struct ProfileView: View {
                             .foregroundColor(Color.orange)
                         Text(doublePointsManager.countdownString)
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundColor(isExtra ? Color.yellow : Color(hex: "B45309"))
+                            .foregroundColor(dark ? Color.yellow : Color(hex: "B45309"))
                     }
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                     .background(
                         Capsule()
-                            .fill(isExtra ? Color.yellow.opacity(0.2) : Color.yellow.opacity(0.14))
+                            .fill(dark ? Color.yellow.opacity(0.2) : Color.yellow.opacity(0.14))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color.yellow.opacity(isExtra ? 0.5 : 0.35), lineWidth: 0.8)
+                            .stroke(Color.yellow.opacity(dark ? 0.5 : 0.35), lineWidth: 0.8)
                     )
                 } else {
                     Text("Sét")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(isExtra ? ExtraAuroraPalette.champagne : Color.primary)
+                        .foregroundColor(dark ? ExtraAuroraPalette.champagne : Color.primary)
                         .lineLimit(1)
                 }
             }
@@ -811,22 +830,22 @@ struct ProfileView: View {
                             .foregroundColor(Color(hex: "0284C7"))
                         Text(freezeCountdown)
                             .font(.system(size: 8, weight: .bold, design: .rounded))
-                            .foregroundColor(isExtra ? Color(hex: "38BDF8") : Color(hex: "0369A1"))
+                            .foregroundColor(dark ? Color(hex: "38BDF8") : Color(hex: "0369A1"))
                     }
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                     .background(
                         Capsule()
-                            .fill(isExtra ? Color(hex: "0284C7").opacity(0.3) : Color(hex: "E0F2FE"))
+                            .fill(dark ? Color(hex: "0284C7").opacity(0.3) : Color(hex: "E0F2FE"))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color(hex: "38BDF8").opacity(isExtra ? 0.6 : 0.4), lineWidth: 0.8)
+                            .stroke(Color(hex: "38BDF8").opacity(dark ? 0.6 : 0.4), lineWidth: 0.8)
                     )
                 } else {
                     Text(isFreezeActive ? freezeCountdown : "Băng")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(isExtra ? ExtraAuroraPalette.champagne : Color.primary)
+                        .foregroundColor(dark ? ExtraAuroraPalette.champagne : Color.primary)
                         .lineLimit(1)
                 }
             }
@@ -899,22 +918,22 @@ struct ProfileView: View {
                             .foregroundColor(Color(hex: "EA580C"))
                         Text(restoreCountdown)
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundColor(isExtra ? Color(hex: "FED7AA") : Color(hex: "C2410C"))
+                            .foregroundColor(dark ? Color(hex: "FED7AA") : Color(hex: "C2410C"))
                     }
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                     .background(
                         Capsule()
-                            .fill(isExtra ? Color(hex: "EA580C").opacity(0.3) : Color(hex: "FFEDD5"))
+                            .fill(dark ? Color(hex: "EA580C").opacity(0.3) : Color(hex: "FFEDD5"))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color(hex: "FB923C").opacity(isExtra ? 0.6 : 0.4), lineWidth: 0.8)
+                            .stroke(Color(hex: "FB923C").opacity(dark ? 0.6 : 0.4), lineWidth: 0.8)
                     )
                 } else {
                     Text("Lửa")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(isExtra ? ExtraAuroraPalette.champagne : Color.primary)
+                        .foregroundColor(dark ? ExtraAuroraPalette.champagne : Color.primary)
                         .lineLimit(1)
                 }
             }
@@ -979,16 +998,16 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Điểm thưởng Omni")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(isExtra ? ExtraAuroraPalette.ice : Color.blue)
+                        .foregroundStyle(dark ? ExtraAuroraPalette.ice : Color.blue)
 
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(omniPoints)")
                             .font(.title2.weight(.heavy))
-                            .foregroundStyle(isExtra ? ExtraAuroraPalette.champagne : Color.orange)
+                            .foregroundStyle(dark ? ExtraAuroraPalette.champagne : Color.orange)
 
                         Text("điểm")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(isExtra ? Color.white.opacity(0.6) : .secondary)
+                            .foregroundStyle(dark ? Color.white.opacity(0.6) : .secondary)
                     }
                 }
 
@@ -997,14 +1016,14 @@ struct ProfileView: View {
                 HStack(spacing: 6) {
                     Text("Nạp điểm")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(isExtra ? ExtraAuroraPalette.ice.opacity(0.85) : Color.blue.opacity(0.85))
+                        .foregroundStyle(dark ? ExtraAuroraPalette.ice.opacity(0.85) : Color.blue.opacity(0.85))
 
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(isExtra ? Color.white.opacity(0.5) : Color.blue.opacity(0.6))
+                        .foregroundStyle(dark ? Color.white.opacity(0.5) : Color.blue.opacity(0.6))
                 }
             }
-            .myOmniCardStyle(isExtra: isExtra)
+            .myOmniCardStyle(isExtra: dark)
         }
         .buttonStyle(.plain)
     }
@@ -1055,7 +1074,7 @@ struct ProfileView: View {
                 }
                 .padding(20)
                 .frame(maxWidth: 340)
-                .appSurface(.detail, isExtra: isExtra)
+                .appSurface(.detail, isExtra: dark)
                 .transition(.scale(scale: 0.88).combined(with: .opacity))
             }
             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: activePopup)
@@ -1077,7 +1096,7 @@ struct ProfileView: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(isExtra ? Color.white.opacity(0.6) : .secondary)
+                        .foregroundStyle(dark ? Color.white.opacity(0.6) : .secondary)
                 }
             }
 
@@ -1125,14 +1144,14 @@ struct ProfileView: View {
             VStack(spacing: 6) {
                 Text(item.name)
                     .font(AppTypography.destinationTitle)
-                    .foregroundStyle(isExtra ? Color.white : Color.primary)
+                    .foregroundStyle(dark ? Color.white : Color.primary)
 
                 Text(itemDescription(for: item))
                     .font(.caption)
                     .foregroundStyle(
                         item.id == "restore_streak" && canRestoreStreak
-                            ? (isExtra ? Color(hex: "FDBA74") : Color(hex: "EA580C"))
-                            : (AppTheme(isExtra: isExtra).secondaryText)
+                            ? (dark ? Color(hex: "FDBA74") : Color(hex: "EA580C"))
+                            : (AppTheme(isExtra: dark).secondaryText)
                     )
                     .fontWeight(
                         item.id == "restore_streak" && canRestoreStreak
@@ -1150,17 +1169,17 @@ struct ProfileView: View {
 
                         Text("Đang nhân đôi x2 — Còn \(doublePointsManager.countdownString)")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(isExtra ? Color.yellow : Color(hex: "B45309"))
+                            .foregroundStyle(dark ? Color.yellow : Color(hex: "B45309"))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(
                         Capsule()
-                            .fill(isExtra ? Color.yellow.opacity(0.2) : Color.yellow.opacity(0.14))
+                            .fill(dark ? Color.yellow.opacity(0.2) : Color.yellow.opacity(0.14))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color.yellow.opacity(isExtra ? 0.45 : 0.35), lineWidth: 0.8)
+                            .stroke(Color.yellow.opacity(dark ? 0.45 : 0.35), lineWidth: 0.8)
                     )
                     .padding(.top, 2)
                 } else if item.id == "streak_freeze" && isFreezeActive {
@@ -1171,17 +1190,17 @@ struct ProfileView: View {
 
                         Text("Đang đóng băng — còn \(freezeCountdown)")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(isExtra ? Color(hex: "38BDF8") : Color(hex: "0369A1"))
+                            .foregroundStyle(dark ? Color(hex: "38BDF8") : Color(hex: "0369A1"))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(
                         Capsule()
-                            .fill(isExtra ? Color(hex: "0284C7").opacity(0.3) : Color(hex: "E0F2FE"))
+                            .fill(dark ? Color(hex: "0284C7").opacity(0.3) : Color(hex: "E0F2FE"))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color(hex: "38BDF8").opacity(isExtra ? 0.6 : 0.4), lineWidth: 0.8)
+                            .stroke(Color(hex: "38BDF8").opacity(dark ? 0.6 : 0.4), lineWidth: 0.8)
                     )
                     .padding(.top, 2)
                 } else if item.id == "restore_streak" && canRestoreStreak {
@@ -1192,17 +1211,17 @@ struct ProfileView: View {
 
                         Text("Cứu \(restoreDisplayDays) ngày — còn \(restoreCountdown)")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(isExtra ? Color(hex: "FDBA74") : Color(hex: "C2410C"))
+                            .foregroundStyle(dark ? Color(hex: "FDBA74") : Color(hex: "C2410C"))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(
                         Capsule()
-                            .fill(isExtra ? Color.orange.opacity(0.2) : Color.orange.opacity(0.12))
+                            .fill(dark ? Color.orange.opacity(0.2) : Color.orange.opacity(0.12))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color.orange.opacity(isExtra ? 0.45 : 0.35), lineWidth: 0.8)
+                            .stroke(Color.orange.opacity(dark ? 0.45 : 0.35), lineWidth: 0.8)
                     )
                     .padding(.top, 2)
                 }
@@ -1319,7 +1338,7 @@ struct ProfileView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .modifier(AppActionFill(isExtra: isExtra))
+                    .modifier(AppActionFill(isExtra: dark))
                 }
             }
 
@@ -1393,7 +1412,7 @@ struct ProfileView: View {
             HStack {
                 Text("Biểu tượng Omnicon")
                     .font(AppTypography.cardTitle)
-                    .foregroundStyle(isExtra ? Color.white : Color.primary)
+                    .foregroundStyle(dark ? Color.white : Color.primary)
 
                 Spacer()
 
@@ -1404,7 +1423,7 @@ struct ProfileView: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(isExtra ? Color.white.opacity(0.6) : .secondary)
+                        .foregroundStyle(dark ? Color.white.opacity(0.6) : .secondary)
                 }
             }
 
@@ -1431,27 +1450,27 @@ struct ProfileView: View {
                 HStack {
                     Text("Danh mục:")
                         .font(.subheadline)
-                        .foregroundColor(isExtra ? Color.white.opacity(0.7) : Color.secondary)
+                        .foregroundColor(dark ? Color.white.opacity(0.7) : Color.secondary)
 
                     Text(selectedOmniconCategory)
                         .font(.subheadline.weight(.bold))
-                        .foregroundColor(isExtra ? .white : .primary)
+                        .foregroundColor(dark ? .white : .primary)
 
                     Spacer()
 
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption.weight(.bold))
-                        .foregroundColor(isExtra ? ExtraAuroraPalette.ice : Color.blue)
+                        .foregroundColor(dark ? ExtraAuroraPalette.ice : Color.blue)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isExtra ? Color.white.opacity(0.08) : Color(uiColor: .tertiarySystemFill))
+                        .fill(dark ? Color.white.opacity(0.08) : Color(uiColor: .tertiarySystemFill))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(isExtra ? Color.white.opacity(0.12) : Color.black.opacity(0.06), lineWidth: 1)
+                        .stroke(dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06), lineWidth: 1)
                 )
             }
 
@@ -1460,10 +1479,10 @@ struct ProfileView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "tray")
                         .font(.system(size: 26))
-                        .foregroundColor(isExtra ? Color.white.opacity(0.25) : Color.secondary.opacity(0.35))
+                        .foregroundColor(dark ? Color.white.opacity(0.25) : Color.secondary.opacity(0.35))
                     Text("Chưa có biểu tượng trong danh mục này")
                         .font(.subheadline)
-                        .foregroundColor(isExtra ? Color.white.opacity(0.4) : Color.secondary)
+                        .foregroundColor(dark ? Color.white.opacity(0.4) : Color.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 165)
@@ -1487,14 +1506,14 @@ struct ProfileView: View {
                                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                                 .stroke(
                                                     isSelected
-                                                        ? (isExtra ? ExtraAuroraPalette.ice : Color.blue)
+                                                        ? (dark ? ExtraAuroraPalette.ice : Color.blue)
                                                         : Color.clear,
                                                     lineWidth: isSelected ? 2.5 : 0
                                                 )
                                         )
                                         .shadow(
                                             color: isSelected
-                                                ? (isExtra ? ExtraAuroraPalette.ice.opacity(0.5) : Color.blue.opacity(0.35))
+                                                ? (dark ? ExtraAuroraPalette.ice.opacity(0.5) : Color.blue.opacity(0.35))
                                                 : Color.black.opacity(0.08),
                                             radius: isSelected ? 6 : 2,
                                             y: 2
@@ -1503,7 +1522,7 @@ struct ProfileView: View {
                                     if isEquipped {
                                         Image(systemName: "checkmark.circle.fill")
                                             .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(isExtra ? ExtraAuroraPalette.ice : .blue)
+                                            .foregroundColor(dark ? ExtraAuroraPalette.ice : .blue)
                                             .background(Circle().fill(Color.white).padding(2))
                                             .offset(x: 4, y: 4)
                                     }
@@ -1521,7 +1540,7 @@ struct ProfileView: View {
             if !categoryItems.isEmpty {
                 Text(selectedPopupIcon.name)
                     .font(AppTypography.cardTitle)
-                    .foregroundStyle(isExtra ? Color.white : Color.primary)
+                    .foregroundStyle(dark ? Color.white : Color.primary)
                     .padding(.vertical, 2)
 
                 // Nút hành động cố định dưới pop-up
@@ -1593,7 +1612,7 @@ struct ProfileView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .modifier(AppActionFill(isExtra: isExtra))
+                .modifier(AppActionFill(isExtra: dark))
             }
         } else {
             // Extra:
@@ -1617,7 +1636,7 @@ struct ProfileView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .modifier(AppActionFill(isExtra: isExtra))
+                    .modifier(AppActionFill(isExtra: dark))
                 }
             } else if let reqStreak = selectedPopupIcon.streakDaysRequired, effectiveStreak < reqStreak {
                 // Cần đạt chuỗi ... ngày: màu xám
@@ -1637,7 +1656,7 @@ struct ProfileView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .modifier(AppActionFill(isExtra: isExtra))
+                    .modifier(AppActionFill(isExtra: dark))
                 }
             } else {
                 grayDisabledButton(text: "Chưa mở khóa")
@@ -1693,16 +1712,16 @@ struct ProfileView: View {
     private func grayDisabledButton(text: String) -> some View {
         Text(text)
             .font(AppTypography.label)
-            .foregroundStyle(AppTheme(isExtra: isExtra).secondaryText)
+            .foregroundStyle(AppTheme(isExtra: dark).secondaryText)
             .padding(.horizontal, AppSpacing.row)
             .padding(.vertical, AppSpacing.item)
             .frame(maxWidth: .infinity, minHeight: 52)
-            .modifier(AppActionFill(isExtra: isExtra, enabled: false))
+            .modifier(AppActionFill(isExtra: dark, enabled: false))
     }
 
     private func versionButton(text: String, action: @escaping () -> Void) -> some View {
         Button(text, action: action)
-            .buttonStyle(AppActionButtonStyle(isExtra: isExtra))
+            .buttonStyle(AppActionButtonStyle(isExtra: dark))
     }
 
     private func equipIcon(_ item: OmniIconItem) async {
@@ -1768,11 +1787,17 @@ struct ProfileView: View {
 // MARK: - My Omni Card Style Modifier
 private struct MyOmniCardModifier: ViewModifier {
     let isExtra: Bool
+    @Environment(\.omniV2) private var v2
     func body(content: Content) -> some View {
+        if v2 {
+            content.omniCard(padding: AppSpacing.card, radius: 24)
+                .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        } else {
         content
             .padding(AppSpacing.card)
             .appSurface(.card, isExtra: isExtra)
             .contentShape(RoundedRectangle(cornerRadius: AppSurfaceKind.card.cornerRadius, style: .continuous))
+        }
     }
 }
 

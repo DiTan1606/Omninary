@@ -795,6 +795,7 @@ struct ShadowingPracticeView: View {
 
 struct ShadowingPracticeDashboardView: View {
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    @Environment(\.omniV2) private var v2
     @State private var items: [ListeningLibraryItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -829,6 +830,8 @@ struct ShadowingPracticeDashboardView: View {
                         VStack(spacing: AppSpacing.section) {
                             progressCard
                             practiceCard
+                            // Library is gone in the new interface, so My Listening lives here too.
+                            if v2 { MyListeningLinkCard(isExtra: isExtra) }
                         }
                         .padding()
                     }

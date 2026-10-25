@@ -14,6 +14,7 @@ struct LearningView: View {
     @State private var selectedDashboardWidget: LearningDashboardWidget?
     @State private var lastHandledVocabularyRequest: UUID?
     @State private var showingWidgetPicker = false
+    @Environment(\.omniV2) private var v2
 
     init(openVocabularyRequest: UUID? = nil) {
         self.openVocabularyRequest = openVocabularyRequest
@@ -24,6 +25,29 @@ struct LearningView: View {
     }
 
     var body: some View {
+        if v2 { v2Body } else { legacyBody }
+    }
+
+    /// New Learning page: three fixed cards with pixel scenes; no widget grid.
+    private var v2Body: some View {
+        NavigationStack {
+            LearningV2Page { selectedDashboardWidget = $0 }
+                .omniTabRoot(.learning)
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(isPresented: $showVocabularyLearning) {
+                    VocabularyLearningView()
+                }
+                .navigationDestination(item: $selectedDashboardWidget) { widget in
+                    dashboardDestination(for: widget)
+                }
+        }
+        .onAppear { openVocabularyIfNeeded() }
+        .onChange(of: openVocabularyRequest) { _, _ in
+            openVocabularyIfNeeded()
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             dashboardContent
             .navigationTitle("Learning")

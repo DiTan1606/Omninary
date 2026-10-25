@@ -25,6 +25,10 @@ struct OmninaryHomeView: View {
     @ObservedObject private var auth = AuthManager.shared
     @ObservedObject private var freezeManager = OmniStreakFreezeManager.shared
     @ObservedObject private var streakSimulator = StreakPresentationSimulator.shared
+    @ObservedObject private var hearts = OmniLearningHeartManager.shared
+    @AppStorage("omni_reward_points") private var omniPoints = 1250
+    @Environment(\.omniV2) private var v2
+    @Environment(\.omniPalette) private var palette
     @State private var showNotifications = false
     @State private var showExtraUpgradeSheet = false
     @State private var isFlameTransforming = false
@@ -118,11 +122,11 @@ struct OmninaryHomeView: View {
             NavigationStack {
                 ScrollView {
                     VStack(spacing: 0) {
-                        header
+                        if v2 { v2Header } else { header }
 
-                        VStack(spacing: AppSpacing.cardGap) {
+                        VStack(spacing: v2 ? 14 : AppSpacing.cardGap) {
                             streakCard
-                            streakEnergyCard
+                            if !v2 { streakEnergyCard }
                             calendarCard
                             discoveryCard
                         }
@@ -131,12 +135,16 @@ struct OmninaryHomeView: View {
                     .padding(.bottom, 32)
                 }
                 .background {
-                    if isExtra {
+                    if v2 {
+                        PixelSkyBackground()
+                    } else if isExtra {
                         AuroraBackdrop()
                     } else {
                         Color(UIColor.systemGroupedBackground).ignoresSafeArea()
                     }
                 }
+                .omniStatusBarBackdrop()
+                .omniTabRoot(.home)
                 .toolbar(.hidden, for: .navigationBar)
                 .refreshable { await loadData() }
                 .task { await loadData() }
@@ -278,20 +286,67 @@ struct OmninaryHomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// New header: the version name large, a greeting with the learner's name small, hearts and Omni on the right.
+    private var v2Header: some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(greeting), \(auth.displayName)")
+                    .font(.omniBody(13, weight: 600))
+                    .foregroundStyle(palette.muted)
+                    .lineLimit(1)
+                HStack(alignment: .top, spacing: 6) {
+                    Text(interfaceMode == .extraordinary ? "Extraordinary" : "Ditandnary")
+                        .font(.omniDisplay(30, weight: 800))
+                        .foregroundStyle(isExtra ? palette.versionTint : palette.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    if hasUnreadNotifications {
+                        Circle().fill(palette.danger).frame(width: 8, height: 8).offset(y: 8)
+                    }
+                }
+            }
+            Spacer(minLength: 8)
+            OmniChip(icon: "heart", value: hearts.isExtra ? "∞" : "\(hearts.remainingHearts)")
+            OmniChip(icon: "coin", value: "\(omniPoints)")
+        }
+        .padding(.horizontal)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<11: "Chào buổi sáng"
+        case 11..<13: "Chào buổi trưa"
+        case 13..<18: "Chào buổi chiều"
+        default: "Chào buổi tối"
+        }
+    }
+
+    /// Main text colour for both interfaces.
+    private var ink: Color { v2 ? palette.text : (isExtra ? .white : .black) }
+    private var subInk: Color { v2 ? palette.muted : (isExtra ? Color.white.opacity(0.72) : Color.black.opacity(0.55)) }
+
     private var streakCard: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if v2 {
+                OmniSectionLabel("Chuỗi học tập")
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+            }
             HStack(alignment: .center, spacing: 14) {
                 // Cụm chữ bên trái: Số ở trên, "ngày streak!" ở dưới, màu theo ngọn lửa
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(displayedStreakNumber))
-                        .font(.system(size: 58, weight: .black, design: .rounded))
+                        .font(v2 ? .omniDisplay(58, weight: 800) : .system(size: 58, weight: .black, design: .rounded))
                         .foregroundStyle(streakTextColor)
                         .contentTransition(.numericText())
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
 
                     Text("ngày streak!")
-                        .font(.title3.weight(.bold))
+                        .font(v2 ? .omniDisplay(20, weight: 800) : .title3.weight(.bold))
                         .foregroundStyle(streakTextColor)
                 }
 
@@ -301,8 +356,14 @@ struct OmninaryHomeView: View {
                 streakFlameEmblem
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, v2 ? 4 : 16)
             .padding(.bottom, 12)
+
+            if v2 {
+                energyBar
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 14)
+            }
 
             // Đường kẻ ngang ở dưới
             Divider()
@@ -316,7 +377,7 @@ struct OmninaryHomeView: View {
                     .foregroundStyle(displayedFootnote.color)
 
                 Text(displayedFootnote.text)
-                    .font(.caption.weight(.medium))
+                    .font(v2 ? .omniBody(12.5, weight: 600) : .caption.weight(.medium))
                     .foregroundStyle(displayedFootnote.color)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
@@ -362,13 +423,25 @@ struct OmninaryHomeView: View {
     }
 
     private var streakEnergyCard: some View {
-        let podDiameter: CGFloat = 36
+        energyBar
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(cardBackground)
+            .padding(.horizontal)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home-energy-card")
+    }
+
+    private var energyBar: some View {
+        let podDiameter: CGFloat = v2 ? 32 : 36
+        let dark = v2 ? palette.night : isExtra
 
         return ZStack(alignment: .leading) {
             // 1. Rãnh thanh năng lượng liền từ mốc trái tới mốc phải, chiều cao bằng đường kính 2 mốc
             Capsule()
                 .fill(
-                    isExtra
+                    dark
                         ? Color.white.opacity(0.08)
                         : Color.black.opacity(0.06)
                 )
@@ -377,7 +450,7 @@ struct OmninaryHomeView: View {
                         .stroke(
                             isFrozenToday
                                 ? Color.cyan.opacity(0.45)
-                                : (isExtra ? Color.white.opacity(0.10) : Color.black.opacity(0.06)),
+                                : (dark ? Color.white.opacity(0.10) : Color.black.opacity(0.06)),
                             lineWidth: isFrozenToday ? 1.5 : 1
                         )
                 )
@@ -434,7 +507,7 @@ struct OmninaryHomeView: View {
                 ZStack {
                     Circle()
                         .fill(
-                            isExtra
+                            dark
                                 ? Color.white.opacity(0.06)
                                 : Color.black.opacity(0.04)
                         )
@@ -455,35 +528,34 @@ struct OmninaryHomeView: View {
             }
         }
         .frame(height: podDiameter)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(cardBackground)
-        .padding(.horizontal)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home-energy-card")
     }
 
     private var calendarCard: some View {
         VStack(alignment: .leading, spacing: AppSpacing.row) {
             GeometryReader { proxy in
                 HStack(spacing: 0) {
-                    Text("Lịch học tập")
-                        .font(AppTypography.cardTitle)
-                        .foregroundStyle(isExtra ? Color.white : Color.black)
-                        .frame(width: proxy.size.width * 0.5, alignment: .leading)
+                    Group {
+                        if v2 {
+                            OmniSectionLabel("Lịch học tập")
+                        } else {
+                            Text("Lịch học tập")
+                                .font(AppTypography.cardTitle)
+                                .foregroundStyle(ink)
+                        }
+                    }
+                    .frame(width: proxy.size.width * 0.5, alignment: .leading)
 
                     HStack(spacing: isExtra ? 6 : 10) {
                         Button {
                             withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth }
                         } label: {
                             Image(systemName: "chevron.left")
-                                .foregroundStyle(isExtra ? Color.white.opacity(0.8) : Color.black)
+                                .foregroundStyle(v2 ? palette.muted : (isExtra ? Color.white.opacity(0.8) : Color.black))
                         }
 
                         Text(monthYearString(selectedMonth))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(isExtra ? Color.white : Color.black)
+                            .font(v2 ? .omniBody(14, weight: 700) : .subheadline.weight(.semibold))
+                            .foregroundStyle(ink)
                             .lineLimit(1)
                             .minimumScaleFactor(isExtra ? 0.62 : 0.8)
                             .frame(maxWidth: .infinity)
@@ -492,7 +564,7 @@ struct OmninaryHomeView: View {
                             withAnimation { selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth }
                         } label: {
                             Image(systemName: "chevron.right")
-                                .foregroundStyle(isExtra ? Color.white.opacity(0.8) : Color.black)
+                                .foregroundStyle(v2 ? palette.muted : (isExtra ? Color.white.opacity(0.8) : Color.black))
                         }
                     }
                     .frame(width: proxy.size.width * 0.5)
@@ -521,9 +593,13 @@ struct OmninaryHomeView: View {
     private var discoveryCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Khám phá")
-                    .font(AppTypography.cardTitle)
-                    .foregroundStyle(isExtra ? Color.white : Color.black)
+                if v2 {
+                    OmniSectionLabel("Khám phá")
+                } else {
+                    Text("Khám phá")
+                        .font(AppTypography.cardTitle)
+                        .foregroundStyle(ink)
+                }
 
 
                 Spacer()
@@ -545,13 +621,14 @@ struct OmninaryHomeView: View {
                     title: "Khám phá Từ vựng",
                     subtitle: "Các chủ đề và bộ từ",
                     icon: "books.vertical.fill",
+                    pixelIcon: "book",
                     tint: isExtra ? ExtraAuroraPalette.ice : Color(red: 0.0, green: 0.48, blue: 1.0)
                 )
             }
             .accessibilityIdentifier("home-explore-vocabulary")
 
             Divider()
-                .overlay(isExtra ? Color.white.opacity(0.12) : Color.clear)
+                .overlay(v2 ? palette.line : (isExtra ? Color.white.opacity(0.12) : Color.clear))
 
             NavigationLink {
                 ListeningExploreView(
@@ -564,6 +641,7 @@ struct OmninaryHomeView: View {
                     title: "Khám phá Bài luyện nghe",
                     subtitle: "Các seri bài luyện nghe",
                     icon: "headphones",
+                    pixelIcon: "head",
                     tint: AppTheme(isExtra: isExtra).accent
                 )
             }
@@ -577,12 +655,25 @@ struct OmninaryHomeView: View {
         .accessibilityIdentifier("home-discovery-card")
     }
 
+    @ViewBuilder
     private var cardBackground: some View {
-        AppSurfaceBackground(kind: .card, isExtra: isExtra)
+        if v2 {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(palette.card)
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(palette.line, lineWidth: 1))
+                .shadow(color: palette.shadow, radius: 9, y: 6)
+        } else {
+            AppSurfaceBackground(kind: .card, isExtra: isExtra)
+        }
     }
 
-    private func folderRow(title: String, subtitle: String, icon: String, tint: Color) -> some View {
+    private func folderRow(title: String, subtitle: String, icon: String, pixelIcon: String, tint: Color) -> some View {
         HStack(spacing: 14) {
+            if v2 {
+                PixelIcon(pixelIcon, size: 26)
+                    .frame(width: 44, height: 44)
+                    .background(palette.panel, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            } else {
             Image(systemName: icon)
                 .font(.title3)
                 .foregroundStyle(isExtra ? Color.white : Color(red: 0.0, green: 0.48, blue: 1.0))
@@ -603,18 +694,19 @@ struct OmninaryHomeView: View {
                             .fill(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.12))
                     }
                 }
+            }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.headline)
-                    .foregroundStyle(isExtra ? Color.white : Color.black)
+                    .font(v2 ? .omniBody(16, weight: 700) : .headline)
+                    .foregroundStyle(ink)
                 Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(isExtra ? Color.white.opacity(0.72) : Color.black.opacity(0.55))
+                    .font(v2 ? .omniBody(12.5, weight: 500) : .caption)
+                    .foregroundStyle(subInk)
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(isExtra ? Color.white.opacity(0.5) : Color.black.opacity(0.35))
+                .foregroundStyle(v2 ? palette.muted : (isExtra ? Color.white.opacity(0.5) : Color.black.opacity(0.35)))
         }
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1058,13 +1150,15 @@ struct OmninaryHomeView: View {
 
         guard isLearned && (streak > 0 || isCelebrationRunning) else {
             // Lửa tàn (chưa học hôm nay) -> màu xám cho cả Ditan và Extra (kể cả khi đóng băng)
+            if v2 { return palette.muted }
             return isExtra ? Color.white.opacity(0.42) : Color.gray
         }
 
         if isExtra {
             // Giao diện Extraordinary
             if streak < 100 {
-                // 1 - 100 Extra dùng dãi màu vàng gold sang trọng
+                // 1 - 100 Extra dùng dãi màu vàng gold sang trọng (đậm hơn trên nền sáng của giao diện mới)
+                if v2 && !palette.night { return Color(hex: 0xC98A0E) }
                 return Color(red: 1.0, green: 0.82, blue: 0.28)
             } else {
                 // 100+ Extra dùng màu xanh tím Aurora

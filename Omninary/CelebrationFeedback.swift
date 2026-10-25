@@ -14,9 +14,12 @@ final class CelebrationFeedbackPlayer {
     func play() {
         stop()
 
-        let feedback = UINotificationFeedbackGenerator()
-        feedback.prepare()
-        feedback.notificationOccurred(.success)
+        if OmniSoundSettings.hapticsEnabled {
+            let feedback = UINotificationFeedbackGenerator()
+            feedback.prepare()
+            feedback.notificationOccurred(.success)
+        }
+        guard OmniSoundSettings.effectsEnabled else { return }
 
         do {
             let audioSession = AVAudioSession.sharedInstance()

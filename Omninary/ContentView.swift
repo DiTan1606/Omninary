@@ -45,6 +45,7 @@ enum AppInterfaceMode: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    @AppStorage(OmniInterfaceVersion.storageKey) private var v2Enabled = true
     @State private var selectedUserTab: UserTab = .home
 
     private var interfaceMode: AppInterfaceMode {
@@ -53,14 +54,30 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if interfaceMode == .extraordinary {
+            if v2Enabled {
+                OmniV2ContentView(selectedUserTab: $selectedUserTab)
+            } else if interfaceMode == .extraordinary {
                 ExtraordinaryUserContentView(selectedUserTab: $selectedUserTab)
             } else {
                 LegacyContentView(selectedUserTab: $selectedUserTab)
             }
         }
-        .preferredColorScheme(interfaceMode.usesDarkTheme ? .dark : nil)
-        .tint(interfaceMode.usesDarkTheme ? ExtraAuroraPalette.electricBlue : Color.blue)
+        .overlay(alignment: .trailing) {
+            OmniInterfaceCompareToggle()
+                .padding(.top, 220)
+        }
+        .modifier(OmniV2Root(isExtra: interfaceMode == .extraordinary))
+#if DEBUG
+        .onAppear {
+            // Screenshot runs: `-OmniStartTab learning` opens a tab directly.
+            switch UserDefaults.standard.string(forKey: "OmniStartTab") {
+            case "learning": selectedUserTab = .learning
+            case "myOmni": selectedUserTab = .myOmni
+            case "setting": selectedUserTab = .setting
+            default: break
+            }
+        }
+#endif
         .task {
             await synchronizeDevelopmentIcon()
             await refreshStreak()
@@ -227,7 +244,7 @@ private struct ExtraordinaryUserContentView: View {
     }
 }
 
-private struct AdminWebOnlyView: View {
+struct AdminWebOnlyView: View {
     @ObservedObject private var auth = AuthManager.shared
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @State private var isSigningOut = false

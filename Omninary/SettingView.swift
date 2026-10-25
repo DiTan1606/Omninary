@@ -14,10 +14,16 @@ struct SettingView: View {
     @State private var isSigningOut = false
     @State private var showSignOutConfirmation = false
     @State private var alertMessage: String?
+    @AppStorage(OmniAppearanceMode.storageKey) private var appearanceRaw = OmniAppearanceMode.auto.rawValue
+    @AppStorage(OmniSoundSettings.musicKey) private var musicEnabled = true
+    @AppStorage(OmniSoundSettings.effectsKey) private var effectsEnabled = true
+    @AppStorage(OmniSoundSettings.hapticsKey) private var hapticsEnabled = true
+    @Environment(\.omniV2) private var v2
+    @Environment(\.omniPalette) private var palette
 
     private var isExtra: Bool { (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme }
-    private var accent: Color { isExtra ? ExtraAuroraPalette.ice : .blue }
-    private var secondaryText: Color { isExtra ? .white.opacity(0.65) : .secondary }
+    private var accent: Color { v2 ? palette.selected : (isExtra ? ExtraAuroraPalette.ice : .blue) }
+    private var secondaryText: Color { v2 ? palette.muted : (isExtra ? .white.opacity(0.65) : .secondary) }
     private var notificationsAllowed: Bool {
         notificationStatus == .authorized || notificationStatus == .provisional || notificationStatus == .ephemeral
     }
@@ -25,11 +31,23 @@ struct SettingView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if isExtra { AuroraBackdrop() }
+                if v2 { PixelSkyBackground() }
+                else if isExtra { AuroraBackdrop() }
                 else { Color(UIColor.systemGroupedBackground).ignoresSafeArea() }
                 ScrollView {
-                    VStack(spacing: AppSpacing.cardGap) {
+                    VStack(alignment: .leading, spacing: v2 ? 14 : AppSpacing.cardGap) {
+                        if v2 {
+                            Text("Setting")
+                                .font(.omniDisplay(32, weight: 800))
+                                .foregroundStyle(palette.text)
+                                .padding(.top, 14)
+                                .padding(.bottom, 2)
+                        }
                         reminderCard
+                        if v2 {
+                            appearanceCard
+                            soundCard
+                        }
 #if DEBUG
                         developmentInterfaceCard
 #endif
@@ -41,9 +59,13 @@ struct SettingView: View {
                 }
                 .scrollIndicators(.hidden)
             }
+            .omniStatusBarBackdrop()
+            .omniTabRoot(.setting)
+            .environment(\.colorScheme, v2 ? (palette.night ? .dark : .light) : (isExtra ? .dark : .light))
             .navigationTitle("Setting")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(v2 ? .hidden : .automatic, for: .navigationBar)
             .task { await refreshReminder() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await refreshReminder() } }
@@ -60,7 +82,33 @@ struct SettingView: View {
                 Text(alertMessage ?? "")
             }
         }
-        .preferredColorScheme(isExtra ? .dark : nil)
+        .preferredColorScheme(v2 ? ((palette.night || isExtra) ? .dark : .light) : (isExtra ? .dark : nil))
+    }
+
+    private var appearanceCard: some View {
+        settingsCard("Giao diện sáng/tối", subtitle: "Tự động: sáng từ 6:00 đến 18:00, tối sau 18:00.", icon: "circle.lefthalf.filled", color: accent) {
+            Picker("Giao diện", selection: $appearanceRaw) {
+                Text("Tự động theo giờ").tag(OmniAppearanceMode.auto.rawValue)
+                Text("Luôn sáng").tag(OmniAppearanceMode.light.rawValue)
+                Text("Luôn tối").tag(OmniAppearanceMode.dark.rawValue)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("settings-appearance-mode")
+        }
+    }
+
+    private var soundCard: some View {
+        settingsCard("Âm thanh và rung", subtitle: "Nhạc nền, hiệu ứng âm thanh và rung khi học.", icon: "speaker.wave.2.fill", color: accent) {
+            Toggle(isOn: $musicEnabled) { Text("Nhạc nền").font(v2 ? .omniBody(15, weight: 600) : .subheadline.weight(.semibold)) }
+                .tint(accent)
+            Divider().overlay(v2 ? palette.line : .clear)
+            Toggle(isOn: $effectsEnabled) { Text("Hiệu ứng âm thanh").font(v2 ? .omniBody(15, weight: 600) : .subheadline.weight(.semibold)) }
+                .tint(accent)
+            Divider().overlay(v2 ? palette.line : .clear)
+            Toggle(isOn: $hapticsEnabled) { Text("Rung").font(v2 ? .omniBody(15, weight: 600) : .subheadline.weight(.semibold)) }
+                .tint(accent)
+        }
+        .accessibilityIdentifier("settings-sound")
     }
 
     private var reminderCard: some View {
@@ -68,7 +116,7 @@ struct SettingView: View {
             Toggle(isOn: Binding(get: { reminderEnabled }, set: { enabled in
                 Task { await updateReminder(enabled: enabled, at: reminderTime) }
             })) {
-                Text("Nhắc học hằng ngày").font(.subheadline.weight(.semibold))
+                Text("Nhắc học hằng ngày").font(v2 ? .omniBody(15, weight: 600) : .subheadline.weight(.semibold))
             }
             .tint(accent)
             .disabled(isUpdatingReminder || isLoadingReminder)
@@ -129,17 +177,15 @@ struct SettingView: View {
                     .frame(width: 42, height: 42)
                     .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(AppTypography.cardTitle)
-                    Text(subtitle).font(.caption).foregroundStyle(secondaryText)
+                    Text(title).font(v2 ? .omniBody(16.5, weight: 800) : AppTypography.cardTitle)
+                    Text(subtitle).font(v2 ? .omniBody(12.5, weight: 500) : .caption).foregroundStyle(secondaryText)
                 }
                 Spacer(minLength: 0)
             }
             content()
         }
-        .foregroundStyle(isExtra ? .white : .primary)
-        .padding(AppSpacing.card)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .appSurface(.card, isExtra: isExtra)
+        .foregroundStyle(v2 ? palette.text : (isExtra ? .white : .primary))
+        .modifier(SettingCardSurface(v2: v2, isExtra: isExtra))
     }
 
     @MainActor
@@ -198,5 +244,20 @@ struct SettingView: View {
         defer { isSigningOut = false }
         do { try await auth.signOut() }
         catch { alertMessage = "Chưa thể đăng xuất. Vui lòng kiểm tra kết nối và thử lại." }
+    }
+}
+
+private struct SettingCardSurface: ViewModifier {
+    let v2: Bool
+    let isExtra: Bool
+    func body(content: Content) -> some View {
+        if v2 {
+            content.omniCard(padding: AppSpacing.card, radius: 22)
+        } else {
+            content
+                .padding(AppSpacing.card)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .appSurface(.card, isExtra: isExtra)
+        }
     }
 }
