@@ -146,9 +146,10 @@ struct WordPickSheet: View {
     @State private var selected: Set<String> = []
     @ObservedObject private var hearts = OmniLearningHeartManager.shared
 
-    private var candidates: [ReviewCandidate] { ReviewPriority.candidates(from: game.vocabs, profiles: game.profiles, now: Date()) }
-    private var due: [ReviewCandidate] { candidates.filter { !$0.isNew } }
-    private var fresh: [ReviewCandidate] { candidates.filter { $0.isNew } }
+    // Worked out once when the sheet opens; recomputing them on every redraw made the sheet slow to appear.
+    @State private var candidates: [ReviewCandidate] = []
+    @State private var due: [ReviewCandidate] = []
+    @State private var fresh: [ReviewCandidate] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -175,7 +176,10 @@ struct WordPickSheet: View {
         }
         .padding(20).background(Color(hex: 0xeef3fb)).environment(\.colorScheme, .light)
         .onAppear {
-            guard selected.isEmpty else { return }
+            guard candidates.isEmpty else { return }
+            candidates = ReviewPriority.candidates(from: game.vocabs, profiles: game.profiles, now: Date())
+            due = candidates.filter { !$0.isNew }
+            fresh = candidates.filter { $0.isNew }
             selected = Set(due.prefix(6).map(\.id) + fresh.prefix(2).map(\.id))
         }
     }
