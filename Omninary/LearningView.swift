@@ -15,6 +15,7 @@ struct LearningView: View {
     @State private var lastHandledVocabularyRequest: UUID?
     @State private var showingWidgetPicker = false
     @Environment(\.omniV2) private var v2
+    @State private var showIsland = false
 
     init(openVocabularyRequest: UUID? = nil) {
         self.openVocabularyRequest = openVocabularyRequest
@@ -31,20 +32,25 @@ struct LearningView: View {
     /// New Learning page: three fixed cards with pixel scenes; no widget grid.
     private var v2Body: some View {
         NavigationStack {
-            LearningV2Page { selectedDashboardWidget = $0 }
+            // Học từ vựng opens Đảo nhà; the list review page lives in Nhà nghiên cứu.
+            LearningV2Page { widget in if widget == .vocabulary { showIsland = true } else { selectedDashboardWidget = widget } }
                 .omniTabRoot(.learning)
                 .toolbar(.hidden, for: .navigationBar)
-                .navigationDestination(isPresented: $showVocabularyLearning) {
-                    VocabularyLearningView()
-                }
+                .fullScreenCover(isPresented: $showIsland) { IslandScreen() }
                 .navigationDestination(item: $selectedDashboardWidget) { widget in
                     dashboardDestination(for: widget)
                 }
         }
-        .onAppear { openVocabularyIfNeeded() }
+        .onAppear { openIslandIfNeeded() }
         .onChange(of: openVocabularyRequest) { _, _ in
-            openVocabularyIfNeeded()
+            openIslandIfNeeded()
         }
+    }
+
+    private func openIslandIfNeeded() {
+        guard let openVocabularyRequest, openVocabularyRequest != lastHandledVocabularyRequest else { return }
+        lastHandledVocabularyRequest = openVocabularyRequest
+        showIsland = true
     }
 
     private var legacyBody: some View {

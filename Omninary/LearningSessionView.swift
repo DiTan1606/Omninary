@@ -45,6 +45,11 @@ struct LearningSessionView: View {
     /// Why Extra added reinforcement for each word (vocabulary ID → text).
     var reasons: [String: String] = [:]
     let onClose: () -> Void
+    /// Adventure mode: the session stays mounted under the stage map and shows one question per quest.
+    var questMode: LearningQuestMode? = nil
+
+    /// False while an adventure stage keeps this session hidden behind its map.
+    private var isOnScreen: Bool { questMode?.isVisible ?? true }
 
     private var isExtra: Bool {
         (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme
@@ -164,8 +169,8 @@ struct LearningSessionView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if !isCompleted && !isFinishingSession {
-                        Button("Thoát") {
-                            onClose()
+                        Button(questMode == nil ? "Thoát" : "Về bản đồ") {
+                            if let questMode { questMode.onHide() } else { onClose() }
                         }
                     }
                 }
@@ -191,6 +196,12 @@ struct LearningSessionView: View {
             }
             .onChange(of: currentTaskIndex) { oldValue, newValue in
                 initializeTaskState()
+            }
+            .onChange(of: questMode?.isVisible) { _, visible in
+                // A quest opens the next question: start its clock, focus and audio now.
+                guard visible == true, !isFinishingSession, !isCompleted else { return }
+                initializeTaskState()
+                if let task = currentTask, task.type == .listenAndType { scheduleAutoplay(for: task) }
             }
             .onChange(of: scenePhase) { _, phase in
                 // Time spent outside the app is not answering time.
@@ -320,7 +331,9 @@ struct LearningSessionView: View {
 
                 Button {
                     CelebrationFeedbackPlayer.shared.stop()
-                    if shouldRouteToHomeAfterCompletion {
+                    if questMode != nil {
+                        // The adventure stage shows its own reward card next.
+                    } else if shouldRouteToHomeAfterCompletion {
                         NotificationCenter.default.post(name: .returnToHomeAfterLearning, object: nil)
                     } else {
                         NotificationCenter.default.post(name: .returnToLearningTab, object: nil)
@@ -917,7 +930,7 @@ struct LearningSessionView: View {
     }
 
     private func scheduleTypedAnswerFocus(for task: LearningTask) {
-        guard task.type == .listenAndType || task.type == .meaningAndType else { return }
+        guard isOnScreen, task.type == .listenAndType || task.type == .meaningAndType else { return }
 
         let taskID = task.id
         DispatchQueue.main.async {
@@ -1151,6 +1164,7 @@ struct LearningSessionView: View {
     }
 
     private func scheduleAutoplay(for task: LearningTask) {
+        guard isOnScreen else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             guard currentTask?.id == task.id, currentResult == nil else { return }
             signals.autoplayed = true
@@ -1244,6 +1258,9 @@ struct LearningSessionView: View {
             SpeechManager.shared.stopSpeaking()
             isFinishingSession = true
             Task { await finishSession() }
+        } else if let questMode {
+            // Back to the stage map; the next quest the player reaches opens the next question.
+            questMode.onStep(currentTaskIndex, tasks.count)
         } else {
             if let next = currentTask, next.type == .listenAndType {
                 scheduleAutoplay(for: next)
@@ -1388,6 +1405,7 @@ struct LearningSessionView: View {
 
             isFinishingSession = false
             isCompleted = true
+            questMode?.onSettled(result)
         } catch {
             isFinishingSession = false
             saveErrorMessage = learningSaveErrorMessage(for: error)
@@ -1506,3 +1524,14 @@ struct LearningLayoutPreview: View {
     }
 }
 #endif
+
+/// How an adventure stage drives a learning session: shown one question at a time.
+struct LearningQuestMode {
+    var isVisible: Bool
+    /// After each answered question that is not the last: (questions done, questions in the session now).
+    var onStep: (Int, Int) -> Void
+    /// The learner asked to go back to the map without answering.
+    var onHide: () -> Void
+    /// The server settled the session (levels, review dates, streak, points).
+    var onSettled: (VocabularyLearningSettlementResult) -> Void
+}

@@ -7,6 +7,9 @@ import SwiftUI
         // Register the notification delegate; ask permission when the user enables reminders.
         _ = NotificationManager.shared
 #if DEBUG
+        IslandDebugDump.runIfRequested()
+#endif
+#if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-LearningInteractionUITestReset") {
             var cards: [LearningWidgetPlacement] = []
             let fullGrid = ProcessInfo.processInfo.arguments.contains("-LearningInteractionUITestFullGrid")

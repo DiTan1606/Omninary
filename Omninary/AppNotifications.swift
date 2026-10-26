@@ -5,4 +5,5 @@ extension Foundation.Notification.Name {
     static let returnToHomeAfterLearning = Self("returnToHomeAfterLearning")
     static let returnToLearningTab = Self("returnToLearningTab")
     static let switchToHomeTab = Self("switchToHomeTab")
+    static let switchToMyOmniTab = Self("switchToMyOmniTab")
 }

@@ -44,6 +44,9 @@ struct OmniV2ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .switchToHomeTab)) { _ in
                 selectedUserTab = .home
             }
+            .onReceive(NotificationCenter.default.publisher(for: .switchToMyOmniTab)) { _ in
+                selectedUserTab = .myOmni
+            }
             .onReceive(NotificationCenter.default.publisher(for: .returnToLearningTab)) { _ in
                 selectedUserTab = .learning
             }
