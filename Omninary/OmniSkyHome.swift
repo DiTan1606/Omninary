@@ -166,13 +166,14 @@ struct OmniSkyHomeView: View {
                 .font(.omniBody(13, weight: 600))
                 .foregroundStyle(palette.muted)
             HStack(spacing: 8) {
-                Text("\(Self.greeting(now)), \(firstName)")
+                // Extra learners wear their name as the Extra tag
+                Text(palette.extra ? "\(Self.greeting(now))," : "\(Self.greeting(now)), \(firstName)")
                     .font(.omniBody(18, weight: 800))
                     .foregroundStyle(palette.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 if palette.extra {
-                    OmniExtraChip()
+                    OmniExtraChip(title: firstName)
                 }
             }
         }

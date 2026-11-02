@@ -104,18 +104,18 @@ struct IslandScreen: View {
                 if game.mode == .stage, let run = game.stage {
                     let map = AdventureMaps.index(run.region, run.index)
                     Text(AdventureMaps.name(map)).font(.omniBody(15, weight: 800)).lineLimit(1)
-                    Text("Màn \(min(6, game.conquest.words / 5 + 1))/6 · đảo \(run.index + 1)/15").font(.omniBody(11, weight: 500)).foregroundStyle(Color(hex: 0x5b6779)).lineLimit(1)
+                    Text("Màn \(min(6, game.conquest.words / 5 + 1))/6 · đảo \(run.index + 1)/15").font(.omniBody(11, weight: 500)).foregroundStyle(qp.muted).lineLimit(1)
                 } else if game.mode == .stage, let map = game.freeMap {
                     Text(AdventureMaps.name(map)).font(.omniBody(15, weight: 800)).lineLimit(1)
-                    Text("Đảo \(map % 15 + 1)/15 · đã chinh phục").font(.omniBody(11, weight: 500)).foregroundStyle(Color(hex: 0x5b6779)).lineLimit(1)
+                    Text("Đảo \(map % 15 + 1)/15 · đã chinh phục").font(.omniBody(11, weight: 500)).foregroundStyle(qp.muted).lineLimit(1)
                 } else {
                     Text("Học từ vựng").font(.omniBody(15, weight: 800))
-                    Text(regionName).font(.omniBody(11, weight: 600)).foregroundStyle(Color(hex: 0x5b6779)).lineLimit(1)
+                    Text(regionName).font(.omniBody(11, weight: 600)).foregroundStyle(qp.muted).lineLimit(1)
                 }
             }
-            .foregroundStyle(Color(hex: 0x17202e))
+            .foregroundStyle(qp.text)
             .padding(.horizontal, 12).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
-            .background(.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 16)).shadow(color: .black.opacity(0.15), radius: 6, y: 4)
+            .background(qp.card.opacity(0.96), in: RoundedRectangle(cornerRadius: 16)).shadow(color: .black.opacity(0.15), radius: 6, y: 4)
             chip(pixel: "coin", value: "\(game.omni)")
             chip(pixel: "heart", value: hearts.isExtra ? "∞" : "\(hearts.remainingHearts)")
         }
@@ -128,37 +128,40 @@ struct IslandScreen: View {
         let isles = min(15, map - regionStart), levels = isles * 6 + (map < AdventureMaps.count ? min(6, game.conquest.words / 5) : 0)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(regionName).font(.omniBody(15, weight: 800)).foregroundStyle(Color(hex: 0x17202e))
+                Text(regionName).font(.omniBody(15, weight: 800)).foregroundStyle(qp.text)
                 Spacer()
-                Text("\(isles)/15 đảo · \(levels)/90 màn").font(.omniBody(12.5, weight: 700)).foregroundStyle(Color(hex: 0x5b6779))
+                Text("\(isles)/15 đảo · \(levels)/90 màn").font(.omniBody(12.5, weight: 700)).foregroundStyle(qp.muted)
             }
             GeometryReader { g in
-                Capsule().fill(Color(hex: 0xe3e9f2))
+                Capsule().fill(qp.line)
                     .overlay(alignment: .leading) { Capsule().fill(LinearGradient(colors: [Color(hex: 0xffd66b), Color(hex: 0xf0b429)], startPoint: .top, endPoint: .bottom)).frame(width: g.size.width * CGFloat(levels) / 90) }
                     .overlay(Capsule().stroke(ink, lineWidth: 2))
             }
             .frame(height: 10)
         }
         .padding(.horizontal, 14).padding(.vertical, 9)
-        .background(.white.opacity(0.96), in: RoundedRectangle(cornerRadius: 18)).shadow(color: .black.opacity(0.18), radius: 8, y: 6)
+        .background(qp.card.opacity(0.96), in: RoundedRectangle(cornerRadius: 18)).shadow(color: .black.opacity(0.18), radius: 8, y: 6)
         .padding(.horizontal, 12).padding(.top, 10)
         .accessibilityElement(children: .combine)
     }
 
-    private func roundButton(_ symbol: String, tint: Color = Color(hex: 0x17202e), action: @escaping () -> Void) -> some View {
+    private func roundButton(_ symbol: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 17, weight: .heavy)).foregroundStyle(tint)
-                .frame(width: 42, height: 42).background(.white.opacity(0.96), in: RoundedRectangle(cornerRadius: 14)).shadow(color: .black.opacity(0.16), radius: 6, y: 4)
+            Image(systemName: symbol).font(.system(size: 17, weight: .heavy)).foregroundStyle(tint ?? qp.text)
+                .frame(width: 42, height: 42).background(qp.card.opacity(0.96), in: RoundedRectangle(cornerRadius: 14)).shadow(color: .black.opacity(0.16), radius: 6, y: 4)
         }.buttonStyle(.plain)
     }
     private func chip(pixel: String, value: String) -> some View {
         HStack(spacing: 3) {
             PixelIcon(pixel, size: 18)
-            Text(value).font(.omniDisplay(15)).monospacedDigit().foregroundStyle(Color(hex: 0x17202e))
+            Text(value).font(.omniDisplay(15)).monospacedDigit().foregroundStyle(qp.text)
         }
         .padding(.horizontal, 8).frame(height: 42)
-        .background(.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 16)).shadow(color: .black.opacity(0.15), radius: 6, y: 4)
+        .background(qp.card.opacity(0.96), in: RoundedRectangle(cornerRadius: 16)).shadow(color: .black.opacity(0.15), radius: 6, y: 4)
     }
+
+    /// Cards over the map: white by day, the night navy of the quest card by night.
+    private var qp: QuizPalette { QuizPalette(dark: game.night) }
 
     // MARK: bottom bar
 
@@ -229,13 +232,14 @@ struct IslandScreen: View {
     private func errorView(_ err: String) -> some View {
         VStack(spacing: 12) {
             Text("Chưa tải được dữ liệu").font(.omniBody(17, weight: 800))
-            Text(err).font(.omniBody(13, weight: 500)).multilineTextAlignment(.center).foregroundStyle(Color(hex: 0x5b6779))
+            Text(err).font(.omniBody(13, weight: 500)).multilineTextAlignment(.center).foregroundStyle(qp.muted)
             HStack {
                 Button("Quay lại") { dismiss() }.buttonStyle(IslandButtonStyle(kind: .plain))
                 Button("Thử lại") { Task { await game.load() } }.buttonStyle(IslandButtonStyle(kind: .primary))
             }
         }
-        .padding(20).background(.white, in: RoundedRectangle(cornerRadius: 20)).padding(30)
+        .padding(20).background(qp.card, in: RoundedRectangle(cornerRadius: 20)).padding(30)
+        .environment(\.colorScheme, game.night ? .dark : .light)
     }
 
     private func questSession(_ run: StageRun) -> some View {
@@ -269,9 +273,9 @@ struct IslandScreen: View {
     private func levelClearCard(_ clear: AdventureClear) -> some View {
         let won = clear.collected != nil
         let card = VStack(spacing: 10) {
-                    Text("Qua màn \(clear.levelAfter)/6!").font(.omniDisplay(28)).foregroundStyle(Color(hex: 0x17202e))
+                    Text("Qua màn \(clear.levelAfter)/6!").font(.omniDisplay(28)).foregroundStyle(qp.text)
                     Text("\(clear.planned) câu · đúng ngay \(clear.firstTry) câu" + (clear.retryQuests > 0 ? " · \(clear.retryQuests) nhiệm vụ làm lại" : ""))
-                        .font(.omniBody(13, weight: 500)).foregroundStyle(Color(hex: 0x5b6779)).multilineTextAlignment(.center)
+                        .font(.omniBody(13, weight: 500)).foregroundStyle(qp.muted).multilineTextAlignment(.center)
                     HStack(spacing: 8) {
                         reward("+\(clear.earned + clear.sessionPoints)", "Omni")
                         if !hearts.isExtra { reward("−1", "tim · còn \(hearts.remainingHearts)", tint: 0xe8463f) }
@@ -279,13 +283,13 @@ struct IslandScreen: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(AdventureMaps.name(clear.mapBefore).uppercased()).font(.omniBody(11.5, weight: 800)).tracking(0.4).foregroundStyle(Color(hex: 0x5b6779)).lineLimit(1)
+                            Text(AdventureMaps.name(clear.mapBefore).uppercased()).font(.omniBody(11.5, weight: 800)).tracking(0.4).foregroundStyle(qp.muted).lineLimit(1)
                             Spacer()
-                            Text("\(clear.levelAfter)/6 màn").font(.omniDisplay(16)).foregroundStyle(Color(hex: 0x17202e))
+                            Text("\(clear.levelAfter)/6 màn").font(.omniDisplay(16)).foregroundStyle(qp.text)
                         }
                         LevelSteps(before: clear.levelBefore, after: clear.levelAfter)
                     }
-                    .padding(12).background(Color(hex: 0xf6f8fc), in: RoundedRectangle(cornerRadius: 14))
+                    .padding(12).background(qp.soft, in: RoundedRectangle(cornerRadius: 14))
                     if won, let art = IslandArt.cached(clear.mapBefore) {
                         VStack(spacing: 6) {
                             Image(decorative: art.image, scale: 1).resizable().interpolation(.none).scaledToFit().frame(height: 130)
@@ -299,21 +303,21 @@ struct IslandScreen: View {
                     }
                     if !clear.weak.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("CẦN CHÚ Ý · SẼ GẶP LẠI SỚM").font(.omniBody(11.5, weight: 800)).tracking(0.4).foregroundStyle(Color(hex: 0x5b6779))
+                            Text("CẦN CHÚ Ý · SẼ GẶP LẠI SỚM").font(.omniBody(11.5, weight: 800)).tracking(0.4).foregroundStyle(qp.muted)
                             FlowLayout(spacing: 6) {
                                 ForEach(clear.weak, id: \.self) { w in
-                                    Text(w).font(.omniBody(13, weight: 700)).foregroundStyle(Color(hex: 0x8a5a00))
-                                        .padding(.horizontal, 10).padding(.vertical, 5).background(Color(hex: 0xfff1d1), in: Capsule())
+                                    Text(w).font(.omniBody(13, weight: 700)).foregroundStyle(game.night ? Color(hex: 0xf6d2a8) : Color(hex: 0x8a5a00))
+                                        .padding(.horizontal, 10).padding(.vertical, 5).background(game.night ? Color(hex: 0x3a2a16) : Color(hex: 0xfff1d1), in: Capsule())
                                 }
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    if clear.earned == 0 { Text("Hôm nay bạn đã nhận đủ 500 điểm Omni, phần thưởng màn không cộng thêm.").font(.omniBody(11.5, weight: 500)).foregroundStyle(Color(hex: 0x5b6779)).multilineTextAlignment(.center) }
+                    if clear.earned == 0 { Text("Hôm nay bạn đã nhận đủ 500 điểm Omni, phần thưởng màn không cộng thêm.").font(.omniBody(11.5, weight: 500)).foregroundStyle(qp.muted).multilineTextAlignment(.center) }
                     Button(won ? (clear.mapBefore % 15 == 14 ? "Ra khơi sang vùng mới" : "Chèo thuyền sang đảo mới") : "Về lộ trình") { game.backToPath() }
                         .buttonStyle(IslandButtonStyle(kind: .primary)).padding(.top, 4)
                 }
-                .padding(22).frame(maxWidth: 360).background(.white, in: RoundedRectangle(cornerRadius: 24)).padding(20)
+                .padding(22).frame(maxWidth: 360).background(qp.card, in: RoundedRectangle(cornerRadius: 24)).padding(20)
                 .frame(maxWidth: .infinity)
         return ZStack {
             Color(red: 20 / 255, green: 16 / 255, blue: 36 / 255).opacity(0.55).ignoresSafeArea()
@@ -323,14 +327,14 @@ struct IslandScreen: View {
                 ScrollView { card }.scrollBounceBehavior(.basedOnSize)
             }
         }
-        .environment(\.colorScheme, .light)
+        .environment(\.colorScheme, game.night ? .dark : .light)
     }
     private func reward(_ v: String, _ label: String, tint: UInt32 = 0x5b3fc9) -> some View {
         VStack(spacing: 2) {
             Text(v).font(.omniDisplay(22)).foregroundStyle(Color(hex: tint))
-            Text(label).font(.omniBody(11, weight: 500)).foregroundStyle(Color(hex: 0x5b6779))
+            Text(label).font(.omniBody(11, weight: 500)).foregroundStyle(qp.muted)
         }
-        .frame(maxWidth: .infinity).padding(8).background(Color(hex: 0xf6f8fc), in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity).padding(8).background(qp.soft, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var leaveSheet: some View {
@@ -379,13 +383,15 @@ struct IslandButtonStyle: ButtonStyle {
     enum Kind { case primary, plain, red }
     var kind: Kind = .primary
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var scheme
     func makeBody(configuration: Configuration) -> some View {
+        let dark = scheme == .dark
         let (bg, shadow, fg): (Color, Color, Color) = {
-            if !isEnabled { return (Color(hex: 0xeef3fb), .clear, Color(hex: 0x5b6779)) }
+            if !isEnabled { return dark ? (Color(hex: 0x252c52), .clear, Color(hex: 0x7d87a6)) : (Color(hex: 0xeef3fb), .clear, Color(hex: 0x5b6779)) }
             switch kind {
             case .primary: return (Color(hex: 0x34b45a), Color(hex: 0x23893f), .white)
             case .red: return (Color(hex: 0xe8463f), Color(hex: 0xb3302a), .white)
-            case .plain: return (Color(hex: 0xeef3fb), .clear, Color(hex: 0x17202e))
+            case .plain: return dark ? (Color(hex: 0x252c52), .clear, Color(hex: 0xeef1fb)) : (Color(hex: 0xeef3fb), .clear, Color(hex: 0x17202e))
             }
         }()
         configuration.label
@@ -393,7 +399,7 @@ struct IslandButtonStyle: ButtonStyle {
             .foregroundStyle(fg)
             .padding(.horizontal, 16).padding(.vertical, 9)
             .background(bg, in: RoundedRectangle(cornerRadius: 14))
-            .overlay { if kind == .plain { RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0xe3e9f2)) } }
+            .overlay { if kind == .plain { RoundedRectangle(cornerRadius: 14).stroke(dark ? Color(hex: 0x2b3457) : Color(hex: 0xe3e9f2)) } }
             .background(RoundedRectangle(cornerRadius: 14).fill(shadow).offset(y: configuration.isPressed ? 1 : 4))
             .offset(y: configuration.isPressed ? 3 : 0)
     }

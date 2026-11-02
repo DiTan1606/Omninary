@@ -32,7 +32,6 @@ struct ProfileView: View {
     @AppStorage("equipped_omni_icon_id") private var equippedIconId = "ditandnary_classic"
     @AppStorage("unlocked_omni_icon_ids") private var unlockedIconIdsRaw = "ditandnary_classic,extraordinary_aurora"
     @AppStorage("omni_reward_points") private var omniPoints = 1250
-    @AppStorage(OmniExtraMembership.sinceKey) private var extraSince: Double = 0
 
     @State private var isEditingName = false
     @State private var newDisplayName = ""
@@ -311,11 +310,17 @@ struct ProfileView: View {
                 // Info
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Text(auth.displayName)
-                            .font(AppTypography.destinationTitle)
-                            .foregroundStyle(dark ? Color.white : Color.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
+                        // Extra learners wear their name as the Extra tag
+                        if v2 && isExtra {
+                            OmniExtraChip(title: auth.displayName)
+                                .accessibilityIdentifier("my-omni-extra-chip")
+                        } else {
+                            Text(auth.displayName)
+                                .font(AppTypography.destinationTitle)
+                                .foregroundStyle(dark ? Color.white : Color.primary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                        }
 
                         Button {
                             newDisplayName = auth.displayName
@@ -325,20 +330,9 @@ struct ProfileView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(dark ? ExtraAuroraPalette.ice.opacity(0.7) : Color.blue.opacity(0.8))
                         }
-
-                        if v2 && isExtra {
-                            OmniExtraChip()
-                                .accessibilityIdentifier("my-omni-extra-chip")
-                        }
                     }
 
-                    if v2 && isExtra {
-                        Text(extraSinceText)
-                            .font(.caption)
-                            .foregroundStyle(palette.muted)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                    } else if let email = auth.currentUser?.email, !email.isEmpty {
+                    if let email = auth.currentUser?.email, !email.isEmpty {
                         Text(email)
                             .font(.caption)
                             .foregroundStyle(dark ? Color.white.opacity(0.55) : .secondary)
@@ -463,13 +457,6 @@ struct ProfileView: View {
                 }
             }
         }
-    }
-
-    private var extraSinceText: String {
-        let since = extraSince > 0 ? Date(timeIntervalSince1970: extraSince) : Date()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
-        return "Thành viên Extraordinary từ " + formatter.string(from: since)
     }
 
     // MARK: - Learning Hearts Badge (<icon trái tim>: 05 / vô cực)

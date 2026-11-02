@@ -1,10 +1,5 @@
 import SwiftUI
 
-/// When the learner became Extra, kept on this device for "Thành viên Extraordinary từ …".
-enum OmniExtraMembership {
-    static let sinceKey = "extra_member_since"
-}
-
 /// Shown once, right after the learner turns Extra on.
 struct OmniExtraWelcomeView: View {
     @Environment(\.dismiss) private var dismiss

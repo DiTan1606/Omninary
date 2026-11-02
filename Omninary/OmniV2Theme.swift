@@ -268,23 +268,33 @@ enum OmniExtraStyle {
 }
 
 /// Dark "EXTRA" chip with a gold star; a light streak crosses it every few seconds.
+/// With a `title` (the learner's name for Extra) it becomes a name tag in the same style.
 struct OmniExtraChip: View {
+    var title: String? = nil
     var large = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shine = false
 
     var body: some View {
-        HStack(spacing: large ? 5 : 4) {
+        HStack(spacing: title != nil ? 6 : large ? 5 : 4) {
             Image(systemName: "sparkle")
-                .font(.system(size: large ? 11 : 9, weight: .black))
+                .font(.system(size: title != nil ? 13 : large ? 11 : 9, weight: .black))
                 .foregroundStyle(Color(hex: 0xE8B93A))
-            Text("EXTRA")
-                .font(.omniBody(large ? 11 : 10, weight: 800))
-                .kerning(large ? 1.6 : 1.4)
-                .foregroundStyle(.white)
+            if let title {
+                Text(title)
+                    .font(.omniBody(16, weight: 800))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            } else {
+                Text("EXTRA")
+                    .font(.omniBody(large ? 11 : 10, weight: 800))
+                    .kerning(large ? 1.6 : 1.4)
+                    .foregroundStyle(.white)
+            }
         }
-        .padding(.horizontal, large ? 10 : 8)
-        .frame(height: large ? 24 : 20)
+        .padding(.horizontal, title != nil ? 12 : large ? 10 : 8)
+        .frame(height: title != nil ? 30 : large ? 24 : 20)
         .background(OmniExtraStyle.ink, in: Capsule())
         .overlay {
             GeometryReader { proxy in
@@ -298,9 +308,9 @@ struct OmniExtraChip: View {
             .allowsHitTesting(false)
         }
         .overlay(Capsule().strokeBorder(OmniExtraStyle.chipEdge, lineWidth: 1))
-        .fixedSize()
+        .fixedSize(horizontal: title == nil, vertical: true)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Extra")
+        .accessibilityLabel(title.map { "\($0), Extra" } ?? "Extra")
         .task {
             guard !reduceMotion else { return }
             var reset = Transaction()

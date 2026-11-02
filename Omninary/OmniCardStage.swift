@@ -276,6 +276,8 @@ struct OmniCardCodeSheet: View {
     @State private var error: String?
     @State private var isChecking = false
     @FocusState private var focused: Bool
+    @Environment(\.colorScheme) private var scheme
+    private var p: QuizPalette { QuizPalette(dark: scheme == .dark) }
     private let length = 4
 
     var body: some View {
@@ -288,7 +290,7 @@ struct OmniCardCodeSheet: View {
                     .shadow(color: .black.opacity(0.3), radius: 6, y: 4)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Nhập mã thẻ").font(.omniDisplay(24, weight: 800))
-                    Text("Mã \(length) ký tự in ở góc dưới thẻ giấy Omninary").font(.omniBody(12.5, weight: 500)).foregroundStyle(Color(hex: 0x5B6779))
+                    Text("Mã \(length) ký tự in ở góc dưới thẻ giấy Omninary").font(.omniBody(12.5, weight: 500)).foregroundStyle(p.muted)
                 }
             }
             .padding(.top, 24)
@@ -327,18 +329,17 @@ struct OmniCardCodeSheet: View {
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.omniBody(12, weight: 700))
-                    .foregroundStyle(Color(hex: 0xA8282A))
+                    .foregroundStyle(scheme == .dark ? Color(hex: 0xFF9B93) : Color(hex: 0xA8282A))
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(hex: 0xFDECEA), in: RoundedRectangle(cornerRadius: 12))
+                    .background(scheme == .dark ? Color(hex: 0x3A1D22) : Color(hex: 0xFDECEA), in: RoundedRectangle(cornerRadius: 12))
                     .padding(.top, 14)
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 22)
-        .foregroundStyle(Color(hex: 0x17202E))
-        .background(Color.white.ignoresSafeArea())
-        .environment(\.colorScheme, .light)
+        .foregroundStyle(p.text)
+        .background(p.card.ignoresSafeArea())
         // just tall enough for the card back, the four boxes and the button; a little more when an error shows
         .presentationDetents([.height(error == nil ? 345 : 405)])
     }
@@ -350,9 +351,9 @@ struct OmniCardCodeSheet: View {
         return Text(filled ? String(chars[i]) : "")
             .font(OmniFonts.font(.silkscreen, 700, size: 28))
             .frame(width: 58, height: 68)
-            .background(Color(hex: 0xF3F6FB), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(p.soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(error != nil ? Color(hex: 0xD0453B) : (filled || active ? Color(hex: 0x2F6FD6) : Color(hex: 0xD5DBE6)), lineWidth: 2))
+                .stroke(error != nil ? Color(hex: 0xD0453B) : (filled || active ? Color(hex: 0x2F6FD6) : p.line), lineWidth: 2))
     }
 
     private func open() async {

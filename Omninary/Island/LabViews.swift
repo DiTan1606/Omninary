@@ -72,7 +72,7 @@ struct LabScreen: View {
         }
         .sheet(isPresented: Binding(get: { listSheet != nil }, set: { if !$0 { listSheet = nil } })) {
             if let s = listSheet {
-                WordListSheet(title: s.title, note: s.note, words: s.words) { id in listSheet = nil; path.append(id) }
+                WordListSheet(title: s.title, note: s.note, words: s.words, night: game.night) { id in listSheet = nil; path.append(id) }
                     .presentationDetents([.medium, .large])
             }
         }
@@ -667,13 +667,15 @@ private struct LabAddTab: View {
 
 struct WordListSheet: View {
     let title: String, note: String, words: [Vocabulary]
+    var night = false
     let open: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    private var c: LabColors { LabColors(night: night) }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack { Text(title).font(.omniBody(20, weight: 800)); Spacer(); Button("Đóng") { dismiss() }.buttonStyle(IslandButtonStyle(kind: .plain)) }
-            if !note.isEmpty { Text(note).font(.omniBody(13, weight: 500)).foregroundStyle(Color(hex: 0x5b6779)) }
-            Text("\(words.count) từ. Chạm một từ để xem thẻ.").font(.omniBody(13, weight: 500)).foregroundStyle(Color(hex: 0x5b6779))
+            if !note.isEmpty { Text(note).font(.omniBody(13, weight: 500)).foregroundStyle(c.muted) }
+            Text("\(words.count) từ. Chạm một từ để xem thẻ.").font(.omniBody(13, weight: 500)).foregroundStyle(c.muted)
             ScrollView {
                 FlowLayout(spacing: 6) {
                     ForEach(words, id: \.vocabularyIdentity) { v in
@@ -681,15 +683,15 @@ struct WordListSheet: View {
                             HStack(spacing: 5) {
                                 Circle().fill(Color(hex: CEFRColors[v.CEFR?.uppercased() ?? ""] ?? 0x9aa2b2)).frame(width: 8, height: 8)
                                 Text(v.vocab ?? "").font(.omniBody(13.5, weight: 700))
-                                Text((v.learning_level ?? 0) > 0 ? "★\(v.learning_level ?? 0)" : "mới").font(.omniBody(11, weight: 600)).foregroundStyle(Color(hex: 0x5b6779))
+                                Text((v.learning_level ?? 0) > 0 ? "★\(v.learning_level ?? 0)" : "mới").font(.omniBody(11, weight: 600)).foregroundStyle(c.muted)
                             }
-                            .padding(.horizontal, 10).padding(.vertical, 6).background(.white, in: Capsule()).overlay(Capsule().stroke(Color(hex: 0xe3e9f2)))
+                            .padding(.horizontal, 10).padding(.vertical, 6).background(c.card, in: Capsule()).overlay(Capsule().stroke(c.line))
                         }.buttonStyle(.plain)
                     }
                 }
             }
         }
-        .padding(20).foregroundStyle(Color(hex: 0x17202e)).background(Color(hex: 0xeef3fb)).environment(\.colorScheme, .light)
+        .padding(20).foregroundStyle(c.text).background(c.bg).environment(\.colorScheme, night ? .dark : .light)
     }
 }
 

@@ -43,7 +43,6 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
     @AppStorage(OmniInterfaceVersion.storageKey) private var v2Enabled = true
-    @AppStorage(OmniExtraMembership.sinceKey) private var extraSince: Double = 0
     @State private var selectedUserTab: UserTab = .home
     @State private var showExtraWelcome = false
 
@@ -64,8 +63,6 @@ struct ContentView: View {
         // The old/new comparison switch is gone: everyone is moved onto the new interface.
         .onAppear {
             if !v2Enabled { v2Enabled = true }
-            // Learners who were already Extra get a start date without the welcome.
-            if interfaceMode == .extraordinary && extraSince == 0 { extraSince = Date().timeIntervalSince1970 }
         }
         .fullScreenCover(isPresented: $showExtraWelcome) { OmniExtraWelcomeView() }
         .modifier(OmniV2Root(isExtra: interfaceMode == .extraordinary))
@@ -99,14 +96,11 @@ struct ContentView: View {
             let wasExtra = oldMode == AppInterfaceMode.extraordinary.rawValue
             let isExtra = newMode == AppInterfaceMode.extraordinary.rawValue
             if isExtra && !wasExtra {
-                extraSince = Date().timeIntervalSince1970
                 // Wait for the upgrade sheet to finish closing before covering the screen.
                 Task {
                     try? await Task.sleep(for: .milliseconds(700))
                     showExtraWelcome = true
                 }
-            } else if !isExtra && wasExtra {
-                extraSince = 0
             }
             Task {
                 await synchronizeDevelopmentIcon()
