@@ -179,14 +179,14 @@ struct IslandScreen: View {
                 heroButton(small: "Nhiệm vụ \(min(run.doneQuests + 1, run.questCount))/\(run.questCount)", title: "Đi tới") { game.nextQuest() }
                 sideButton("Nghiên cứu", symbol: "chart.bar.fill") { labTab = "prog"; game.showLab = true }
             } else if game.mode == .stage {
-                sideButton("Nghiên cứu", symbol: "chart.bar.fill") { labTab = "prog"; game.labWord = nil; game.showLab = true }
+                sideButton("Nghiên cứu", symbol: "chart.bar.fill") { labTab = "prog"; game.showLab = true }
                 heroButton(small: "Đã chinh phục", title: "Về lộ trình") { game.backToPath() }
-                sideButton("Khám phá", symbol: "square.stack.fill") { labTab = "deck"; game.labWord = nil; game.showLab = true }
+                sideButton("Khám phá", symbol: "square.stack.fill") { labTab = "deck"; game.showLab = true }
             } else {
-                sideButton("Nghiên cứu", symbol: "chart.bar.fill") { labTab = "prog"; game.labWord = nil; game.showLab = true }
+                sideButton("Nghiên cứu", symbol: "chart.bar.fill") { labTab = "prog"; game.showLab = true }
                 let due = game.dueVocabs.count
                 heroButton(small: due > 0 ? "\(due) từ cần ôn hôm nay" : "Ôn từ mới", title: "Phiêu lưu") { game.play() }
-                sideButton("Khám phá", symbol: "square.stack.fill") { labTab = "deck"; game.labWord = nil; game.showLab = true }
+                sideButton("Khám phá", symbol: "square.stack.fill") { labTab = "deck"; game.showLab = true }
             }
         }
         .frame(maxHeight: .infinity, alignment: .bottom)

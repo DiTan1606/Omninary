@@ -68,14 +68,14 @@ Tab **Ditandnary** cho thấy số từ ở mỗi cấp và lịch ôn cố đ�
 
 ### 🃏 Khám phá: thẻ từ pixel và thẻ giấy
 
-Mỗi nghĩa của từ là một thẻ bài pixel, màu khung theo trình độ CEFR, có sao theo cấp và điểm M. Thêm từ bằng cách duyệt các bộ thẻ có sẵn, tự nhập từ của bạn, hoặc **nhập mã in trên thẻ giấy Omninary** để mở thẻ mới.
+Mỗi nghĩa của từ là một thẻ bài pixel, màu khung theo trình độ CEFR, có sao theo cấp và điểm M. Tab **Khám phá bộ từ** gom các bộ thẻ có sẵn để xem và tải về. Tab **Thêm từ** dành cho thẻ giấy Omninary: nhập mã in ở góc thẻ là mở được thẻ mới, kèm hiệu ứng lật thẻ; hoặc tự thêm từ của bạn.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/images/explore-add.png" width="200"><br><b>Thêm từ</b></td>
-    <td align="center"><img src="docs/images/word-sets.png" width="200"><br><b>Bộ thẻ có sẵn</b></td>
+    <td align="center"><img src="docs/images/explore-sets.png" width="200"><br><b>Khám phá bộ từ</b></td>
+    <td align="center"><img src="docs/images/word-sets.png" width="200"><br><b>Một bộ thẻ</b></td>
     <td align="center"><img src="docs/images/card-stage.png" width="200"><br><b>Xem thẻ</b></td>
-    <td align="center"><img src="docs/images/word-card.png" width="200"><br><b>Chi tiết thẻ</b></td>
+    <td align="center"><img src="docs/images/explore-add.png" width="200"><br><b>Nhập mã thẻ giấy</b></td>
   </tr>
 </table>
 

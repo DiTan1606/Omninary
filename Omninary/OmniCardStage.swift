@@ -341,7 +341,6 @@ struct OmniCardCodeSheet: View {
         .environment(\.colorScheme, .light)
         // just tall enough for the card back, the four boxes and the button; a little more when an error shows
         .presentationDetents([.height(error == nil ? 345 : 405)])
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true } }
     }
 
     private func box(_ i: Int) -> some View {

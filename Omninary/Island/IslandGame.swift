@@ -139,7 +139,6 @@ final class IslandGame: ObservableObject {
     @Published var openRegion: IslandRegion?
     @Published var openResident: IslandResident?
     @Published var showLab = false
-    @Published var labWord: String?
     @Published var reviewSession: ActiveLearningSession?
     @Published var questVisible = false
     /// The stage's learning session stays mounted once the first quest opens it.
@@ -363,7 +362,7 @@ final class IslandGame: ObservableObject {
 
     func openLotOrBuilding(_ l: IslandLot) {
         guard let b = l.building else { openLot = l; return }
-        if b == "lab" { labWord = nil; showLab = true; return }
+        if b == "lab" { showLab = true; return }
         openBuilding = l
     }
 

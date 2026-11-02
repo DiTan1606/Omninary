@@ -89,6 +89,92 @@ struct OmniExploreView: View {
     }
 }
 
+/// Khám phá's centrepiece for printed cards: three card backs floating over a starry glow, with a
+/// light sweeping across the front one, and the button that opens the code sheet.
+struct OmniCardCodeHero: View {
+    let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// (x, y) as a share of the stage, size, colour, phase.
+    private static let stars: [(CGFloat, CGFloat, CGFloat, UInt32, Double)] = [
+        (0.09, 0.13, 6, 0xF2C94C, 0), (0.86, 0.22, 6, 0xFFFFFF, 0.8), (0.78, 0.86, 4, 0x9CC0FF, 1.4),
+        (0.14, 0.82, 4, 0xFFFFFF, 0.4), (0.5, 0.06, 4, 0xF2C94C, 1.9), (0.93, 0.6, 4, 0xF2C94C, 1.1)
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TimelineView(.animation(paused: reduceMotion)) { timeline in
+                let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+                GeometryReader { g in
+                    ZStack {
+                        ForEach(Array(Self.stars.enumerated()), id: \.offset) { _, s in
+                            Rectangle().fill(Color(hex: s.3)).frame(width: s.2, height: s.2)
+                                .opacity(reduceMotion ? 0.7 : 0.25 + 0.75 * (0.5 + 0.5 * sin((t + s.4) * 2 * .pi / 2.4)))
+                                .position(x: g.size.width * s.0, y: g.size.height * s.1)
+                        }
+                        Circle()
+                            .fill(RadialGradient(colors: [Color(hex: 0x6FA2FF).opacity(0.65), Color(hex: 0x6FA2FF).opacity(0)], center: .center, startRadius: 0, endRadius: 100))
+                            .frame(width: 200, height: 200)
+                            .scaleEffect(1 + 0.04 * sin(t * 2 * .pi / 3))
+                            .position(x: g.size.width / 2, y: g.size.height / 2)
+                        card(t, x: -78, y: 14, angle: -14, period: 4.2, lift: 4)
+                            .position(x: g.size.width / 2, y: g.size.height / 2)
+                        card(t, x: 78, y: 14, angle: 14, period: 4.6, lift: 5)
+                            .position(x: g.size.width / 2, y: g.size.height / 2)
+                        card(t, x: 0, y: 0, angle: 0, period: 3.6, lift: 5, shine: true)
+                            .position(x: g.size.width / 2, y: g.size.height / 2)
+                    }
+                }
+            }
+            .frame(height: 230)
+            .accessibilityHidden(true)
+
+            VStack(spacing: 6) {
+                Text("THẺ GIẤY OMNINARY").font(.omniBody(11.5, weight: 800)).tracking(1.4).foregroundStyle(Color(hex: 0xF2C94C))
+                Text("Nhập mã thẻ").font(.omniDisplay(32, weight: 800))
+                Text("Mã 4 ký tự in ở góc dưới thẻ. Nhập đúng là mở được thẻ từ mới vào bộ của bạn.")
+                    .font(.omniBody(13, weight: 500)).foregroundStyle(Color(hex: 0xCFD6EE))
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 22)
+
+            Button(action: action) {
+                Label("Nhập mã thẻ", systemImage: "rectangle.and.pencil.and.ellipsis")
+            }
+            .buttonStyle(Quiz3DButtonStyle(tone: .amber, height: 52))
+            .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 22)
+            .accessibilityIdentifier("explore-card-code")
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+        .background(LinearGradient(colors: [Color(hex: 0x141B3D), Color(hex: 0x1F3270), Color(hex: 0x2C4F9C)], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .omniCardShadow(radius: 28)
+    }
+
+    /// One card back: fanned out by `x`/`angle`, bobbing on its own period, the front one catching a light.
+    private func card(_ t: Double, x: CGFloat, y: CGFloat, angle: Double, period: Double, lift: CGFloat, shine: Bool = false) -> some View {
+        let bob = CGFloat(sin(t * 2 * .pi / period)) * lift
+        // the light crosses in the first 55% of each 3.2 s, then rests off the card
+        let sweep = (t.truncatingRemainder(dividingBy: 3.2)) / 3.2
+        let sweepX = -140 + 300 * CGFloat(min(1, sweep / 0.55))
+        return Image("CardBack").resizable()
+            .frame(width: 120, height: 168)
+            .overlay {
+                if shine && !reduceMotion {
+                    LinearGradient(colors: [.white.opacity(0), .white.opacity(0.55), .white.opacity(0)], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 34, height: 260)
+                        .rotationEffect(.degrees(20))
+                        .offset(x: sweepX)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .shadow(color: .black.opacity(0.42), radius: shine ? 14 : 11, y: shine ? 14 : 10)
+            .rotationEffect(.degrees(angle + (shine ? sin(t * 2 * .pi / period) * 1.5 : 0)))
+            .offset(x: x, y: y - bob)
+    }
+}
+
 /// The dark card that opens the code sheet for a printed Omninary card.
 struct OmniCardCodeButton: View {
     let action: () -> Void
@@ -307,21 +393,13 @@ private struct OmniExplorePageHeader: View {
 
 struct OmniWordSetsView: View {
     @ObservedObject var store: OmniExploreStore
-    @Environment(\.omniPalette) private var palette
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 OmniExplorePageHeader(back: "Khám phá", title: "Khám phá bộ từ")
                     .padding(.bottom, 4)
-                ForEach(store.sets) { set in
-                    NavigationLink {
-                        OmniWordSetView(setId: set.id, store: store)
-                    } label: {
-                        row(set)
-                    }
-                    .buttonStyle(.plain)
-                }
+                OmniWordSetList(store: store)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 40)
@@ -329,6 +407,25 @@ struct OmniWordSetsView: View {
         .background { PixelSkyBackground() }
         .omniStatusBarBackdrop()
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// The system word sets as rows; a row opens the set.
+struct OmniWordSetList: View {
+    @ObservedObject var store: OmniExploreStore
+    @Environment(\.omniPalette) private var palette
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ForEach(store.sets) { set in
+                NavigationLink {
+                    OmniWordSetView(setId: set.id, store: store)
+                } label: {
+                    row(set)
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private func row(_ set: OmniWordSet) -> some View {

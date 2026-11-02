@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Nhà nghiên cứu (the fixed schedule, and what Extra does with it) and Khám phá (the deck of word cards and
+// Nhà nghiên cứu (the fixed schedule, and what Extra does with it) and Khám phá (the system word sets and
 // the ways to add words). One screen; the stored tab decides which of the two it is.
 
 private struct LabColors {
@@ -48,7 +48,7 @@ struct LabScreen: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 8)
                 Picker("Mục", selection: $tab) {
-                    if exploring { Text("Bộ từ").tag("deck"); Text("Thêm từ").tag("add") }
+                    if exploring { Text("Khám phá bộ từ").tag("deck"); Text("Thêm từ").tag("add") }
                     else { Text("Ditandnary").tag("prog"); Text("Extraordinary").tag("opt") }
                 }
                 .pickerStyle(.segmented).padding(.horizontal, 16).padding(.bottom, 8)
@@ -56,8 +56,8 @@ struct LabScreen: View {
                     VStack(alignment: .leading, spacing: 14) {
                         switch tab {
                         case "opt": LabExtraTab(game: game, history: history, c: c, list: { listSheet = $0 }, open: { path.append($0) })
-                        case "deck": LabDeckTab(game: game, c: c) { path.append($0) }
-                        case "add": LabAddTab(store: explore, c: c, openCode: { showCode = true }, addOwn: { showAdd = true })
+                        case "deck": OmniWordSetList(store: explore)
+                        case "add": LabAddTab(c: c, openCode: { showCode = true }, addOwn: { showAdd = true })
                         default: LabDitanTab(game: game, history: history, c: c, list: { listSheet = $0 }, showExtra: { tab = "opt" })
                         }
                     }
@@ -69,16 +69,10 @@ struct LabScreen: View {
             .navigationDestination(for: String.self) { id in
                 if let v = game.vocabs.first(where: { $0.id == id }) { WordLabDetail(game: game, vocab: v, history: history.filter { $0.user_vocabulary_id == id }, c: c) }
             }
-            .navigationDestination(for: LabRoute.self) { r in
-                switch r {
-                case .folders: MyVocabularyView()
-                case .oldReview: VocabularyLearningView()
-                }
-            }
         }
         .sheet(isPresented: Binding(get: { listSheet != nil }, set: { if !$0 { listSheet = nil } })) {
             if let s = listSheet {
-                WordListSheet(title: s.title, note: s.note, words: s.words) { id in listSheet = nil; tab = "deck"; path.append(id) }
+                WordListSheet(title: s.title, note: s.note, words: s.words) { id in listSheet = nil; path.append(id) }
                     .presentationDetents([.medium, .large])
             }
         }
@@ -99,17 +93,15 @@ struct LabScreen: View {
         } message: {
             Text(explore.alertMessage)
         }
-        // words downloaded from a set show up in the deck
+        // words downloaded from a set reach the learner's words, and so Phiêu lưu and Nghiên cứu
         .onChange(of: tab) { _, new in if new == "deck" { Task { await game.load() } } }
+        .task { if exploring && explore.sets.isEmpty { await explore.load() } }
         .task {
-            if let id = game.labWord { tab = "deck"; path = [id] }
             if let uid = AuthManager.shared.currentUser?.id.uuidString { history = (try? await WordHistoryRepository.fetch(userId: uid)) ?? [] }
         }
         .environment(\.colorScheme, game.night ? .dark : .light)
     }
 }
-
-enum LabRoute: Hashable { case folders, oldReview }
 
 /// The demo's comparison: a fixed 1-3-7-15-30-60 ladder against Extra's rules on a simulated mastery score.
 struct LabSimulation {
@@ -642,83 +634,34 @@ private struct LabExtraTab: View {
     }
 }
 
-// MARK: - Bộ từ
-
-private struct LabDeckTab: View {
-    @ObservedObject var game: IslandGame
-    let c: LabColors
-    let open: (String) -> Void
-    @State private var query = ""
-    @AppStorage("lab_deck_filter") private var filter = "all"
-
-    var body: some View {
-        let now = Date(), q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let list = Vocabulary.sortedItems(game.vocabs).filter { v in
-            (q.isEmpty || (v.vocab ?? "").lowercased().contains(q) || (v.V_meaning ?? "").lowercased().contains(q)) &&
-            (filter == "all" || (filter == "due" && (v.learning_level ?? 0) >= 1 && ReviewScheduler.isDue(v, now: now))
-             || (filter == "solid" && (v.id.flatMap { game.profiles[$0]?.lastMastery } ?? 0) >= 85) || (filter == "new" && (v.learning_level ?? 0) == 0))
-        }
-        return VStack(alignment: .leading, spacing: 10) {
-            NavigationLink(value: LabRoute.folders) {
-                Label("Thư mục & chủ đề", systemImage: "folder.fill").font(.omniBody(13.5, weight: 700)).foregroundStyle(c.text).frame(maxWidth: .infinity).labCard(c, radius: 14)
-            }.buttonStyle(.plain)
-            TextField("Tìm từ hoặc nghĩa", text: $query).font(.omniBody(15, weight: 500)).padding(12)
-                .background(c.card, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.line))
-            Picker("Lọc", selection: $filter) { Text("Tất cả").tag("all"); Text("Cần ôn").tag("due"); Text("Đã vững").tag("solid"); Text("Mới").tag("new") }.pickerStyle(.segmented)
-            if list.isEmpty { Text("Không có từ nào khớp.").font(.omniBody(13, weight: 500)).foregroundStyle(c.muted) }
-            LazyVStack(spacing: 10) {
-                ForEach(list, id: \.vocabularyIdentity) { v in
-                    Button { if let id = v.id { open(id) } } label: { WordCardView(vocab: v, mastery: v.id.flatMap { game.profiles[$0]?.lastMastery }, mode: .summary) }.buttonStyle(.plain)
-                }
-            }
-        }
-    }
-}
-
 // MARK: - Thêm từ
 
 private struct LabAddTab: View {
-    @ObservedObject var store: OmniExploreStore
     let c: LabColors
     let openCode: () -> Void
     let addOwn: () -> Void
 
     var body: some View {
-        let words = store.sets.reduce(0) { $0 + $1.words.count }
         VStack(spacing: 12) {
-            OmniCardCodeButton(action: openCode)
-                .accessibilityIdentifier("explore-card-code")
-            NavigationLink {
-                OmniWordSetsView(store: store)
-            } label: {
-                row("Khám phá bộ từ", store.sets.isEmpty ? "Bộ thẻ bài của Omninary" : "\(store.sets.count) bộ từ · \(words) thẻ và từ",
-                    symbol: "rectangle.on.rectangle.angled", tint: 0x2F6FD6, tile: 0xE3EDFF)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("explore-vocabulary")
+            OmniCardCodeHero(action: openCode)
             Button(action: addOwn) {
-                row("Tự thêm từ", "Nhập từ và nghĩa của bạn", symbol: "plus", tint: 0x2F9E4F, tile: 0xE2F5E7)
+                HStack(spacing: 14) {
+                    Image(systemName: "plus").font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(c.night ? Color(hex: 0xE2F5E7) : Color(hex: 0x2F9E4F))
+                        .frame(width: 56, height: 56)
+                        .background(c.night ? Color(hex: 0x2F9E4F).opacity(0.35) : Color(hex: 0xE2F5E7), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Tự thêm từ").font(.omniBody(16, weight: 800)).foregroundStyle(c.text)
+                        Text("Nhập từ và nghĩa của bạn").font(.omniBody(12, weight: 500)).foregroundStyle(c.muted)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(c.muted)
+                }
+                .labCard(c)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .task { if store.sets.isEmpty { await store.load() } }
-    }
-
-    private func row(_ title: String, _ subtitle: String, symbol: String, tint: UInt32, tile: UInt32) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: symbol).font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(c.night ? Color(hex: tile) : Color(hex: tint))
-                .frame(width: 56, height: 56)
-                .background(c.night ? Color(hex: tint).opacity(0.35) : Color(hex: tile), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.omniBody(16, weight: 800)).foregroundStyle(c.text)
-                Text(subtitle).font(.omniBody(12, weight: 500)).foregroundStyle(c.muted)
-            }
-            Spacer(minLength: 4)
-            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(c.muted)
-        }
-        .labCard(c)
-        .contentShape(Rectangle())
     }
 }
 
