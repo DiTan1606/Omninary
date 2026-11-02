@@ -831,7 +831,7 @@ struct ShadowingPracticeDashboardView: View {
                             progressCard
                             practiceCard
                             // Library is gone in the new interface, so My Listening lives here too.
-                            if v2 { MyListeningLinkCard(isExtra: isExtra) }
+                            if v2 { MyListeningLinkCard(isExtra: isExtra); ListeningExploreLinkCard(isExtra: isExtra) }
                         }
                         .padding()
                     }
@@ -872,7 +872,7 @@ struct ShadowingPracticeDashboardView: View {
                     .font(AppTypography.metric)
                     .foregroundColor(isExtra ? .white : .primary)
 
-                Text(items.isEmpty ? "Hãy tải một seri bài nghe từ Trang chủ." : "Số bài đã đạt trên tổng bài đã tải về.")
+                Text(items.isEmpty ? (v2 ? "Hãy tải một seri ở mục Khám phá bài luyện nghe." : "Hãy tải một seri bài nghe từ Trang chủ.") : "Số bài đã đạt trên tổng bài đã tải về.")
                     .font(.subheadline)
                     .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

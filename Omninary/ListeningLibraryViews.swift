@@ -113,6 +113,7 @@ private struct LibraryDestinationCard: View {
 
 struct MyListeningView: View {
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    @Environment(\.omniV2) private var v2
     @State private var seriesItems: [ListeningSeriesLibraryItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -137,7 +138,7 @@ struct MyListeningView: View {
                     VStack {
                         Text("Chưa có seri bài nghe nào.")
                             .foregroundColor(isExtra ? Color.white.opacity(0.85) : .secondary)
-                        Text("Hãy tải seri bài nghe ở Trang chủ để xem và luyện nghe.")
+                        Text(v2 ? "Hãy tải seri bài nghe ở mục Khám phá bài luyện nghe để xem và luyện nghe." : "Hãy tải seri bài nghe ở Trang chủ để xem và luyện nghe.")
                             .font(.caption)
                             .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                             .multilineTextAlignment(.center)
@@ -906,7 +907,7 @@ struct ListeningPracticeDashboardView: View {
                             progressCard
                             practiceCard
                             // Library is gone in the new interface, so My Listening lives here.
-                            if v2 { MyListeningLinkCard(isExtra: isExtra) }
+                            if v2 { MyListeningLinkCard(isExtra: isExtra); ListeningExploreLinkCard(isExtra: isExtra) }
                         }
                         .padding()
                     }
@@ -947,7 +948,7 @@ struct ListeningPracticeDashboardView: View {
                     .font(.title2.bold())
                     .foregroundColor(isExtra ? .white : .primary)
 
-                Text(items.isEmpty ? "Hãy tải một seri bài nghe từ Trang chủ." : "Số bài đã hoàn thành trên tổng bài đã tải về.")
+                Text(items.isEmpty ? (v2 ? "Hãy tải một seri ở mục Khám phá bài luyện nghe." : "Hãy tải một seri bài nghe từ Trang chủ.") : "Số bài đã hoàn thành trên tổng bài đã tải về.")
                     .font(.subheadline)
                     .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1462,29 +1463,69 @@ struct MyListeningLinkCard: View {
         NavigationLink {
             MyListeningView()
         } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "headphones")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(AppTheme(isExtra: isExtra).accent)
-                    .frame(width: 44, height: 44)
-                    .background(AppTheme(isExtra: isExtra).accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 13))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("My Listening")
-                        .font(AppTypography.cardTitle)
-                        .foregroundColor(isExtra ? .white : .primary)
-                    Text("Các seri bài nghe bạn đã tải về")
-                        .font(.subheadline)
-                        .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
-            }
-            .padding(AppSpacing.card)
-            .appSurface(.card, isExtra: isExtra)
+            ListeningLinkRow(isExtra: isExtra, icon: "headphones", title: "My Listening", subtitle: "Các seri bài nghe bạn đã tải về")
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("listening-my-listening-card")
+    }
+}
+
+/// The listening catalog, which the new interface's Home no longer lists.
+struct ListeningExploreLinkCard: View {
+    let isExtra: Bool
+
+    var body: some View {
+        NavigationLink {
+            ListeningCatalogLoader()
+        } label: {
+            ListeningLinkRow(isExtra: isExtra, icon: "magnifyingglass", title: "Khám phá bài luyện nghe", subtitle: "Các seri bài luyện nghe để tải về")
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("listening-explore-card")
+    }
+}
+
+/// Loads the catalog and what is already downloaded, then shows the catalog.
+private struct ListeningCatalogLoader: View {
+    @StateObject private var store = OmniExploreStore()
+
+    var body: some View {
+        ListeningExploreView(
+            catalog: store.listeningCatalog,
+            downloadedLessonIds: store.listeningLibraryLessonIds,
+            refreshLibrary: { Task { await store.fetchListeningLibrary() } }
+        )
+        .task { await store.load() }
+    }
+}
+
+private struct ListeningLinkRow: View {
+    let isExtra: Bool
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(AppTheme(isExtra: isExtra).accent)
+                .frame(width: 44, height: 44)
+                .background(AppTheme(isExtra: isExtra).accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 13))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(isExtra ? .white : .primary)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundColor(AppTheme(isExtra: isExtra).secondaryText)
+        }
+        .padding(AppSpacing.card)
+        .appSurface(.card, isExtra: isExtra)
     }
 }

@@ -1,11 +1,11 @@
 <div align="center">
 
-<img src="docs/images/banner.png" alt="Omninary: học từ vựng tiếng Anh như xây một hòn đảo" width="100%">
+<img src="docs/images/banner.png" alt="Omninary: học từ vựng tiếng Anh qua từng hòn đảo" width="100%">
 
 # Omninary
 
-**Học từ vựng tiếng Anh như xây một hòn đảo.**
-Mỗi từ đã học là một cư dân. Ôn đúng từ, đúng lúc, đúng kỹ năng.
+**Học từ vựng tiếng Anh qua từng hòn đảo.**
+Ôn đúng từ, đúng lúc, đúng kỹ năng với thuật toán Extra.
 
 ![Version](https://img.shields.io/badge/version-2.2.0-34b45a?style=for-the-badge)
 ![iOS](https://img.shields.io/badge/iOS-18%2B-17202e?style=for-the-badge&logo=apple&logoColor=white)
@@ -19,98 +19,104 @@ Mỗi từ đã học là một cư dân. Ôn đúng từ, đúng lúc, đúng k
 
 ## Omninary là gì?
 
-Omninary là ứng dụng iOS giúp học và ôn từ vựng tiếng Anh theo lặp lại ngắt quãng (spaced repetition). Mỗi từ được luyện qua năm dạng bài: nghe rồi viết, đọc nghĩa rồi viết, chọn đáp án, sắp xếp câu và đọc to câu ví dụ.
-
-Ứng dụng có hai phiên bản:
+Omninary là ứng dụng iOS giúp người Việt học và ôn **từ vựng tiếng Anh**, kèm **ngữ pháp**, **luyện nghe** và **luyện nói**. Mỗi lần ôn là một chuyến phiêu lưu trên những hòn đảo pixel. Mỗi từ được luyện qua năm dạng bài, và app ghi lại *cách* bạn trả lời: nghĩ bao lâu, mở gợi ý nào, nghe lại mấy lần, sai gần hay sai xa. Từ đó, thuật toán **Extra** biết từ nào bạn đã vững, từ nào sắp quên, kỹ năng nào còn yếu.
 
 | | **Ditandnary** (miễn phí) | **Extraordinary** (trả phí) |
 |---|---|---|
-| Lịch ôn | Nhịp cố định 1 · 3 · 7 · 15 · 30 · 60 ngày | Thuật toán **Extra** đọc điểm thành thạo M sau mỗi lần ôn |
-| Từ yếu | Ôn theo lịch chung | Ôn bù ngay hôm sau |
-| Từ vững | Ôn theo lịch chung | Nhảy cấp, dời ra xa |
-| Kỹ năng yếu | Không thêm câu | Tự thêm câu cho kỹ năng còn yếu |
-| Lượt học | 10 tim mỗi ngày | Không giới hạn |
+| Lịch ôn | Nhịp cố định 1 · 3 · 7 · 15 · 30 ngày, rồi Master | Thuật toán **Extra** quyết định riêng cho từng từ |
+| Từ sắp quên | Ôn theo lịch chung | **Ôn bù** ngay hôm sau |
+| Từ đã vững | Ôn theo lịch chung | **Nhảy cấp**, dời lịch ra xa |
+| Kỹ năng yếu | Không thêm câu | **Tăng cường** câu cho đúng kỹ năng đó |
+| Nhà nghiên cứu | Thống kê cơ bản | Phân tích đầy đủ: điểm M, 5 kỹ năng, Extra đã tiết kiệm bao nhiêu |
 
-## Có gì mới ở bản 2.2
-
-### 🧑‍🏫 Ngữ pháp cùng Giáo sư Gram
-Bài học ngữ pháp tương tác: Giáo sư Gram giảng lý thuyết có hoạt hình và lồng tiếng, sau đó là bộ câu hỏi ba mức Dễ, Vừa, Khó. Tiến độ và lịch sử làm bài lưu trên Supabase.
+## Tính năng nổi bật
 
 ### 🗺️ Lộ trình Phiêu lưu
-Mỗi vùng đất là một biển 15 hòn đảo xếp dọc, mỗi đảo 6 màn. Một màn gồm 5 từ và 5 nhiệm vụ; trả lời sai thì có lượt làm lại cho tới khi đúng hết. Tiến độ chinh phục lưu trên máy chủ, học xong một đảo thì thuyền đưa bạn sang đảo kế tiếp.
 
-### 🃏 Thẻ từ pixel và mã thẻ in
-Mỗi từ có thẻ bài pixel riêng. Thẻ in ngoài đời có mã; nhập mã trong app để mở thẻ.
-
-### 🔥 Home bầu trời và tab Chuỗi
-Home mới theo bầu trời ngày/đêm, tab Chuỗi riêng với lịch học, và màn thắp lửa sau bài học đầu tiên trong ngày. Thanh tab dùng biểu tượng cố định.
-
-### 🧹 Dọn dẹp mã nguồn
-Gỡ các màn hình và hàm không còn dùng (khoảng 2.000 dòng), bỏ bộ mô phỏng chuỗi cũ và gom việc đọc ngày giờ từ máy chủ về một chỗ dùng chung.
-
-## Có gì mới ở bản 2.1
-
-### 🏝️ Đảo nhà
-Hòn đảo pixel của riêng bạn, vẽ hoàn toàn bằng Swift. Mỗi từ đã học là một cư dân đi lại trên đảo. Cư dân có từ tới hạn ôn sẽ tới trạm xá chờ bạn, trên đầu hiện tên từ màu đỏ. Bạn dùng điểm Omni kiếm được khi học để xây nhà ở, tiệm bánh, thư viện… và mở thêm 22 vùng đất ven biển.
-
-### ⚔️ Phiêu lưu
-Bốn vùng đất gồm Rừng Thì Thầm, Hồ Gương, Phố Chữ và Sa Mạc Vang, mỗi vùng 15 màn. Bạn chọn từ cần ôn rồi vào màn; mỗi nhiệm vụ trên bản đồ là một câu hỏi thật của phiên học. Chấm điểm, lịch ôn và thuật toán Extra giữ nguyên như khi ôn thường. Xong một màn được thưởng thêm điểm Omni.
-
-### 🔬 Nhà nghiên cứu
-- **Tiến độ:** số từ đã học, từ vững, từ tới hạn, từ quá hạn, phân bố cấp độ, CEFR và lịch ôn 7 ngày tới.
-- **Extra tối ưu:** so sánh lịch cố định với lịch Extra trên chính các từ của bạn, kèm những lần Extra ra quyết định thật.
-- **Bộ từ:** mỗi từ là một thẻ bài theo màu CEFR, có sao, điểm M và hình pixel. Thẻ chi tiết có biểu đồ lịch ôn, điểm M, hồ sơ kỹ năng và nhật ký học.
-
-### 🎨 Giao diện mới
-Bốn tab Home, Learning, My Omni và Setting được làm lại theo phong cách pixel. Giao diện tự chuyển sáng/tối theo giờ (6:00 đến 18:00 là ban ngày). Nút **Cũ ⇄ Mới** cho phép chuyển qua lại giữa giao diện cũ và mới để so sánh.
-
-## Ảnh màn hình
+Bốn vùng đất: Rừng Thì Thầm, Hồ Gương, Phố Chữ, Sa Mạc Vang. Mỗi vùng có 15 hòn đảo, mỗi đảo 6 màn. Thuyền chở bạn qua từng đảo; vào màn, bạn đi tới các nhiệm vụ trên đảo, mỗi nhiệm vụ là một loạt câu hỏi thật của phiên ôn. Trả lời sai thì có nhiệm vụ làm lại cho tới khi thuộc hết. Mọi hòn đảo đều được vẽ bằng engine pixel viết bằng Swift.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/images/island.png" width="220"><br><b>Đảo nhà</b></td>
-    <td align="center"><img src="docs/images/adventure.png" width="220"><br><b>Phiêu lưu</b></td>
-    <td align="center"><img src="docs/images/wordpick.png" width="220"><br><b>Chọn từ cho màn</b></td>
-    <td align="center"><img src="docs/images/stage.png" width="220"><br><b>Màn chơi</b></td>
+    <td align="center"><img src="docs/images/path.png" width="230"><br><b>Lộ trình đảo</b></td>
+    <td align="center"><img src="docs/images/stage.png" width="230"><br><b>Vào màn</b></td>
+    <td align="center"><img src="docs/images/quest.png" width="230"><br><b>Nhận nhiệm vụ</b></td>
   </tr>
+</table>
+
+### 🧩 Năm dạng bài, chấm theo cách bạn trả lời
+
+Nghe rồi viết, đọc nghĩa rồi viết, chọn từ đúng, ghép câu và đọc to câu ví dụ (chấm phát âm bằng Azure Speech). Gợi ý có hai bậc, có một lần nhập lại khi sai, và mỗi hỗ trợ đều được tính vào điểm. Cuối màn, từng thẻ từ được lật lại cùng điểm từng dạng bài, năm kỹ năng và lịch ôn tiếp theo.
+
+<table>
   <tr>
-    <td align="center"><img src="docs/images/lab.png" width="220"><br><b>Extra tối ưu</b></td>
-    <td align="center"><img src="docs/images/deck.png" width="220"><br><b>Bộ thẻ từ</b></td>
-    <td align="center"><img src="docs/images/home-light.png" width="220"><br><b>Home ban ngày</b></td>
-    <td align="center"><img src="docs/images/home-dark.png" width="220"><br><b>Home ban đêm</b></td>
+    <td align="center"><img src="docs/images/quiz-choice.png" width="230"><br><b>Chọn từ đúng</b></td>
+    <td align="center"><img src="docs/images/quiz-listen.png" width="230"><br><b>Nghe rồi viết</b></td>
   </tr>
+</table>
+
+### 🔬 Nhà nghiên cứu
+
+Tab **Ditandnary** cho thấy số từ ở mỗi cấp và lịch ôn cố định theo đợt học: những từ học cùng ngày cứ đến hạn cùng ngày, nên có hôm phải ôn cả chục từ, có hôm không có từ nào. Tab **Extraordinary** cho thấy Extra sắp xếp lại lịch đó ra sao: số từ theo điểm thông thạo M, radar năm kỹ năng, số từ được nhảy cấp, ôn bù, tăng cường, và số từ phải ôn mỗi ngày so với lịch cố định.
+
+<table>
   <tr>
-    <td align="center"><img src="docs/images/learning-light.png" width="220"><br><b>Learning</b></td>
-    <td align="center"><img src="docs/images/learning-dark.png" width="220"><br><b>Learning ban đêm</b></td>
-    <td></td><td></td>
+    <td align="center"><img src="docs/images/research-ditan.png" width="230"><br><b>Lịch cố định theo đợt</b></td>
+    <td align="center"><img src="docs/images/research-extra.png" width="230"><br><b>Điểm M và cấp độ</b></td>
+    <td align="center"><img src="docs/images/research-extra-2.png" width="230"><br><b>Extra tiết kiệm bao nhiêu</b></td>
+  </tr>
+</table>
+
+### 🃏 Khám phá: thẻ từ pixel và thẻ giấy
+
+Mỗi nghĩa của từ là một thẻ bài pixel, màu khung theo trình độ CEFR, có sao theo cấp và điểm M. Thêm từ bằng cách duyệt các bộ thẻ có sẵn, tự nhập từ của bạn, hoặc **nhập mã in trên thẻ giấy Omninary** để mở thẻ mới.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/explore-add.png" width="200"><br><b>Thêm từ</b></td>
+    <td align="center"><img src="docs/images/word-sets.png" width="200"><br><b>Bộ thẻ có sẵn</b></td>
+    <td align="center"><img src="docs/images/card-stage.png" width="200"><br><b>Xem thẻ</b></td>
+    <td align="center"><img src="docs/images/word-card.png" width="200"><br><b>Chi tiết thẻ</b></td>
+  </tr>
+</table>
+
+### 🧑‍🏫 Ngữ pháp cùng Giáo sư Gram
+
+Lộ trình ngữ pháp sáu bậc theo khung CEFR từ A1 đến C2, hiện đã có các chủ điểm A1 đầu tiên. Giáo sư Gram giảng lý thuyết bằng hoạt hình và lồng tiếng, sau đó là bài tập ba mức Dễ, Vừa, Khó; đạt mức Vừa thì mở chủ điểm tiếp theo.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/grammar.png" width="230"><br><b>Lộ trình chủ điểm</b></td>
+    <td align="center"><img src="docs/images/grammar-lecture.png" width="230"><br><b>Bài giảng</b></td>
+  </tr>
+</table>
+
+### 🎧 Luyện nghe và luyện nói
+
+Tải các seri bài nghe, nghe từng câu rồi chép lại với gợi ý từng chữ. Luyện nói theo câu mẫu và nhận điểm chính xác, trôi chảy, đầy đủ, ngữ điệu.
+
+### 🔥 Chuỗi ngày học và bầu trời đổi theo giờ
+
+Home là một bầu trời pixel đổi theo giờ và thời tiết thật, kèm một từ mới mỗi lần mở app. Tab Streak giữ lịch học cả tháng; lần học đầu tiên trong ngày sẽ thắp lại ngọn lửa. Vật phẩm đổi bằng điểm Omni giúp đóng băng hoặc cứu chuỗi, và các biểu tượng app (Omnicon) mở khoá theo mốc chuỗi.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/home-day.png" width="200"><br><b>Home ban ngày</b></td>
+    <td align="center"><img src="docs/images/home-night.png" width="200"><br><b>Home ban đêm</b></td>
+    <td align="center"><img src="docs/images/streak.png" width="200"><br><b>Streak</b></td>
+    <td align="center"><img src="docs/images/learning-night.png" width="200"><br><b>Learning</b></td>
   </tr>
 </table>
 
 ## Công nghệ
 
-| Phần | Công nghệ |
+| | |
 |---|---|
-| Ứng dụng iOS | SwiftUI, UIKit (bản đồ đảo), Swift Charts, AVFoundation |
-| Đồ hoạ đảo | Engine pixel tự viết bằng Swift: vẽ địa hình, biển động, ban đêm, công trình và 60 màn sinh theo hạt giống (seed) |
-| Máy chủ | Supabase: Postgres, Row Level Security, các hàm RPC `SECURITY DEFINER` cho mọi thao tác ghi |
-| Trang quản trị | `admin-web` (Vite + TypeScript) |
-| Phông chữ | Be Vietnam Pro, Baloo 2, Pixelify Sans, Silkscreen |
-
-## Cấu trúc thư mục
-
-```text
-Omninary/
-├── Omninary/                 # Ứng dụng iOS
-│   ├── Island/               # Đảo nhà, Phiêu lưu, Nhà nghiên cứu và engine pixel
-│   ├── OmniV2Theme.swift     # Giao diện mới: màu, phông, icon pixel, ngày/đêm
-│   ├── OmniV2Shell.swift     # Bốn tab mới và nút Cũ ⇄ Mới
-│   ├── LearningSessionView.swift
-│   ├── AdaptiveSessionBuilder.swift
-│   └── ...
-├── supabase/                 # Migration SQL và kiểm thử
-├── admin-web/                # Trang quản trị
-└── docs/images/              # Ảnh chụp màn hình
-```
+| **App iOS** | Swift, SwiftUI, iOS 18+ |
+| **Backend** | Supabase: Postgres, RLS, RPC, Storage, Auth, Edge Functions |
+| **Chấm phát âm** | Azure Speech Pronunciation Assessment qua Edge Function |
+| **Đồ hoạ** | Engine pixel tự viết bằng Swift, ảnh thẻ từ 24×24 |
+| **Ngữ pháp** | Bài giảng HTML/JS trong WKWebView, học liệu tải theo phiên bản |
+| **Web** | React, Vite, TypeScript (`admin-web/`) |
 
 ## Chạy dự án
 
@@ -118,22 +124,16 @@ Omninary/
 2. Clone repo rồi mở `Omninary.xcodeproj`.
 3. Chọn scheme **Omninary** và một máy ảo iPhone, rồi bấm **Run**.
 
-> Bản Debug của target app được build với tối ưu hoá `-O` để engine pixel vẽ đảo trong khoảng một giây.
-
-Các migration của cơ sở dữ liệu nằm trong `supabase/`. Phần đảo và phiêu lưu ở bản 2.1 nằm trong [`supabase/island_adventure_v1.sql`](supabase/island_adventure_v1.sql); tiến độ chinh phục của bản 2.2 nằm trong [`supabase/adventure_conquest_v1.sql`](supabase/adventure_conquest_v1.sql).
+Cơ sở dữ liệu và Edge Function nằm trong [`supabase/`](supabase/); trang web cho người học và quản trị nằm trong [`admin-web/`](admin-web/).
 
 ## Lịch sử phiên bản
 
 | Phiên bản | Nội dung chính |
 |---|---|
-| **2.2.0** | Ngữ pháp cùng Giáo sư Gram, Lộ trình Phiêu lưu, thẻ từ pixel và mã thẻ, Home bầu trời, tab Chuỗi |
-| 2.1.0 | Thuật toán Extra v1, giao diện mới, Đảo nhà, Phiêu lưu, Nhà nghiên cứu |
+| **2.2.0** | Lộ trình Phiêu lưu, Nhà nghiên cứu hai tab, Khám phá với thẻ từ pixel và mã thẻ in, ngữ pháp cùng Giáo sư Gram, Home bầu trời và tab Streak |
+| 2.1.0 | Thuật toán Extra v1, giao diện pixel mới, Phiêu lưu, Nhà nghiên cứu |
 | 1.2.0 | Bản Ditanary phát hành ngày 19/07/2026 |
 
 ## Đội ngũ
 
 Phát triển bởi **Tân**, team **1406**, cuộc thi **AISC'26**.
-
-<div align="center">
-<sub>Made with ☕ and a lot of pixels.</sub>
-</div>

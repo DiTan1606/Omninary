@@ -1,6 +1,7 @@
 import SwiftUI
 
-// Nhà nghiên cứu: progress, how Extra schedules reviews, and the deck of word cards.
+// Nhà nghiên cứu (the fixed schedule, and what Extra does with it) and Khám phá (the deck of word cards and
+// the ways to add words). One screen; the stored tab decides which of the two it is.
 
 private struct LabColors {
     let night: Bool
@@ -29,29 +30,35 @@ struct LabScreen: View {
     @State private var path: [String] = []
     @State private var listSheet: (title: String, note: String, words: [Vocabulary])?
     @State private var showAdd = false
+    @State private var showCode = false
+    @State private var revealed: Vocabulary?
+    @StateObject private var explore = OmniExploreStore()
 
     private var c: LabColors { LabColors(night: game.night) }
+    private var exploring: Bool { tab == "deck" || tab == "add" }
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 17, weight: .heavy)).foregroundStyle(c.text).frame(width: 42, height: 42).background(c.card, in: RoundedRectangle(cornerRadius: 14)) }
-                        .accessibilityLabel("Rời Nhà nghiên cứu")
-                    Text("Nhà nghiên cứu").font(.omniBody(24, weight: 800)).foregroundStyle(c.text)
+                        .accessibilityLabel(exploring ? "Rời Khám phá" : "Rời Nhà nghiên cứu")
+                    Text(exploring ? "Khám phá" : "Nhà nghiên cứu").font(.omniBody(24, weight: 800)).foregroundStyle(c.text)
                     Spacer()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 8)
                 Picker("Mục", selection: $tab) {
-                    Text("Tiến độ").tag("prog"); Text("Extra tối ưu").tag("opt"); Text("Bộ từ").tag("deck")
+                    if exploring { Text("Bộ từ").tag("deck"); Text("Thêm từ").tag("add") }
+                    else { Text("Ditandnary").tag("prog"); Text("Extraordinary").tag("opt") }
                 }
                 .pickerStyle(.segmented).padding(.horizontal, 16).padding(.bottom, 8)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         switch tab {
-                        case "opt": LabOptimiseTab(game: game, history: history, c: c) { path.append($0) }
-                        case "deck": LabDeckTab(game: game, c: c, open: { path.append($0) }, add: { showAdd = true })
-                        default: LabProgressTab(game: game, c: c) { listSheet = $0 }
+                        case "opt": LabExtraTab(game: game, history: history, c: c, list: { listSheet = $0 }, open: { path.append($0) })
+                        case "deck": LabDeckTab(game: game, c: c) { path.append($0) }
+                        case "add": LabAddTab(store: explore, c: c, openCode: { showCode = true }, addOwn: { showAdd = true })
+                        default: LabDitanTab(game: game, history: history, c: c, list: { listSheet = $0 }, showExtra: { tab = "opt" })
                         }
                     }
                     .padding(.horizontal, 16).padding(.bottom, 30)
@@ -76,6 +83,24 @@ struct LabScreen: View {
             }
         }
         .sheet(isPresented: $showAdd) { AddVocabView { Task { await game.load() } } }
+        .sheet(isPresented: $showCode) {
+            OmniCardCodeSheet { vocab in
+                showCode = false
+                // let the sheet slide away before the stage takes the screen
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { revealed = vocab }
+            }
+            .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(item: $revealed, onDismiss: { Task { await game.load() } }) { vocab in
+            OmniCardRevealView(vocab: vocab, store: explore)
+        }
+        .alert("Thông báo", isPresented: $explore.showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(explore.alertMessage)
+        }
+        // words downloaded from a set show up in the deck
+        .onChange(of: tab) { _, new in if new == "deck" { Task { await game.load() } } }
         .task {
             if let id = game.labWord { tab = "deck"; path = [id] }
             if let uid = AuthManager.shared.currentUser?.id.uuidString { history = (try? await WordHistoryRepository.fetch(userId: uid)) ?? [] }
@@ -85,103 +110,6 @@ struct LabScreen: View {
 }
 
 enum LabRoute: Hashable { case folders, oldReview }
-
-// MARK: - Tiến độ
-
-private struct LabProgressTab: View {
-    @ObservedObject var game: IslandGame
-    let c: LabColors
-    let list: ((title: String, note: String, words: [Vocabulary])) -> Void
-
-    var body: some View {
-        let learned = game.learnedVocabs, now = Date(), cal = Calendar.current, today = cal.startOfDay(for: now)
-        let solid = learned.filter { ($0.id.flatMap { game.profiles[$0]?.lastMastery } ?? 0) >= 85 }
-        let nextOf: (Vocabulary) -> Date? = { $0.next_review.flatMap(ReviewDates.parse) }
-        let overdue = learned.filter { (nextOf($0) ?? .distantFuture) < today }
-        let due = learned.filter { ReviewScheduler.isDue($0, now: now) && !overdue.contains($0) }
-        let byLevel = (0...7).map { b in Vocabulary.sortedItems(game.vocabs).filter { LearningLevelDisplay.bucket(for: $0.learning_level ?? 0) == b } }
-        let maxL = max(1, byLevel.map(\.count).max() ?? 1)
-        let cefr: [(String, [Vocabulary])] = ["A1", "A2", "B1", "B2", "C1", "C2"].map { (k: String) in (k, learned.filter { $0.CEFR?.uppercased() == k }) }
-        let next7 = (0..<7).map { k -> (Date, Int) in
-            let d = cal.date(byAdding: .day, value: k, to: today)!, e = cal.date(byAdding: .day, value: 1, to: d)!
-            return (d, learned.filter { guard let n = nextOf($0) else { return false }; return (k == 0 && n < d) || (n >= d && n < e) }.count)
-        }
-        let max7 = max(1, next7.map(\.1).max() ?? 1)
-        return VStack(alignment: .leading, spacing: 14) {
-            Text("Mỗi từ đã học là một cư dân trên đảo. Đây là tình hình \(game.vocabs.count) nghĩa từ bạn đã lưu.").font(.omniBody(13.5, weight: 500)).foregroundStyle(c.muted)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                tile("\(learned.count)", "từ đã học", "trên \(game.vocabs.count) nghĩa đã lưu", c.text) { list(("Từ đã học", "", learned)) }
-                tile("\(solid.count)", "từ đã vững", "điểm M gần nhất từ 85", Color(hex: 0x2f9e4f)) { list(("Từ đã vững", "Điểm M gần nhất từ 85 trở lên. Extra dời các từ này ra xa để đỡ ôn thừa.", solid)) }
-                tile("\(due.count)", "tới hạn hôm nay", "ôn trong hôm nay để giữ nhịp", Color(hex: 0xe0603a)) { list(("Tới hạn hôm nay", "", due)) }
-                tile("\(overdue.count)", "từ quá hạn", "đã lỡ lịch, nên ôn trước", Color(hex: 0x8a1f12)) { list(("Từ quá hạn", "Các từ này lỡ lịch ôn vài ngày trước. Ôn sớm để không quên.", overdue)) }
-            }
-            heading("Số từ ở mỗi cấp")
-            VStack(spacing: 6) {
-                ForEach(0...7, id: \.self) { b in
-                    Button { list((b == 0 ? "Từ mới" : LearningLevelDisplay.title(for: b == 7 ? 10 : b), "", byLevel[b])) } label: {
-                        HStack(spacing: 8) {
-                            Text(b == 0 ? "Mới" : LearningLevelDisplay.title(for: b == 7 ? 10 : b)).font(.omniBody(12.5, weight: 700)).foregroundStyle(c.muted).frame(width: 56, alignment: .leading)
-                            GeometryReader { g in
-                                Capsule().fill(c.ghost).overlay(alignment: .leading) {
-                                    Capsule().fill(b == 0 ? Color(hex: 0xa8a2b8) : b >= 7 ? Color(hex: 0xf0b429) : b >= 6 ? c.violet : Color(hex: 0x3f6fca))
-                                        .frame(width: g.size.width * CGFloat(byLevel[b].count) / CGFloat(maxL))
-                                }
-                            }.frame(height: 10)
-                            Text("\(byLevel[b].count)").font(.omniDisplay(14)).foregroundStyle(c.text).frame(width: 34, alignment: .trailing)
-                        }
-                    }
-                    .buttonStyle(.plain).disabled(byLevel[b].isEmpty)
-                }
-            }
-            .labCard(c)
-            heading("Theo trình độ CEFR")
-            HStack(spacing: 6) {
-                ForEach(cefr, id: \.0) { item in
-                    let k: String = item.0, ws: [Vocabulary] = item.1, dot: UInt32 = CEFRColors[k] ?? 0x9aa2b2
-                    Button { list(("Trình độ \(k)", "", ws)) } label: {
-                        VStack(spacing: 2) {
-                            Circle().fill(Color(hex: dot)).frame(width: 10, height: 10)
-                            Text("\(ws.count)").font(.omniDisplay(17)).foregroundStyle(c.text)
-                            Text(k).font(.omniBody(11, weight: 700)).foregroundStyle(c.muted)
-                        }
-                        .frame(maxWidth: .infinity).padding(.vertical, 8)
-                        .background(c.card, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.line))
-                    }.buttonStyle(.plain)
-                }
-            }
-            heading("Lịch ôn 7 ngày tới")
-            HStack(alignment: .bottom, spacing: 6) {
-                ForEach(0..<7, id: \.self) { k in
-                    VStack(spacing: 4) {
-                        Text("\(next7[k].1)").font(.omniDisplay(14)).foregroundStyle(c.text)
-                        RoundedRectangle(cornerRadius: 4).fill(k == 0 ? Color(hex: 0xe0603a) : Color(hex: 0x3f6fca))
-                            .frame(height: max(3, 90 * CGFloat(next7[k].1) / CGFloat(max7)))
-                        Text(k == 0 ? "Hôm nay" : next7[k].0.formatted(.dateTime.day().month(.defaultDigits))).font(.omniBody(10, weight: 600)).foregroundStyle(c.muted).lineLimit(1).minimumScaleFactor(0.7)
-                    }.frame(maxWidth: .infinity)
-                }
-            }
-            .frame(height: 140, alignment: .bottom).labCard(c)
-            Text("Hôm nay gồm cả các từ quá hạn.").font(.omniBody(12, weight: 500)).foregroundStyle(c.muted)
-            NavigationLink(value: LabRoute.oldReview) {
-                HStack { Image(systemName: "list.bullet.rectangle"); Text("Mở trang ôn tập dạng danh sách"); Spacer(); Image(systemName: "chevron.right") }
-                    .font(.omniBody(14, weight: 700)).foregroundStyle(c.text).labCard(c)
-            }.buttonStyle(.plain)
-        }
-    }
-
-    private func heading(_ t: String) -> some View { Text(t).font(.omniBody(16, weight: 800)).foregroundStyle(c.text) }
-    private func tile(_ value: String, _ label: String, _ hint: String, _ color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value).font(.omniDisplay(28)).foregroundStyle(color)
-                Text(label).font(.omniBody(13.5, weight: 800)).foregroundStyle(c.text)
-                Text(hint).font(.omniBody(11, weight: 500)).foregroundStyle(c.muted).lineLimit(2)
-            }.labCard(c)
-        }.buttonStyle(.plain)
-    }
-}
-
-// MARK: - Extra tối ưu
 
 /// The demo's comparison: a fixed 1-3-7-15-30-60 ladder against Extra's rules on a simulated mastery score.
 struct LabSimulation {
@@ -245,37 +173,256 @@ struct LabSimulation {
     }
 }
 
-private struct LabOptimiseTab: View {
+// MARK: - Shared charts
+
+private typealias LabList = (title: String, note: String, words: [Vocabulary])
+
+private let labDayFormatter: DateFormatter = { let f = DateFormatter(); f.dateFormat = "dd/MM"; return f }()
+/// "02/11", whatever the device locale.
+private func labDay(_ d: Date) -> String { labDayFormatter.string(from: d) }
+
+private func labHeading(_ t: String, _ c: LabColors) -> some View { Text(t).font(.omniBody(16, weight: 800)).foregroundStyle(c.text) }
+
+/// Every saved word by level: Mới, Cấp 1–5, Master, Super. A bar opens its words.
+private struct LabLevelBars: View {
+    @ObservedObject var game: IslandGame
+    let c: LabColors
+    let list: (LabList) -> Void
+
+    var body: some View {
+        let byLevel = (0...7).map { b in Vocabulary.sortedItems(game.vocabs).filter { LearningLevelDisplay.bucket(for: $0.learning_level ?? 0) == b } }
+        let maxL = max(1, byLevel.map(\.count).max() ?? 1)
+        VStack(spacing: 6) {
+            ForEach(0...7, id: \.self) { b in
+                let title = b == 0 ? "Mới" : LearningLevelDisplay.title(for: b == 7 ? 10 : b)
+                Button { list((b == 0 ? "Từ mới" : title, "", byLevel[b])) } label: {
+                    HStack(spacing: 8) {
+                        Text(title).font(.omniBody(12.5, weight: 700)).foregroundStyle(c.muted).frame(width: 56, alignment: .leading)
+                        GeometryReader { g in
+                            Capsule().fill(c.ghost).overlay(alignment: .leading) {
+                                Capsule().fill(b == 0 ? Color(hex: 0xa8a2b8) : b >= 7 ? Color(hex: 0xf0b429) : b >= 6 ? c.violet : Color(hex: 0x3f6fca))
+                                    .frame(width: g.size.width * CGFloat(byLevel[b].count) / CGFloat(maxL))
+                            }
+                        }.frame(height: 10)
+                        Text("\(byLevel[b].count)").font(.omniDisplay(14)).foregroundStyle(c.text).frame(width: 34, alignment: .trailing)
+                    }
+                }
+                .buttonStyle(.plain).disabled(byLevel[b].isEmpty)
+            }
+        }
+        .labCard(c)
+    }
+}
+
+/// Five skills on five axes, 0–100, each label coloured by how strong it is.
+private struct LabRadar: View {
+    let values: [Double]
+    let c: LabColors
+
+    var body: some View {
+        let skills = LearningSkill.allCases
+        Canvas { ctx, size in
+            let cx = Double(size.width / 2), cy = Double(size.height / 2 + 4), R0 = Double(min(size.width, size.height) / 2 - 34), n = Double(skills.count)
+            func pt(_ k: Int, _ r: Double) -> CGPoint { CGPoint(x: cx + sin(Double(k) / n * .pi * 2) * r, y: cy - cos(Double(k) / n * .pi * 2) * r) }
+            for v in [0.25, 0.5, 0.75, 1.0] { var p = Path(); for k in 0..<skills.count { let q = pt(k, R0 * v); if k == 0 { p.move(to: q) } else { p.addLine(to: q) } }; p.closeSubpath(); ctx.stroke(p, with: .color(c.line), lineWidth: 1) }
+            var poly = Path(); for k in 0..<skills.count { let q = pt(k, R0 * values[k] / 100); if k == 0 { poly.move(to: q) } else { poly.addLine(to: q) } }; poly.closeSubpath()
+            ctx.fill(poly, with: .color(c.violet.opacity(0.28))); ctx.stroke(poly, with: .color(c.violet), lineWidth: 2)
+            for (k, s) in skills.enumerated() {
+                let l = pt(k, R0 + 16), v = Int(values[k].rounded())
+                ctx.draw(Text("\(s.title) · \(v)").font(.omniBody(10, weight: 700)).foregroundColor(v == 0 ? c.muted : v < 60 ? Color(hex: 0xd8453b) : v < 85 ? Color(hex: 0xe89a2a) : Color(hex: 0x2f9e4f)),
+                         at: l, anchor: l.x < cx - 5 ? .trailing : l.x > cx + 5 ? .leading : .center)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel(skills.enumerated().map { "\($1.title) \(Int(values[$0].rounded()))" }.joined(separator: ", "))
+    }
+}
+
+/// The fixed 1-3-7-15-30-60… ladder run forward from a word's next review, ignoring how well it is known.
+private enum FixedLadder {
+    /// Day offsets from `today` (0 = today, overdue words included) on which `v` comes due within `days`.
+    static func dueOffsets(_ v: Vocabulary, days: Int, today: Date) -> [Int] {
+        guard let next = v.next_review.flatMap(ReviewDates.parse) else { return [] }
+        let gaps = LabSimulation.ladder, cal = Calendar.current
+        var d = max(0, cal.dateComponents([.day], from: today, to: cal.startOfDay(for: next)).day ?? 0)
+        var level = max(1, v.learning_level ?? 1)
+        var out: [Int] = []
+        while d < days { out.append(d); d += gaps[min(level, gaps.count - 1)]; level += 1 }
+        return out
+    }
+}
+
+// MARK: - Ditandnary
+
+private struct LabDitanTab: View {
     @ObservedObject var game: IslandGame
     let history: [WordMasteryHistory]
     let c: LabColors
+    let list: (LabList) -> Void
+    let showExtra: () -> Void
+
+    private static let days = 14
+    private static let batchColors: [UInt32] = [0x2f6fd6, 0x8f6bff, 0xe0603a, 0x2f9e6a]
+    private struct Batch { let day: Date; let count: Int; let cells: [Int] }
+
+    var body: some View {
+        let today = Calendar.current.startOfDay(for: Date()), plan = plan(today: today)
+        let top = max(1, plan.totals.max() ?? 1)
+        VStack(alignment: .leading, spacing: 14) {
+            labHeading("Số từ ở mỗi cấp", c)
+            LabLevelBars(game: game, c: c, list: list)
+            labHeading("Lịch ôn cố định theo đợt học", c)
+            VStack(spacing: 8) {
+                row(label: EmptyView()) { k in
+                    Text(day(today, k).formatted(.dateTime.day(.twoDigits)))
+                        .font(.omniBody(9, weight: 700)).foregroundStyle(k == 0 ? Color(hex: 0x2f6fd6) : c.muted)
+                }
+                if plan.batches.isEmpty {
+                    Text("Chưa có từ nào trong lịch ôn.").font(.omniBody(12.5, weight: 500)).foregroundStyle(c.muted).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                ForEach(Array(plan.batches.enumerated()), id: \.offset) { i, b in
+                    row(label: VStack(alignment: .leading, spacing: 0) {
+                        Text("Đợt \(labDay(b.day))").font(.omniBody(11.5, weight: 800)).foregroundStyle(c.text)
+                        Text("\(b.count) từ").font(.omniBody(10, weight: 600)).foregroundStyle(c.muted)
+                    }) { k in
+                        let n = b.cells[k]
+                        Text(n > 0 ? "\(n)" : "").font(.omniBody(9.5, weight: 800)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity, minHeight: 26)
+                            .background(n > 0 ? Color(hex: Self.batchColors[i % Self.batchColors.count]) : c.ghost.opacity(0.45), in: RoundedRectangle(cornerRadius: 5))
+                    }
+                }
+                Rectangle().fill(c.line).frame(height: 1)
+                row(label: Text("Từ đến hạn mỗi ngày").font(.omniBody(11, weight: 800)).foregroundStyle(c.text)) { k in
+                    let n = plan.totals[k]
+                    VStack(spacing: 2) {
+                        Text(n > 0 ? "\(n)" : "").font(.omniBody(9, weight: 800)).foregroundStyle(c.muted).lineLimit(1).minimumScaleFactor(0.6)
+                        RoundedRectangle(cornerRadius: 3).fill(n * 4 >= top * 3 ? Color(hex: 0xe0603a) : c.ghost)
+                            .frame(height: max(3, 92 * CGFloat(n) / CGFloat(top)))
+                    }
+                    .frame(height: 112, alignment: .bottom)
+                }
+            }
+            .labCard(c)
+            if let note = insight(plan.totals, today) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle").font(.system(size: 16, weight: .bold)).foregroundStyle(Color(hex: 0xc2620f))
+                    Text(note).font(.omniBody(13, weight: 600)).foregroundStyle(c.night ? Color(hex: 0xf6d2a8) : Color(hex: 0x6b3a07))
+                }
+                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                .background(c.night ? Color(hex: 0x3a2a16) : Color(hex: 0xfff4e6), in: RoundedRectangle(cornerRadius: 14))
+            }
+            Button(action: showExtra) {
+                Label("Xem Extra sắp xếp lại lịch này", systemImage: "sparkle").font(.omniBody(15, weight: 800)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).padding(14).background(Color(hex: 0x2a2440), in: RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// A label column, then one equal cell per day.
+    private func row<L: View, C: View>(label: L, @ViewBuilder cell: @escaping (Int) -> C) -> some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            label.frame(width: 74, alignment: .leading)
+            ForEach(0..<Self.days, id: \.self) { k in cell(k).frame(maxWidth: .infinity) }
+        }
+    }
+
+    private func day(_ today: Date, _ k: Int) -> Date { Calendar.current.date(byAdding: .day, value: k, to: today) ?? today }
+
+    /// Words last studied on the same day are one batch; under the fixed ladder they keep coming due together.
+    private func plan(today: Date) -> (batches: [Batch], totals: [Int]) {
+        let cal = Calendar.current
+        var last: [String: Date] = [:]
+        for h in history { if let d = h.created_at.flatMap(ReviewDates.parse) { last[h.user_vocabulary_id] = max(last[h.user_vocabulary_id] ?? d, d) } }
+        var totals = Array(repeating: 0, count: Self.days)
+        var cells: [Date: [Int]] = [:], sizes: [Date: Int] = [:]
+        for v in game.learnedVocabs where (v.learning_level ?? 0) < 10 {
+            let due = FixedLadder.dueOffsets(v, days: Self.days, today: today)
+            for d in due { totals[d] += 1 }
+            guard let studied = v.id.flatMap({ last[$0] }) ?? v.saved_at.flatMap(ReviewDates.parse) else { continue }
+            let key = cal.startOfDay(for: studied)
+            var row = cells[key] ?? Array(repeating: 0, count: Self.days)
+            for d in due { row[d] += 1 }
+            cells[key] = row
+            sizes[key, default: 0] += 1
+        }
+        let recent = cells.filter { $0.value.contains { $0 > 0 } }.keys.sorted(by: >).prefix(4).sorted()
+        return (recent.map { Batch(day: $0, count: sizes[$0] ?? 0, cells: cells[$0] ?? []) }, totals)
+    }
+
+    private func insight(_ totals: [Int], _ today: Date) -> String? {
+        guard let peak = totals.indices.max(by: { totals[$0] < totals[$1] }), totals[peak] > 1 else { return nil }
+        let fmt: (Int) -> String = { labDay(day(today, $0)) }
+        let head = "Từ học cùng đợt đến hạn cùng ngày, dù có từ đã vững và có từ sắp quên. Ngày \(fmt(peak)) bạn phải ôn \(totals[peak]) từ"
+        if let empty = totals.firstIndex(of: 0) { return head + ", ngày \(fmt(empty)) không có từ nào." }
+        let low = totals.indices.min(by: { totals[$0] < totals[$1] }) ?? 0
+        return head + ", ngày \(fmt(low)) chỉ \(totals[low]) từ."
+    }
+}
+
+// MARK: - Extraordinary
+
+private struct LabExtraTab: View {
+    @ObservedObject var game: IslandGame
+    let history: [WordMasteryHistory]
+    let c: LabColors
+    let list: (LabList) -> Void
     let open: (String) -> Void
     @ObservedObject private var hearts = OmniLearningHeartManager.shared
     @State private var showUpgrade = false
     @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
 
+    private static let mBins: [(label: String, color: UInt32)] = [("<60", 0xe0603a), ("60–69", 0xf0a24a), ("70–79", 0xe0c04a), ("80–84", 0x9ccf6a), ("85–89", 0x4fb37a), ("90+", 0x2f9e6a)]
+    private static func bin(_ m: Int) -> Int { m < 60 ? 0 : m < 70 ? 1 : m < 80 ? 2 : m < 85 ? 3 : m < 90 ? 4 : 5 }
+
+    private struct Stats {
+        var holds = Set<String>(), jumps = Set<String>(), jumpEvents = 0
+        var mBins = Array(repeating: 0, count: 6)
+        var skills = Array(repeating: 0.0, count: 5)
+        var boosts: [LearningSkill: Int] = [:], boosted = 0
+        var weekly: [(start: Date, m: Double)] = []
+    }
+
     var body: some View {
-        let sim = LabSimulation(game.learnedVocabs)
+        Group { if hearts.isExtra { content } else { locked } }
+            .sheet(isPresented: $showUpgrade) { ExtraordinaryUpgradeSheet(interfaceModeRaw: $interfaceModeRaw) }
+    }
+
+    private var content: some View {
+        let s = stats(), sim = LabSimulation(game.learnedVocabs)
+        let pct = sim.nextF == 0 ? 0 : Int(((1 - Double(sim.nextE) / Double(sim.nextF)) * 100).rounded())
         let real = history.filter { $0.mode == "extraordinary" && ($0.decision == "hold" || $0.decision == "jump") }
-        let maxG = max(0.1, sim.groups.flatMap { [$0.fixed, $0.extra] }.max() ?? 1), maxW = max(1, sim.weeks.flatMap { [$0.f, $0.e] }.max() ?? 1)
         return VStack(alignment: .leading, spacing: 14) {
-            if !hearts.isExtra {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Bạn đang dùng Ditandnary").font(.omniBody(15, weight: 800)).foregroundStyle(c.text)
-                    Text("Lịch ôn của bạn đang theo nhịp cố định. Phần dưới là mô phỏng nếu Extra lập lịch trên chính các từ bạn đã học.").font(.omniBody(13, weight: 500)).foregroundStyle(c.muted)
-                    Button("Nâng cấp Extraordinary") { showUpgrade = true }.buttonStyle(IslandButtonStyle(kind: .primary))
-                }
-                .labCard(c).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.violet, lineWidth: 2))
+            HStack(spacing: 10) {
+                hero("\(pct >= 0 ? "−" : "+")\(abs(pct))%", "lượt ôn so với lịch cố định trong 30 ngày tới", Color(hex: 0x8fe0a6))
+                hero("\(s.holds.count)", "từ được ôn bù trước khi kịp quên", Color(hex: 0xf2c94c))
             }
-            Text("Lịch cố định cho mọi từ ôn cùng một nhịp. Extra nhìn điểm M sau mỗi lần ôn để quyết định: từ yếu được ôn lại sớm, từ vững được dời ra xa.").font(.omniBody(13.5, weight: 500)).foregroundStyle(c.muted)
+            labHeading("Số từ ở mỗi cấp", c)
+            LabLevelBars(game: game, c: c, list: list)
+            labHeading("Số từ theo điểm M", c)
+            mChart(s.mBins)
+            labHeading("Năm kỹ năng trung bình", c)
+            LabRadar(values: s.skills, c: c).frame(height: 230).labCard(c)
+            labHeading("Extra đã làm gì cho bạn", c)
+            HStack(alignment: .top, spacing: 10) {
+                did("Nhảy cấp", 0x2f9e6a, "\(s.jumps.count) từ", "bỏ bớt \(s.jumpEvents) lượt ôn thừa nhờ dời lịch xa hơn")
+                did("Ôn bù", 0xe0603a, "\(s.holds.count) từ", "được gọi lại hôm sau thay vì chờ tới lịch cố định")
+            }
+            boostCard(s)
+            labHeading("Số từ phải ôn mỗi ngày", c)
+            loadCard(sim)
+            if s.weekly.count >= 2 {
+                labHeading("Điểm M trung bình theo tuần", c)
+                weeklyCard(s.weekly)
+            }
             if !real.isEmpty {
-                Text("Những lần Extra ra tay thật").font(.omniBody(16, weight: 800)).foregroundStyle(c.text)
+                labHeading("Những lần Extra ra tay gần đây", c)
                 ForEach(real.suffix(4).reversed()) { h in
                     let v = game.vocabs.first { $0.id == h.user_vocabulary_id }
                     Button { if v != nil { open(h.user_vocabulary_id) } } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
-                                Text(h.decision == "hold" ? "Ôn bù kịp lúc" : "Nhảy cấp").font(.omniBody(11, weight: 800)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 2)
+                                Text(h.decision == "hold" ? "Ôn bù" : "Nhảy cấp").font(.omniBody(11, weight: 800)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 2)
                                     .background(h.decision == "hold" ? Color(hex: 0xe0603a) : Color(hex: 0x2f9e6a), in: Capsule())
                                 Text(v?.vocab ?? "Một từ").font(.omniBody(15, weight: 800)).foregroundStyle(c.text)
                                 Text(v?.V_meaning ?? "").font(.omniBody(12, weight: 500)).foregroundStyle(c.muted).lineLimit(1)
@@ -286,78 +433,212 @@ private struct LabOptimiseTab: View {
                     }.buttonStyle(.plain)
                 }
             }
-            Text("Mô phỏng 70 ngày trên \(sim.words.count) từ của bạn").font(.omniBody(16, weight: 800)).foregroundStyle(c.text)
-            HStack(spacing: 8) {
-                stat("+\(sim.holds)", "lượt ôn bù cho từ yếu", Color(hex: 0xe0603a))
-                stat("−\(sim.trimmed)", "lượt bớt cho từ vững", Color(hex: 0x2f9e4f))
-                let pct = sim.nextF == 0 ? 0 : Int(((1 - Double(sim.nextE) / Double(sim.nextF)) * 100).rounded())
-                stat("\(pct >= 0 ? "−" : "+")\(abs(pct))%", "lượt ôn 30 ngày tới", c.text)
-            }
-            Text("Công sức ôn được chia cho ai").font(.omniBody(15, weight: 800)).foregroundStyle(c.text)
-            VStack(alignment: .leading, spacing: 10) {
-                legend
-                ForEach(sim.groups, id: \.name) { g in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack { Text(g.name).font(.omniBody(13, weight: 800)).foregroundStyle(c.text); Text("\(g.n) từ").font(.omniBody(11.5, weight: 500)).foregroundStyle(c.muted) }
-                        bar(g.fixed / maxG, c.ghost, String(format: "%.1f", g.fixed))
-                        bar(g.extra / maxG, c.violet, String(format: "%.1f", g.extra))
-                    }
-                }
-            }.labCard(c)
-            if let weak = sim.groups.first, let strong = sim.groups.last {
-                Text("Từ yếu được ôn \(String(format: "%.1f", weak.extra)) lượt thay vì \(String(format: "%.1f", weak.fixed)); từ vững chỉ cần \(String(format: "%.1f", strong.extra)) thay vì \(String(format: "%.1f", strong.fixed)). Tổng công sức gần như không đổi (\(sim.fixedDone) so với \(sim.extraDone) lượt), nhưng dồn về đúng chỗ.")
-                    .font(.omniBody(13, weight: 500)).foregroundStyle(c.text).padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(c.night ? Color(hex: 0x252c52) : Color(hex: 0xeef0ff), in: RoundedRectangle(cornerRadius: 14))
-            }
-            Text("Mỗi tuần ôn bao nhiêu lượt").font(.omniBody(15, weight: 800)).foregroundStyle(c.text)
-            VStack(alignment: .leading, spacing: 8) {
-                legend
-                HStack(alignment: .bottom, spacing: 8) {
-                    ForEach(0..<sim.weeks.count, id: \.self) { k in
-                        let w = sim.weeks[k]
-                        VStack(spacing: 3) {
-                            HStack(alignment: .bottom, spacing: 2) {
-                                col(w.f, maxW, c.ghost); col(w.e, maxW, c.violet)
-                            }.frame(height: 100, alignment: .bottom)
-                            Text(w.future ? "dự kiến" : "tuần \(k + 1)").font(.omniBody(9.5, weight: 600)).foregroundStyle(c.muted)
-                        }.opacity(w.future ? 0.55 : 1).frame(maxWidth: .infinity)
-                    }
-                }
-            }.labCard(c)
-            Text("Ba quy tắc của Extra").font(.omniBody(15, weight: 800)).foregroundStyle(c.text)
-            VStack(alignment: .leading, spacing: 8) {
-                rule("Ôn bù", Color(hex: 0xc24a28), "M dưới 60, M tụt từ 20 điểm, hoặc sai lần đầu ở 2 dạng bài trở lên. Ôn lại ngay hôm sau, giữ nguyên bậc.")
-                rule("Nhảy cấp", Color(hex: 0x24804f), "M từ 85 trở lên và không tụt quá 5 điểm. Bỏ qua 1 bậc trên thang 1, 3, 7, 15, 30, 60 ngày.")
-                rule("Lên 1 bậc", Color(hex: 0x2f5bb0), "Các trường hợp còn lại, giống lịch cố định.")
-            }.labCard(c)
         }
-        .sheet(isPresented: $showUpgrade) { ExtraordinaryUpgradeSheet(interfaceModeRaw: $interfaceModeRaw) }
     }
 
-    private var legend: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 4) { RoundedRectangle(cornerRadius: 2).fill(c.ghost).frame(width: 12, height: 12); Text("Lịch cố định") }
-            HStack(spacing: 4) { RoundedRectangle(cornerRadius: 2).fill(c.violet).frame(width: 12, height: 12); Text("Lịch Extra") }
-        }.font(.omniBody(11.5, weight: 600)).foregroundStyle(c.muted)
-    }
-    private func stat(_ v: String, _ l: String, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) { Text(v).font(.omniDisplay(22)).foregroundStyle(color); Text(l).font(.omniBody(11, weight: 600)).foregroundStyle(c.muted).lineLimit(2) }
-            .labCard(c, radius: 14)
-    }
-    private func bar(_ f: Double, _ color: Color, _ label: String) -> some View {
-        HStack(spacing: 6) {
-            GeometryReader { g in Capsule().fill(color).frame(width: max(4, g.size.width * CGFloat(f))) }.frame(height: 10)
-            Text(label).font(.omniBody(11, weight: 700)).foregroundStyle(c.muted).frame(width: 30, alignment: .trailing)
+    // MARK: Locked for Ditandnary
+
+    private var locked: some View {
+        ZStack(alignment: .top) {
+            VStack(spacing: 14) {
+                HStack(spacing: 10) { ForEach(0..<2, id: \.self) { _ in RoundedRectangle(cornerRadius: 18).fill(Color(hex: 0x2a2440)).frame(height: 96) } }
+                VStack(spacing: 9) {
+                    ForEach([0.92, 0.08, 0.1, 0.52, 0.24, 0.12], id: \.self) { w in
+                        GeometryReader { g in Capsule().fill(c.violet).frame(width: g.size.width * w) }.frame(height: 10)
+                    }
+                }.labCard(c)
+                HStack(alignment: .bottom, spacing: 8) {
+                    ForEach(Array([0.3, 0.4, 0.65, 1, 0.58, 0.38].enumerated()), id: \.offset) { i, h in
+                        RoundedRectangle(cornerRadius: 6).fill(Color(hex: Self.mBins[i].color)).frame(height: 118 * h)
+                    }
+                }.frame(height: 130, alignment: .bottom).labCard(c)
+                LabRadar(values: [80, 72, 66, 76, 52], c: c).frame(height: 230).labCard(c)
+            }
+            .blur(radius: 6).opacity(0.5).accessibilityHidden(true)
+            VStack(spacing: 12) {
+                Image(systemName: "lock.fill").font(.system(size: 15, weight: .bold)).foregroundStyle(Color(hex: 0x2a2440))
+                    .frame(width: 38, height: 38).background(.white, in: Circle()).overlay(Circle().stroke(Color(hex: 0x2a2440), lineWidth: 3))
+                Text("Omni vẫn đang học dữ liệu học tập của bạn, hãy nâng cấp Extraordinary để những dữ liệu này tối ưu trải nghiệm học của bạn")
+                    .font(.omniBody(13.5, weight: 700)).foregroundStyle(c.text)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                Button("Nâng cấp") { showUpgrade = true }
+                    .buttonStyle(Quiz3DButtonStyle(tone: .amber, height: 42))
+                    .frame(maxWidth: 180)
+            }
+            .padding(18)
+            .background(c.card, in: RoundedRectangle(cornerRadius: 20))
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(c.line))
+            .shadow(color: Color(red: 20 / 255, green: 40 / 255, blue: 80 / 255).opacity(0.18), radius: 15, y: 12)
+            .padding(.horizontal, 20).padding(.top, 150)
         }
     }
-    private func col(_ v: Int, _ maxV: Int, _ color: Color) -> some View {
-        VStack(spacing: 1) {
-            Text("\(v)").font(.omniBody(9, weight: 700)).foregroundStyle(c.muted)
-            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: max(2, 84 * CGFloat(v) / CGFloat(maxV)))
+
+    // MARK: Data
+
+    private func stats() -> Stats {
+        var s = Stats()
+        for h in history where h.mode == "extraordinary" {
+            if h.decision == "hold" { s.holds.insert(h.user_vocabulary_id) }
+            if h.decision == "jump" { s.jumps.insert(h.user_vocabulary_id); s.jumpEvents += 1 }
         }
+        var sums = Array(repeating: 0.0, count: 5), counts = Array(repeating: 0, count: 5)
+        for v in game.learnedVocabs {
+            guard let id = v.id, let p = game.profiles[id] else { continue }
+            if let m = p.lastMastery { s.mBins[Self.bin(m)] += 1 }
+            for (k, skill) in LearningSkill.allCases.enumerated() { if let x = p.skills[skill] { sums[k] += x; counts[k] += 1 } }
+            let plan = ReinforcementPlanner.plan(for: p)
+            if !plan.isEmpty { s.boosted += 1; for skill in Set(plan.map(\.skill)) { s.boosts[skill, default: 0] += 1 } }
+        }
+        s.skills = (0..<5).map { counts[$0] == 0 ? 0 : sums[$0] / Double(counts[$0]) }
+        let cal = Calendar.current
+        let thisWeek = cal.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        var byWeek: [Date: (sum: Int, n: Int)] = [:]
+        for h in history {
+            guard let m = h.mastery, let d = h.created_at.flatMap(ReviewDates.parse), let start = cal.dateInterval(of: .weekOfYear, for: d)?.start,
+                  let ago = cal.dateComponents([.weekOfYear], from: start, to: thisWeek).weekOfYear, ago < 6 else { continue }
+            byWeek[start, default: (0, 0)].sum += m
+            byWeek[start, default: (0, 0)].n += 1
+        }
+        s.weekly = byWeek.keys.sorted().map { ($0, Double(byWeek[$0]!.sum) / Double(byWeek[$0]!.n)) }
+        return s
     }
-    private func rule(_ t: String, _ color: Color, _ d: String) -> some View {
-        (Text(t + ": ").font(.omniBody(13, weight: 800)).foregroundColor(color) + Text(d).font(.omniBody(13, weight: 500)).foregroundColor(c.text))
+
+    // MARK: Pieces
+
+    private func hero(_ value: String, _ label: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.omniDisplay(30)).foregroundStyle(color)
+            Text(label).font(.omniBody(12, weight: 600)).foregroundStyle(Color(hex: 0xd6d1ef)).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(hex: 0x2a2440), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func did(_ tag: String, _ color: UInt32, _ value: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(tag).font(.omniBody(11, weight: 800)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 2).background(Color(hex: color), in: Capsule())
+            Text(value).font(.omniDisplay(26)).foregroundStyle(c.text)
+            Text(detail).font(.omniBody(12, weight: 600)).foregroundStyle(c.muted).fixedSize(horizontal: false, vertical: true)
+        }
+        .labCard(c, radius: 16).frame(maxHeight: .infinity)
+    }
+
+    private func mChart(_ bins: [Int]) -> some View {
+        let top = max(1, bins.max() ?? 1)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(0..<bins.count, id: \.self) { i in
+                    VStack(spacing: 3) {
+                        Text("\(bins[i])").font(.omniDisplay(13)).foregroundStyle(c.text)
+                        RoundedRectangle(cornerRadius: 6).fill(Color(hex: Self.mBins[i].color)).frame(height: max(4, 96 * CGFloat(bins[i]) / CGFloat(top)))
+                        Text(Self.mBins[i].label).font(.omniBody(10.5, weight: 700)).foregroundStyle(c.muted).lineLimit(1).minimumScaleFactor(0.7)
+                    }.frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 150, alignment: .bottom)
+            HStack(spacing: 14) {
+                legend(0xe0603a, "Dưới 60 · ôn bù")
+                legend(0x2f9e6a, "Từ 85 · nhảy cấp")
+            }
+        }
+        .labCard(c)
+    }
+
+    private func legend(_ color: UInt32, _ text: String) -> some View {
+        HStack(spacing: 5) { RoundedRectangle(cornerRadius: 3).fill(Color(hex: color)).frame(width: 10, height: 10); Text(text) }
+            .font(.omniBody(11.5, weight: 700)).foregroundStyle(c.muted)
+    }
+
+    private func boostCard(_ s: Stats) -> some View {
+        let top = max(1, s.boosts.values.max() ?? 1)
+        let order = LearningSkill.allCases.sorted { (s.boosts[$0] ?? 0) > (s.boosts[$1] ?? 0) }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Học tăng cường theo kỹ năng").font(.omniBody(14, weight: 800)).foregroundStyle(c.text)
+                Spacer()
+                Text("\(s.boosted) từ").font(.omniBody(12, weight: 700)).foregroundStyle(c.muted)
+            }
+            ForEach(order, id: \.self) { skill in
+                let n = s.boosts[skill] ?? 0
+                HStack(spacing: 8) {
+                    Text(skill.title).font(.omniBody(12.5, weight: 700)).foregroundStyle(c.muted).lineLimit(1).minimumScaleFactor(0.8).frame(width: 110, alignment: .leading)
+                    GeometryReader { g in
+                        Capsule().fill(c.violet.opacity(0.15)).overlay(alignment: .leading) {
+                            Capsule().fill(c.violet).frame(width: g.size.width * CGFloat(n) / CGFloat(top))
+                        }
+                    }.frame(height: 10)
+                    Text("\(n)").font(.omniDisplay(13)).foregroundStyle(c.text).frame(width: 26, alignment: .trailing)
+                }
+            }
+        }
+        .labCard(c)
+    }
+
+    private func loadCard(_ sim: LabSimulation) -> some View {
+        let days = 14
+        let fixed = (0..<days).map { k in sim.words.reduce(0) { $0 + $1.fixed.filter { $0 == sim.today + k }.count } }
+        let extra = (0..<days).map { k in sim.words.reduce(0) { $0 + $1.extra.filter { $0.t == sim.today + k }.count } }
+        let top = max(1, (fixed + extra).max() ?? 1)
+        let today = Calendar.current.startOfDay(for: Date())
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Mô phỏng 14 ngày tới trên \(sim.words.count) từ của bạn").font(.omniBody(12, weight: 600)).foregroundStyle(c.muted)
+            HStack(spacing: 14) { legend(0xd6dde8, "Lịch cố định"); legend(0x8f6bff, "Lịch Extra") }
+            HStack(alignment: .bottom, spacing: 3) {
+                ForEach(0..<days, id: \.self) { k in
+                    VStack(spacing: 3) {
+                        HStack(alignment: .bottom, spacing: 1) {
+                            RoundedRectangle(cornerRadius: 2).fill(c.ghost).frame(height: max(2, 120 * CGFloat(fixed[k]) / CGFloat(top)))
+                            RoundedRectangle(cornerRadius: 2).fill(c.violet).frame(height: max(2, 120 * CGFloat(extra[k]) / CGFloat(top)))
+                        }
+                        Text((Calendar.current.date(byAdding: .day, value: k, to: today) ?? today).formatted(.dateTime.day(.twoDigits)))
+                            .font(.omniBody(9, weight: 700)).foregroundStyle(c.muted)
+                    }.frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 140, alignment: .bottom)
+            HStack(spacing: 8) {
+                pair("Ngày nặng nhất", "\(fixed.max() ?? 0) → \(extra.max() ?? 0) từ")
+                pair("Tổng 14 ngày", "\(fixed.reduce(0, +)) → \(extra.reduce(0, +)) lượt")
+            }
+        }
+        .labCard(c)
+    }
+
+    private func pair(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).font(.omniBody(11, weight: 700)).foregroundStyle(c.muted)
+            Text(value).font(.omniBody(15, weight: 800)).foregroundStyle(c.text)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
+        .background(c.ghost.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func weeklyCard(_ weeks: [(start: Date, m: Double)]) -> some View {
+        Canvas { ctx, size in
+            let left = 30.0, bottom = Double(size.height) - 20, topY = 10.0, w = Double(size.width) - left - 24
+            func y(_ m: Double) -> Double { bottom - (max(40, min(100, m)) - 40) / 60 * (bottom - topY) }
+            func x(_ k: Int) -> Double { left + (weeks.count == 1 ? w / 2 : w * Double(k) / Double(weeks.count - 1)) }
+            for m in [50.0, 75, 100] {
+                var p = Path(); p.move(to: CGPoint(x: left, y: y(m))); p.addLine(to: CGPoint(x: left + w, y: y(m)))
+                ctx.stroke(p, with: .color(c.line), lineWidth: 1)
+                ctx.draw(Text("\(Int(m))").font(.omniBody(9.5, weight: 700)).foregroundColor(c.muted), at: CGPoint(x: 2, y: y(m)), anchor: .leading)
+            }
+            var goal = Path(); goal.move(to: CGPoint(x: left, y: y(85))); goal.addLine(to: CGPoint(x: left + w, y: y(85)))
+            ctx.stroke(goal, with: .color(Color(hex: 0x2f9e4f)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+            var line = Path()
+            for (k, wk) in weeks.enumerated() { let p = CGPoint(x: x(k), y: y(wk.m)); if k == 0 { line.move(to: p) } else { line.addLine(to: p) } }
+            ctx.stroke(line, with: .color(c.violet), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            for (k, wk) in weeks.enumerated() {
+                let p = CGPoint(x: x(k), y: y(wk.m))
+                ctx.fill(Path(ellipseIn: CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)), with: .color(c.violet))
+                ctx.draw(Text(labDay(wk.start)).font(.omniBody(9.5, weight: 700)).foregroundColor(c.muted),
+                         at: CGPoint(x: p.x, y: bottom + 12))
+            }
+        }
+        .frame(height: 140)
+        .labCard(c)
+        .accessibilityElement()
+        .accessibilityLabel("Điểm M trung bình: " + weeks.map { String(Int($0.m.rounded())) }.joined(separator: ", "))
     }
 }
 
@@ -367,7 +648,6 @@ private struct LabDeckTab: View {
     @ObservedObject var game: IslandGame
     let c: LabColors
     let open: (String) -> Void
-    let add: () -> Void
     @State private var query = ""
     @AppStorage("lab_deck_filter") private var filter = "all"
 
@@ -379,15 +659,9 @@ private struct LabDeckTab: View {
              || (filter == "solid" && (v.id.flatMap { game.profiles[$0]?.lastMastery } ?? 0) >= 85) || (filter == "new" && (v.learning_level ?? 0) == 0))
         }
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                NavigationLink(value: LabRoute.folders) {
-                    Label("Thư mục & chủ đề", systemImage: "folder.fill").font(.omniBody(13.5, weight: 700)).foregroundStyle(c.text).frame(maxWidth: .infinity).labCard(c, radius: 14)
-                }.buttonStyle(.plain)
-                Button(action: add) {
-                    Label("Thêm từ", systemImage: "plus").font(.omniBody(13.5, weight: 700)).foregroundStyle(.white).frame(maxWidth: .infinity)
-                        .padding(12).background(Color(hex: 0x34b45a), in: RoundedRectangle(cornerRadius: 14))
-                }.buttonStyle(.plain)
-            }
+            NavigationLink(value: LabRoute.folders) {
+                Label("Thư mục & chủ đề", systemImage: "folder.fill").font(.omniBody(13.5, weight: 700)).foregroundStyle(c.text).frame(maxWidth: .infinity).labCard(c, radius: 14)
+            }.buttonStyle(.plain)
             TextField("Tìm từ hoặc nghĩa", text: $query).font(.omniBody(15, weight: 500)).padding(12)
                 .background(c.card, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.line))
             Picker("Lọc", selection: $filter) { Text("Tất cả").tag("all"); Text("Cần ôn").tag("due"); Text("Đã vững").tag("solid"); Text("Mới").tag("new") }.pickerStyle(.segmented)
@@ -398,6 +672,53 @@ private struct LabDeckTab: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Thêm từ
+
+private struct LabAddTab: View {
+    @ObservedObject var store: OmniExploreStore
+    let c: LabColors
+    let openCode: () -> Void
+    let addOwn: () -> Void
+
+    var body: some View {
+        let words = store.sets.reduce(0) { $0 + $1.words.count }
+        VStack(spacing: 12) {
+            OmniCardCodeButton(action: openCode)
+                .accessibilityIdentifier("explore-card-code")
+            NavigationLink {
+                OmniWordSetsView(store: store)
+            } label: {
+                row("Khám phá bộ từ", store.sets.isEmpty ? "Bộ thẻ bài của Omninary" : "\(store.sets.count) bộ từ · \(words) thẻ và từ",
+                    symbol: "rectangle.on.rectangle.angled", tint: 0x2F6FD6, tile: 0xE3EDFF)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("explore-vocabulary")
+            Button(action: addOwn) {
+                row("Tự thêm từ", "Nhập từ và nghĩa của bạn", symbol: "plus", tint: 0x2F9E4F, tile: 0xE2F5E7)
+            }
+            .buttonStyle(.plain)
+        }
+        .task { if store.sets.isEmpty { await store.load() } }
+    }
+
+    private func row(_ title: String, _ subtitle: String, symbol: String, tint: UInt32, tile: UInt32) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(c.night ? Color(hex: tile) : Color(hex: tint))
+                .frame(width: 56, height: 56)
+                .background(c.night ? Color(hex: tint).opacity(0.35) : Color(hex: tile), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.omniBody(16, weight: 800)).foregroundStyle(c.text)
+                Text(subtitle).font(.omniBody(12, weight: 500)).foregroundStyle(c.muted)
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(c.muted)
+        }
+        .labCard(c)
+        .contentShape(Rectangle())
     }
 }
 
@@ -462,7 +783,6 @@ struct WordLabDetail: View {
                         if (vocab.learning_level ?? 0) >= 0 && ReviewScheduler.isDue(vocab, now: Date()) {
                             Button("Ôn ngay") { game.showLab = false; game.review([vocab]) }.buttonStyle(IslandButtonStyle(kind: .red))
                         }
-                        Button("Tìm trên đảo") { if let id = vocab.id { game.findResident(id) } }.buttonStyle(IslandButtonStyle(kind: .plain))
                         Button("Sửa") { editing = true }.buttonStyle(IslandButtonStyle(kind: .plain))
                     }.frame(maxWidth: .infinity)
                 }
@@ -568,26 +888,12 @@ struct WordLabDetail: View {
         .frame(height: 120)
     }
 
-    private var radar: some View {
-        let skills = LearningSkill.allCases, vals = skills.map { profile.skills[$0] ?? 0 }
-        return Canvas { ctx, size in
-            let cx = Double(size.width / 2), cy = Double(size.height / 2 + 4), R0 = Double(min(size.width, size.height) / 2 - 34), n = Double(skills.count)
-            func pt(_ k: Int, _ r: Double) -> CGPoint { CGPoint(x: cx + sin(Double(k) / n * .pi * 2) * r, y: cy - cos(Double(k) / n * .pi * 2) * r) }
-            for v in [0.25, 0.5, 0.75, 1.0] { var p = Path(); for k in 0..<skills.count { let q = pt(k, R0 * v); if k == 0 { p.move(to: q) } else { p.addLine(to: q) } }; p.closeSubpath(); ctx.stroke(p, with: .color(c.line), lineWidth: 1) }
-            var poly = Path(); for k in 0..<skills.count { let q = pt(k, R0 * vals[k] / 100); if k == 0 { poly.move(to: q) } else { poly.addLine(to: q) } }; poly.closeSubpath()
-            ctx.fill(poly, with: .color(c.violet.opacity(0.28))); ctx.stroke(poly, with: .color(c.violet), lineWidth: 2)
-            for (k, s) in skills.enumerated() {
-                let l = pt(k, R0 + 16), v = Int(vals[k].rounded())
-                ctx.draw(Text("\(s.title) · \(v)").font(.omniBody(10, weight: 700)).foregroundColor(v == 0 ? c.muted : v < 60 ? Color(hex: 0xd8453b) : v < 85 ? Color(hex: 0xe89a2a) : Color(hex: 0x2f9e4f)),
-                         at: l, anchor: l.x < cx - 5 ? .trailing : l.x > cx + 5 ? .leading : .center)
-            }
-        }
-    }
+    private var radar: some View { LabRadar(values: LearningSkill.allCases.map { profile.skills[$0] ?? 0 }, c: c) }
 
     private var log: some View {
         VStack(alignment: .leading, spacing: 8) {
             let saved = vocab.saved_at.flatMap(ReviewDates.parse)
-            row(color: 0x2a2440, date: saved, title: "Lưu từ vào bộ từ", detail: "Thẻ cư dân được tạo")
+            row(color: 0x2a2440, date: saved, title: "Lưu từ vào bộ từ", detail: "Thẻ từ được tạo")
             ForEach(history) { h in
                 let d = h.decision ?? ""
                 row(color: d == "hold" ? 0xe0603a : d == "jump" ? 0x2f9e6a : 0x3f6fca, date: h.created_at.flatMap(ReviewDates.parse),

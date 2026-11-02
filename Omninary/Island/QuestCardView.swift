@@ -83,10 +83,11 @@ struct QuestCardView: View {
                 let status = WordCardStyle.status(v)
                 HStack(spacing: 8) {
                     Circle().fill(Color(hex: CEFRColors[v.CEFR?.uppercased() ?? ""] ?? 0x9aa2b2)).frame(width: 8, height: 8)
-                    Text(v.vocab ?? "").font(.omniBody(14, weight: 800)).foregroundStyle(p.text)
+                    Text(v.vocab ?? "").font(.omniBody(14, weight: 800)).foregroundStyle(p.text).fixedSize()
+                    // the meaning gives way first, so it ends in "…" rather than vanishing
                     Text(v.V_meaning ?? "").font(.omniBody(12.5, weight: 500)).foregroundStyle(p.muted).lineLimit(1)
                     Spacer(minLength: 4)
-                    Text(status.0).font(.omniBody(11, weight: 700))
+                    Text(status.0).font(.omniBody(11, weight: 700)).fixedSize()
                         .foregroundStyle(status.1 == 2 ? p.verdict(.bad).text : status.1 == 1 ? p.verdict(.near).text
                                          : game.night ? Color(hex: 0xa6afc8) : Color(hex: 0x1d4fa3))
                 }

@@ -406,14 +406,6 @@ final class IslandGame: ObservableObject {
         } catch { showToast(IslandRepository.message(error)) }
     }
 
-    func findResident(_ vocabID: String) {
-        guard let r = residents.first(where: { $0.vocab.id == vocabID }) else {
-            showToast("Cư dân này đang ở trong nhà"); return
-        }
-        showLab = false
-        cameraTarget = (r.walker.x, r.walker.y, max(currentCamera.zoom, 2.2), UUID())
-    }
-
     // MARK: - Reviewing from the island
 
     func review(_ words: [Vocabulary]) {

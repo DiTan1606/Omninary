@@ -14,7 +14,7 @@ struct OmniExploreView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     OmniPageTitle("Explore")
 
-                    codeButton
+                    OmniCardCodeButton { showCode = true }
                     NavigationLink {
                         OmniWordSetsView(store: store)
                     } label: {
@@ -64,8 +64,37 @@ struct OmniExploreView: View {
 
     // MARK: Sections
 
-    private var codeButton: some View {
-        Button { showCode = true } label: {
+    private var setsSubtitle: String {
+        let words = store.sets.reduce(0) { $0 + $1.words.count }
+        return "\(store.sets.count) bộ từ · \(words) thẻ và từ"
+    }
+
+    /// A row with a light tinted tile; at night the tile becomes a wash of the tint so it doesn't glare.
+    private func exploreRow(title: String, subtitle: String, symbol: String, tint: UInt32, tile: UInt32) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(palette.night ? Color(hex: tile) : Color(hex: tint))
+                .frame(width: 60, height: 60)
+                .background(palette.night ? Color(hex: tint).opacity(0.35) : Color(hex: tile), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.omniBody(16, weight: 800)).foregroundStyle(palette.text)
+                Text(subtitle).font(.omniBody(12, weight: 500)).foregroundStyle(palette.muted)
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(palette.muted)
+        }
+        .omniCard(padding: 14, radius: 22)
+        .contentShape(Rectangle())
+    }
+}
+
+/// The dark card that opens the code sheet for a printed Omninary card.
+struct OmniCardCodeButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
             HStack(spacing: 12) {
                 ZStack {
                     ForEach(0..<3, id: \.self) { i in
@@ -101,30 +130,6 @@ struct OmniExploreView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("explore-card-code")
-    }
-
-    private var setsSubtitle: String {
-        let words = store.sets.reduce(0) { $0 + $1.words.count }
-        return "\(store.sets.count) bộ từ · \(words) thẻ và từ"
-    }
-
-    /// A row with a light tinted tile; at night the tile becomes a wash of the tint so it doesn't glare.
-    private func exploreRow(title: String, subtitle: String, symbol: String, tint: UInt32, tile: UInt32) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: symbol)
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(palette.night ? Color(hex: tile) : Color(hex: tint))
-                .frame(width: 60, height: 60)
-                .background(palette.night ? Color(hex: tint).opacity(0.35) : Color(hex: tile), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.omniBody(16, weight: 800)).foregroundStyle(palette.text)
-                Text(subtitle).font(.omniBody(12, weight: 500)).foregroundStyle(palette.muted)
-            }
-            Spacer(minLength: 4)
-            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(palette.muted)
-        }
-        .omniCard(padding: 14, radius: 22)
-        .contentShape(Rectangle())
     }
 }
 
@@ -307,7 +312,7 @@ struct OmniWordSetsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                OmniExplorePageHeader(back: "Explore", title: "Khám phá bộ từ")
+                OmniExplorePageHeader(back: "Khám phá", title: "Khám phá bộ từ")
                     .padding(.bottom, 4)
                 ForEach(store.sets) { set in
                     NavigationLink {
