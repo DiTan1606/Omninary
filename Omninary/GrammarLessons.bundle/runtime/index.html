@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <link rel="stylesheet" href="lesson.css">
+  <link rel="stylesheet" href="native.css">
+  <script src="native-bridge.js"></script>
+  <script src="lucide.min.js"></script>
+</head>
+<body>
+  <div id="gram-iphone-v4" aria-label="Bài học cùng Giáo sư Gram">
+    <div class="g-screen"><main id="g-app"></main></div>
+    <audio id="g-voice" preload="metadata"></audio>
+    <canvas id="g-actor" width="512" height="768" role="img" aria-label="Giáo sư Gram" hidden></canvas>
+    <div id="g-announcement" class="g-sr" aria-live="polite"></div>
+  </div>
+  <script src="gram-animator.js"></script>
+  <script src="progress.js"></script>
+  <script src="lesson-rules.js"></script>
+  <script src="lecture.js"></script>
+  <script src="course-ui.js"></script>
+</body>
+</html>

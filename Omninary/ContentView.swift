@@ -1,0 +1,316 @@
+import SwiftUI
+
+
+
+enum UserTab: Hashable {
+    case home
+    case streak
+    case explore
+    case library
+    case learning
+    case setting
+    case myOmni
+}
+
+
+enum AppInterfaceMode: String, CaseIterable, Identifiable {
+    case legacy
+    case ditandnary
+    case extraordinary
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .legacy: "Phiên bản cũ"
+        case .ditandnary: "Ditandnary"
+        case .extraordinary: "Extraordinary"
+        }
+    }
+
+    var wordmarkAsset: String {
+        switch self {
+        case .legacy, .ditandnary: "DitandnaryWordmark"
+        case .extraordinary: "ExtraordinaryWordmark"
+        }
+    }
+
+    /// Extra keeps the same colours as everyone else; it shows through its own marks instead.
+    var usesDarkTheme: Bool { false }
+}
+
+struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    @AppStorage(OmniInterfaceVersion.storageKey) private var v2Enabled = true
+    @AppStorage(OmniExtraMembership.sinceKey) private var extraSince: Double = 0
+    @State private var selectedUserTab: UserTab = .home
+    @State private var showExtraWelcome = false
+
+    private var interfaceMode: AppInterfaceMode {
+        AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary
+    }
+
+    var body: some View {
+        Group {
+            if v2Enabled {
+                OmniV2ContentView(selectedUserTab: $selectedUserTab)
+            } else if interfaceMode == .extraordinary {
+                ExtraordinaryUserContentView(selectedUserTab: $selectedUserTab)
+            } else {
+                LegacyContentView(selectedUserTab: $selectedUserTab)
+            }
+        }
+        // The old/new comparison switch is gone: everyone is moved onto the new interface.
+        .onAppear {
+            if !v2Enabled { v2Enabled = true }
+            // Learners who were already Extra get a start date without the welcome.
+            if interfaceMode == .extraordinary && extraSince == 0 { extraSince = Date().timeIntervalSince1970 }
+        }
+        .fullScreenCover(isPresented: $showExtraWelcome) { OmniExtraWelcomeView() }
+        .modifier(OmniV2Root(isExtra: interfaceMode == .extraordinary))
+#if DEBUG
+        .onAppear {
+            // Screenshot runs: `-OmniStartTab learning` opens a tab directly.
+            switch UserDefaults.standard.string(forKey: "OmniStartTab") {
+            case "learning": selectedUserTab = .learning
+            case "myOmni": selectedUserTab = .myOmni
+            case "setting": selectedUserTab = .setting
+            default: break
+            }
+        }
+#endif
+        .task {
+            await synchronizeDevelopmentIcon()
+            await refreshStreak()
+            // Keep an open screen current at midnight in the server's time zone.
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")!
+            while !Task.isCancelled {
+                guard let nextDay = calendar.date(byAdding: .day, value: 1,
+                                                  to: calendar.startOfDay(for: Date())) else { return }
+                let delay = max(1, nextDay.timeIntervalSinceNow)
+                do { try await Task.sleep(for: .seconds(delay)) }
+                catch { return }
+                await refreshStreak()
+            }
+        }
+        .onChange(of: interfaceModeRaw) { oldMode, newMode in
+            let wasExtra = oldMode == AppInterfaceMode.extraordinary.rawValue
+            let isExtra = newMode == AppInterfaceMode.extraordinary.rawValue
+            if isExtra && !wasExtra {
+                extraSince = Date().timeIntervalSince1970
+                // Wait for the upgrade sheet to finish closing before covering the screen.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(700))
+                    showExtraWelcome = true
+                }
+            } else if !isExtra && wasExtra {
+                extraSince = 0
+            }
+            Task {
+                await synchronizeDevelopmentIcon()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            // The system icon dialog itself changes scene activity. Do not request another
+            // icon change when that dialog closes; synchronize on launch or mode changes only.
+            OmniDoublePointsManager.shared.checkStatus()
+            OmniExtraordinaryManager.shared.checkStatus()
+            Task {
+                await refreshStreak()
+                await OmniLearningHeartManager.shared.refreshHearts()
+            }
+        }
+    }
+
+    private func refreshStreak() async {
+        guard let userId = AuthManager.shared.currentUser?.id.uuidString else { return }
+        await OmniStreakFreezeManager.shared.syncFromRemote(userId: userId)
+    }
+
+    private func synchronizeDevelopmentIcon() async {
+        // Giao diện Extra phản ánh quyền đã đồng bộ từ máy chủ.
+        await AppIconManager.synchronize(
+            hasExtraordinaryAccess: interfaceMode == .extraordinary
+        )
+    }
+}
+
+private struct LegacyContentView: View {
+    @ObservedObject private var auth = AuthManager.shared
+    @Binding var selectedUserTab: UserTab
+    @State private var vocabularyLearningRequest: UUID?
+
+    var body: some View {
+        if auth.isAdmin {
+            AdminWebOnlyView()
+        } else {
+            TabView(selection: $selectedUserTab) {
+                OmninaryHomeView()
+                    .tabItem {
+                        Label("Home", systemImage: "house")
+                    }
+                    .tag(UserTab.home)
+
+                LibraryView()
+                    .tabItem {
+                        Label("Library", systemImage: "books.vertical")
+                    }
+                    .tag(UserTab.library)
+
+                LearningView(openVocabularyRequest: vocabularyLearningRequest)
+                    .tabItem {
+                        Label("Learning", systemImage: "graduationcap")
+                    }
+                    .tag(UserTab.learning)
+
+                SettingView()
+                    .tabItem {
+                        Label("Setting", systemImage: "gear")
+                    }
+                    .tag(UserTab.setting)
+
+                ProfileView()
+                    .tabItem {
+                        Label("My Omni", systemImage: "person.crop.circle")
+                    }
+                    .tag(UserTab.myOmni)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .returnToHomeAfterLearning)) { _ in
+                selectedUserTab = .home
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .switchToHomeTab)) { _ in
+                selectedUserTab = .home
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .returnToLearningTab)) { _ in
+                selectedUserTab = .learning
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openLearningTab)) { _ in
+                vocabularyLearningRequest = UUID()
+                selectedUserTab = .learning
+            }
+        }
+    }
+}
+
+private struct ExtraordinaryUserContentView: View {
+    @ObservedObject private var auth = AuthManager.shared
+    @Binding var selectedUserTab: UserTab
+    @State private var vocabularyLearningRequest: UUID?
+
+    var body: some View {
+        if auth.isAdmin {
+            AdminWebOnlyView()
+        } else {
+            TabView(selection: $selectedUserTab) {
+                OmninaryHomeView()
+                    .tabItem {
+                        Label("Home", systemImage: "house.fill")
+                    }
+                    .tag(UserTab.home)
+
+                LibraryView()
+                    .tabItem {
+                        Label("Library", systemImage: "books.vertical.fill")
+                    }
+                    .tag(UserTab.library)
+
+                LearningView(openVocabularyRequest: vocabularyLearningRequest)
+                    .tabItem {
+                        Label("Learning", systemImage: "sparkles")
+                    }
+                    .tag(UserTab.learning)
+
+                SettingView()
+                    .tabItem {
+                        Label("Setting", systemImage: "gearshape.fill")
+                    }
+                    .tag(UserTab.setting)
+
+                ProfileView()
+                    .tabItem {
+                        Label("My Omni", systemImage: "person.crop.circle.fill")
+                    }
+                    .tag(UserTab.myOmni)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .returnToHomeAfterLearning)) { _ in
+                selectedUserTab = .home
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .switchToHomeTab)) { _ in
+                selectedUserTab = .home
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .returnToLearningTab)) { _ in
+                selectedUserTab = .learning
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openLearningTab)) { _ in
+                vocabularyLearningRequest = UUID()
+                selectedUserTab = .learning
+            }
+            .background {
+                AuroraBackdrop()
+            }
+        }
+    }
+}
+
+struct AdminWebOnlyView: View {
+    @ObservedObject private var auth = AuthManager.shared
+    @AppStorage("development_interface_mode") private var interfaceModeRaw = AppInterfaceMode.ditandnary.rawValue
+    @State private var isSigningOut = false
+    @State private var errorMessage = ""
+    private var isExtra: Bool { (AppInterfaceMode(rawValue: interfaceModeRaw) ?? .ditandnary).usesDarkTheme }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 58))
+                .foregroundColor(.blue)
+
+            VStack(spacing: 8) {
+                Text("Tài khoản admin")
+                    .font(.title2.bold())
+
+                Text("Dashboard admin trên iOS đã được tắt. Vui lòng dùng admin-web để quản trị Omninary.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                Task { await signOut() }
+            } label: {
+                HStack {
+                    if isSigningOut {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                    }
+                    Text(isSigningOut ? "Đang đăng xuất..." : "Đăng xuất")
+                }
+            }
+            .buttonStyle(AppActionButtonStyle(isExtra: isExtra, emphasis: .destructive))
+            .disabled(isSigningOut)
+        }
+        .padding(28)
+    }
+
+    private func signOut() async {
+        isSigningOut = true
+        defer { isSigningOut = false }
+
+        do {
+            try await auth.signOut()
+        } catch {
+            errorMessage = "Đăng xuất thất bại: \(error.localizedDescription)"
+        }
+    }
+}

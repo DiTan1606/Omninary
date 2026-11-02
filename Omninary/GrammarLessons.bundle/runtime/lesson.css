@@ -1,0 +1,248 @@
+#gram-iphone-v4{--g-paper:light-dark(#eef3fb,#10142a);--g-surface:light-dark(#fff,#1b2140);--g-ink:light-dark(#17202e,#eef1fb);--g-muted:light-dark(#5b6779,#a6afc8);--g-line:light-dark(#e3e9f2,#2b3457);--g-green:light-dark(#34b45a,#34b45a);--g-on-green:#fff;--g-soft:light-dark(#eaf0f9,#252c52);--g-gold:light-dark(#b78016,#e8b93a);--g-gold-soft:light-dark(#fff3d0,#403621);--g-coral:light-dark(#bb4235,#ffa397);--g-red-soft:light-dark(#fff0ee,#482b35);--g-frame:light-dark(#25302e,#090d1c);--g-stage:light-dark(#e4f4ef,#233e43);--g-shadow:light-dark(#30456219,#00000040);--g-sky:light-dark(#7cc8fb,#181239);--g-ground:light-dark(#cfebbc,#243c3b);--g-wood:light-dark(#b79265,#755c48);--g-chalk:light-dark(#1e5555,#24404b);--g-cloud:light-dark(#ffffff,#6d6794);padding:12px 0 8px;color:var(--g-ink);color-scheme:light dark;font-family:GramBody,-apple-system,sans-serif;font-size:14px}
+#gram-iphone-v4 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+#gram-iphone-v4 [hidden]{display:none!important}
+#gram-iphone-v4 .g-screen{--u:calc(1cqw / 4.4);height:calc(956 * var(--u));display:flex;flex-direction:column;position:relative;overflow:hidden;border-radius:38px;background:var(--g-paper);font-size:max(11px,calc(14 * var(--u)));line-height:1.45}
+#gram-iphone-v4 button,#gram-iphone-v4 input,#gram-iphone-v4 select{font:inherit;touch-action:manipulation}
+#gram-iphone-v4 button{color:inherit;cursor:var(--cursor-interaction,pointer)}
+#gram-iphone-v4 button:disabled{cursor:default;opacity:.52}
+#gram-iphone-v4 button{border:0}
+#gram-iphone-v4 input[type=text]{-webkit-user-select:text;user-select:text;font-size:max(16px,calc(18 * var(--u)))}
+#gram-iphone-v4 h1,#gram-iphone-v4 h2,#gram-iphone-v4 h3,#gram-iphone-v4 .g-toolbar strong{font-family:GramDisplay,-apple-system,sans-serif;font-weight:800;line-height:1.12;margin:0}
+#gram-iphone-v4 h1{font-size:max(22px,calc(32 * var(--u)))}
+#gram-iphone-v4 h2{font-size:max(18px,calc(23 * var(--u)))}
+#gram-iphone-v4 h3{font-size:max(15px,calc(20 * var(--u)))}
+#gram-iphone-v4 p{margin:0}
+#gram-iphone-v4 .g-small,#gram-iphone-v4 small{font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-muted{color:var(--g-muted)}
+#gram-iphone-v4 .g-kicker{font-size:max(11px,calc(11 * var(--u)));font-weight:700;letter-spacing:.6px;color:var(--g-muted);margin-bottom:calc(5 * var(--u))}
+#gram-iphone-v4 #g-app{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#gram-iphone-v4 .g-sky-header{background:var(--g-sky);position:relative;flex-shrink:0;isolation:isolate}
+#gram-iphone-v4 .g-sky-header:after{content:'';position:absolute;right:calc(32 * var(--u));bottom:calc(16 * var(--u));width:calc(52 * var(--u));height:calc(12 * var(--u));background:var(--g-cloud);box-shadow:calc(-10 * var(--u)) calc(7 * var(--u)) 0 var(--g-cloud),calc(10 * var(--u)) calc(7 * var(--u)) 0 var(--g-cloud);opacity:.9;z-index:-1}
+#gram-iphone-v4 .g-toolbar{height:calc(62 * var(--u));padding:calc(6 * var(--u)) calc(16 * var(--u));display:flex;align-items:center;gap:calc(10 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-toolbar strong{font-size:max(18px,calc(24 * var(--u)))}
+#gram-iphone-v4 .g-toolbar small{display:block;color:var(--g-muted);margin-top:calc(2 * var(--u))}
+#gram-iphone-v4 .g-toolbar-end{margin-left:auto;display:flex;align-items:center;gap:4px;background:transparent;font-size:max(11px,calc(12 * var(--u)));min-height:calc(38 * var(--u))}
+#gram-iphone-v4 .g-icon-btn{width:calc(42 * var(--u));height:calc(42 * var(--u));min-width:30px;min-height:30px;border-radius:calc(14 * var(--u));background:var(--g-surface);border:1px solid var(--g-line);display:grid;place-items:center;flex-shrink:0}
+#gram-iphone-v4 .g-icon-btn svg{width:calc(19 * var(--u));height:calc(19 * var(--u))}
+#gram-iphone-v4 .g-btn{border-radius:calc(16 * var(--u));min-height:calc(48 * var(--u));padding:calc(10 * var(--u)) calc(15 * var(--u));display:inline-flex;align-items:center;justify-content:center;gap:calc(7 * var(--u));background:var(--g-surface);font-weight:700;border:1px solid var(--g-line)}
+#gram-iphone-v4 .g-primary{background:var(--g-green);color:var(--g-on-green);border-color:transparent;box-shadow:0 calc(3 * var(--u)) 0 color-mix(in srgb,var(--g-green) 75%,#103a22)}
+#gram-iphone-v4 .g-ghost{background:transparent;border-color:transparent;color:var(--g-muted);box-shadow:none}
+#gram-iphone-v4 .g-track,#gram-iphone-v4 .g-part-progress,#gram-iphone-v4 .g-question-progress{height:calc(5 * var(--u));background:var(--g-soft);border-radius:4px;overflow:hidden;flex-shrink:0}
+#gram-iphone-v4 .g-track span,#gram-iphone-v4 .g-part-progress span,#gram-iphone-v4 .g-question-progress span{display:block;height:100%;background:var(--g-green);border-radius:inherit}
+#gram-iphone-v4 .g-scroll{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none}
+#gram-iphone-v4 .g-scroll::-webkit-scrollbar{display:none}
+#gram-iphone-v4 .g-practice-hint{color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)));display:flex;align-items:center;gap:7px}
+#gram-iphone-v4 .g-toast{position:absolute;bottom:calc(15 * var(--u));left:calc(16 * var(--u));right:calc(16 * var(--u));background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(15 * var(--u));padding:calc(12 * var(--u));box-shadow:0 6px 20px var(--g-shadow);z-index:5;font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-topic-content{flex:1;min-height:0;display:flex;flex-direction:column;gap:calc(12 * var(--u));padding:calc(12 * var(--u)) calc(16 * var(--u)) calc(8 * var(--u))}
+#gram-iphone-v4 .g-hero{display:flex;align-items:center;gap:calc(6 * var(--u));flex-shrink:0;height:max(134px,calc(166 * var(--u)))}
+#gram-iphone-v4 .g-hero-copy{flex:1;min-width:0}
+#gram-iphone-v4 .g-hero h1{font-size:max(22px,calc(30 * var(--u)))}
+#gram-iphone-v4 .g-hero-copy>p:last-child{font-size:max(11px,calc(12 * var(--u)));color:var(--g-muted);margin-top:calc(7 * var(--u))}
+#gram-iphone-v4 .g-actor-mount{width:calc(100 * var(--u));height:calc(150 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-actor-mount canvas{width:100%;height:100%;object-fit:contain;image-rendering:auto;pointer-events:none}
+#gram-iphone-v4 .g-stars-row{display:flex;align-items:center;justify-content:space-between;gap:calc(10 * var(--u));padding:calc(9 * var(--u)) calc(13 * var(--u));background:var(--g-soft);border-radius:calc(15 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-stars{font-size:max(21px,calc(26 * var(--u)));letter-spacing:calc(2 * var(--u));color:var(--g-gold);line-height:1.1;white-space:nowrap}
+#gram-iphone-v4 .g-stars-row p{font-size:max(11px,calc(11 * var(--u)));color:var(--g-muted);text-align:right}
+#gram-iphone-v4 .g-theory-card{padding:calc(14 * var(--u));background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(21 * var(--u));flex-shrink:0;display:flex;flex-direction:column;gap:calc(10 * var(--u))}
+#gram-iphone-v4 .g-row{display:flex;align-items:center;gap:calc(9 * var(--u))}
+#gram-iphone-v4 .g-theory-symbol{width:calc(39 * var(--u));height:calc(39 * var(--u));border-radius:calc(12 * var(--u));display:grid;place-items:center;background:var(--g-soft);color:var(--g-green);flex-shrink:0}
+#gram-iphone-v4 .g-row>span:last-child{margin-left:auto;white-space:nowrap;color:var(--g-green);font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-topic-actions{display:grid;grid-template-columns:1fr auto;gap:calc(8 * var(--u))}
+#gram-iphone-v4 .g-topic-actions .g-btn{min-height:calc(44 * var(--u));font-size:max(11px,calc(13 * var(--u)))}
+#gram-iphone-v4 .g-topic-practice{display:flex;flex-direction:column;gap:calc(8 * var(--u));flex:1.25;min-height:0}
+#gram-iphone-v4 .g-section-row{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#gram-iphone-v4 .g-section-row>span{color:var(--g-muted);font-size:max(11px,calc(11 * var(--u)))}
+#gram-iphone-v4 .g-levels{display:grid;grid-template-rows:repeat(3,minmax(0,1fr));gap:calc(8 * var(--u));flex:1;min-height:0}
+#gram-iphone-v4 .g-level,#gram-iphone-v4 .g-history-link{display:flex;align-items:center;gap:calc(11 * var(--u));width:100%;border-radius:calc(18 * var(--u));background:var(--g-surface);border:1px solid var(--g-line);padding:calc(9 * var(--u)) calc(12 * var(--u));text-align:left;min-height:calc(60 * var(--u))}
+#gram-iphone-v4 .g-level-badge{width:calc(36 * var(--u));height:calc(36 * var(--u));background:var(--g-gold-soft);color:var(--g-gold);display:grid;place-items:center;border-radius:calc(11 * var(--u));flex-shrink:0;font-size:max(16px,calc(19 * var(--u)))}
+#gram-iphone-v4 .g-level-copy{flex:1;min-width:0}
+#gram-iphone-v4 .g-level-copy strong{font-size:max(12px,calc(14 * var(--u)))}
+#gram-iphone-v4 .g-level-copy small{display:block;color:var(--g-muted);margin-top:2px;font-size:max(11px,calc(11 * var(--u)))}
+#gram-iphone-v4 .g-gold{color:var(--g-gold)}
+#gram-iphone-v4 .g-history-link{min-height:calc(54 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-history-link>span{flex:1}
+#gram-iphone-v4 .g-history-link small{display:block;color:var(--g-muted);margin-top:2px}
+#gram-iphone-v4 .g-history-link>svg:first-child{color:var(--g-muted)}
+#gram-iphone-v4 .g-parts{flex:1;min-height:0;display:flex;flex-direction:column;padding:calc(12 * var(--u)) calc(16 * var(--u));gap:calc(10 * var(--u))}
+#gram-iphone-v4 .g-parts>h2{font-size:max(16px,calc(22 * var(--u)))}
+#gram-iphone-v4 .g-parts-list{flex:1;min-height:0;display:grid;grid-template-rows:repeat(9,minmax(0,1fr));gap:calc(7 * var(--u))}
+#gram-iphone-v4 .g-part-item{display:flex;align-items:center;gap:calc(10 * var(--u));text-align:left;padding:calc(7 * var(--u)) calc(11 * var(--u));background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(15 * var(--u));min-height:0}
+#gram-iphone-v4 .g-part-number{width:calc(30 * var(--u));height:calc(30 * var(--u));min-width:23px;min-height:23px;display:grid;place-items:center;border-radius:calc(9 * var(--u));background:var(--g-soft);color:var(--g-muted);font-weight:700;flex-shrink:0;font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-part-item.read .g-part-number{color:var(--g-green)}
+#gram-iphone-v4 .g-part-item>span:nth-child(2){flex:1;min-width:0}
+#gram-iphone-v4 .g-part-item strong{font-size:max(11px,calc(13 * var(--u)));font-weight:600;display:block;line-height:1.25}
+#gram-iphone-v4 .g-part-item small{display:block;font-size:max(11px,calc(11 * var(--u)));color:var(--g-muted);line-height:1.2;margin-top:calc(3 * var(--u))}
+#gram-iphone-v4 .g-part-item>svg{color:var(--g-green);flex-shrink:0}
+#gram-iphone-v4 .g-list-pager{height:calc(46 * var(--u));display:flex;align-items:center;justify-content:space-between;flex-shrink:0;color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-learning{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:calc(8 * var(--u)) calc(14 * var(--u)) calc(7 * var(--u));gap:calc(10 * var(--u))}
+#gram-iphone-v4 .g-theory-top{display:flex;flex-direction:column;gap:calc(10 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-card-heading{display:flex;align-items:center;justify-content:space-between;gap:5px}
+#gram-iphone-v4 .g-card-heading>span{color:var(--g-green);font-size:max(11px,calc(11 * var(--u)));display:flex;align-items:center;gap:4px;white-space:nowrap}
+#gram-iphone-v4 .g-classroom{height:calc(190 * var(--u));min-height:calc(170 * var(--u));display:flex;align-items:flex-end;background:var(--g-stage);border-radius:calc(21 * var(--u));padding:calc(11 * var(--u));gap:calc(8 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-teacher-stage{width:calc(88 * var(--u));align-self:stretch;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;flex-shrink:0;position:relative;padding-bottom:calc(5 * var(--u))}
+/* Offset the new portrait's transparent foot padding so Gram stands on the podium. */
+#gram-iphone-v4 .g-classroom .g-actor-mount{width:calc(88 * var(--u));height:calc(142 * var(--u));max-height:calc(100% - 18 * var(--u));margin:0 0 calc(-29 * var(--u));position:relative;z-index:1}
+#gram-iphone-v4 .g-podium{width:100%;height:calc(18 * var(--u));min-height:12px;flex-shrink:0;background:light-dark(#986032,#9d6b43);border:calc(2 * var(--u)) solid light-dark(#684127,#d2a572);border-top:calc(5 * var(--u)) solid light-dark(#d8a56c,#e2ba82);box-shadow:calc(3 * var(--u)) calc(4 * var(--u)) 0 light-dark(#754a2b,#523721);image-rendering:pixelated}
+#gram-iphone-v4 .g-podium:after{content:'';display:block;width:50%;height:calc(2 * var(--u));margin:calc(5 * var(--u)) auto 0;background:light-dark(#bb8754,#c4935d)}
+#gram-iphone-v4 .g-board{align-self:stretch;flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(12 * var(--u));border-radius:calc(15 * var(--u));background:var(--g-surface);box-shadow:0 calc(4 * var(--u)) 0 color-mix(in srgb,var(--g-gold) 30%,var(--g-surface));text-align:center;gap:calc(6 * var(--u));position:relative}
+#gram-iphone-v4 .g-board-label{font-size:max(11px,calc(10 * var(--u)));color:var(--g-muted);letter-spacing:.4px;text-transform:uppercase}
+#gram-iphone-v4 .g-sentence{font-size:max(15px,calc(20 * var(--u)));font-weight:600;line-height:1.5}
+#gram-iphone-v4 .g-word{background:transparent;border-radius:calc(6 * var(--u));padding:1px 2px;font:inherit;display:inline;color:var(--g-ink);opacity:1!important}
+#gram-iphone-v4 .g-word[data-role=verb],#gram-iphone-v4 .g-sentence>strong{background:var(--g-soft);color:var(--g-green);box-shadow:0 2px 0 var(--g-green)}
+#gram-iphone-v4 .g-word.g-focus,#gram-iphone-v4 .g-focus{background:var(--g-gold-soft);color:var(--g-gold);border-radius:5px}
+#gram-iphone-v4 .g-translation{color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)));line-height:1.4}
+#gram-iphone-v4 .g-current-meaning{color:var(--g-ink);background:var(--g-soft);border-radius:8px;padding:5px}
+#gram-iphone-v4 .g-scene-note{font-size:max(11px,calc(11 * var(--u)));color:var(--g-muted)}
+#gram-iphone-v4 .g-formula{font-weight:600;font-size:max(14px,calc(18 * var(--u)));line-height:1.4}
+#gram-iphone-v4 .g-formula-pieces{font-size:max(12px,calc(15 * var(--u)))}
+#gram-iphone-v4 .g-formula-pieces span,#gram-iphone-v4 .g-formula-pieces strong{display:inline-block;padding:3px}
+#gram-iphone-v4 .g-scene-info{font-weight:600;font-size:max(13px,calc(16 * var(--u)));line-height:1.5}
+#gram-iphone-v4 .g-role-help{position:static;margin:0;min-height:max(56px,calc(58 * var(--u)));display:flex;align-items:center;padding:calc(8 * var(--u)) calc(10 * var(--u));background:var(--g-soft);border:1px solid var(--g-line);border-radius:calc(10 * var(--u));font-size:max(11px,calc(12 * var(--u)));line-height:1.45;color:var(--g-ink);flex-shrink:0}
+#gram-iphone-v4 .g-role-help.is-hint{color:var(--g-muted)}
+#gram-iphone-v4 .g-source-card{border:1px solid var(--g-line);border-radius:calc(15 * var(--u));padding:calc(10 * var(--u)) calc(12 * var(--u));background:var(--g-surface);font-size:max(11px,calc(12.5 * var(--u)));line-height:1.55;flex-shrink:0}
+#gram-iphone-v4 .g-source-card .g-formula{font-size:inherit;margin-top:4px}
+#gram-iphone-v4 .g-source-card .g-small{margin-top:3px;color:var(--g-muted)}
+#gram-iphone-v4 .g-theory-middle{flex-shrink:0;display:flex;flex-direction:column;gap:calc(8 * var(--u));padding:calc(12 * var(--u));background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(17 * var(--u))}
+#gram-iphone-v4 .g-interaction-lock{display:flex;align-items:center;gap:calc(7 * var(--u));color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-practice{display:flex;flex-direction:column;gap:calc(9 * var(--u));font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-practice button,#gram-iphone-v4 .g-practice select{background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(11 * var(--u));min-height:calc(36 * var(--u));padding:calc(7 * var(--u));font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-practice button[aria-pressed=true]{background:var(--g-soft);border-color:var(--g-green);color:var(--g-green)}
+#gram-iphone-v4 .g-pronouns{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:calc(5 * var(--u))}
+#gram-iphone-v4 .g-pronouns button{padding:calc(6 * var(--u)) 0;font-weight:600}
+#gram-iphone-v4 .g-verb-row{display:flex;gap:calc(7 * var(--u));align-items:center}
+#gram-iphone-v4 .g-verb-row>span{margin-right:auto;color:var(--g-muted)}
+#gram-iphone-v4 .g-verb-row button{min-width:calc(52 * var(--u));font-weight:600}
+#gram-iphone-v4 .g-match-help{color:var(--g-muted);line-height:1.4}
+#gram-iphone-v4 .g-match-help.wrong,#gram-iphone-v4 .wrong{color:var(--g-coral)}
+#gram-iphone-v4 .g-analysis-tabs,#gram-iphone-v4 .g-example-picks{display:flex;gap:calc(8 * var(--u))}
+#gram-iphone-v4 .g-analysis-tabs button,#gram-iphone-v4 .g-example-picks button{flex:1;min-width:0}
+#gram-iphone-v4 .g-contract-row{display:flex;align-items:center;gap:calc(8 * var(--u))}
+#gram-iphone-v4 .g-contract-row select{flex:1;min-width:0}
+#gram-iphone-v4 .g-contract-row .g-primary{background:var(--g-green);color:#fff;padding:calc(8 * var(--u)) calc(12 * var(--u));display:flex;align-items:center;gap:5px}
+#gram-iphone-v4 .g-contract-note{font-size:max(11px,calc(11 * var(--u)));color:var(--g-muted)}
+#gram-iphone-v4 .g-contract-full{font-size:max(18px,calc(25 * var(--u)));font-weight:600}
+#gram-iphone-v4 .g-removed{color:var(--g-gold);background:var(--g-gold-soft)}
+#gram-iphone-v4 .g-removed.omitted{text-decoration:line-through;opacity:.55}
+#gram-iphone-v4 .g-contract-arrow{display:flex;justify-content:center;color:var(--g-muted)}
+#gram-iphone-v4 .g-contracted{min-height:calc(34 * var(--u));font-size:max(22px,calc(29 * var(--u)));font-weight:700;color:var(--g-green)}
+#gram-iphone-v4 .g-pair-board{display:flex;align-items:center;justify-content:center;gap:calc(12 * var(--u));font-size:max(25px,calc(34 * var(--u)));font-weight:600}
+#gram-iphone-v4 .g-pair-board strong{color:var(--g-green);background:var(--g-soft);border-radius:10px;padding:5px 12px}
+#gram-iphone-v4 .g-board-error{text-decoration:line-through;font-size:max(14px,calc(18 * var(--u)));color:var(--g-coral)}
+#gram-iphone-v4 .g-board-error.fixed{font-size:max(11px,calc(12 * var(--u)));opacity:.7}
+#gram-iphone-v4 .g-check-list{display:flex;flex-direction:column;gap:calc(6 * var(--u))}
+#gram-iphone-v4 .g-check-list label{display:flex;align-items:flex-start;gap:6px;padding:calc(4 * var(--u));border-radius:8px;font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-check-list input{accent-color:var(--g-green);margin-top:3px}
+#gram-iphone-v4 .g-check-active{background:var(--g-soft)}
+#gram-iphone-v4 .g-theory-bottom{display:flex;flex-direction:column;gap:calc(10 * var(--u));flex-shrink:0;margin-top:auto}
+#gram-iphone-v4 .g-audio{background:var(--g-soft);border-radius:calc(16 * var(--u));padding:calc(10 * var(--u)) calc(12 * var(--u));display:flex;flex-direction:column;gap:calc(7 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-seek-row{display:flex;align-items:center;gap:calc(8 * var(--u));font-size:max(11px,calc(11 * var(--u)));color:var(--g-muted);font-variant-numeric:tabular-nums}
+#gram-iphone-v4 .g-seek{flex:1;min-width:0;height:calc(13 * var(--u));accent-color:var(--g-green)}
+#gram-iphone-v4 .g-lesson-bar{display:grid;grid-template-columns:max(32px,calc(42 * var(--u))) minmax(0,1fr) auto;gap:max(5px,calc(8 * var(--u)));align-items:center}
+#gram-iphone-v4 .g-audio-cluster{display:flex;align-items:center;justify-content:space-between;gap:calc(4 * var(--u));padding:calc(4 * var(--u));background:var(--g-surface);border-radius:calc(13 * var(--u));min-width:0}
+#gram-iphone-v4 .g-lesson-bar .g-icon-btn{width:max(32px,calc(40 * var(--u)));height:max(32px,calc(40 * var(--u)));min-width:0;min-height:0;border:0;background:transparent}
+#gram-iphone-v4 .g-lesson-bar>.g-icon-btn{background:var(--g-surface);height:max(36px,calc(48 * var(--u)))}
+#gram-iphone-v4 .g-audio-cluster .g-play{background:var(--g-green);color:#fff;flex:1;min-width:0;width:auto;display:flex;align-items:center;justify-content:center;gap:calc(5 * var(--u));padding:calc(5 * var(--u)) calc(7 * var(--u));font-size:max(11px,calc(12 * var(--u)));font-weight:600}
+#gram-iphone-v4 .g-play-label{line-height:1.15}
+#gram-iphone-v4 .g-audio-cluster .g-play[aria-pressed=true]{background:light-dark(#d74440,#df514c);color:#fff}
+#gram-iphone-v4 .g-audio-cluster .g-replay,#gram-iphone-v4 .g-audio-cluster .g-rate{flex-shrink:0}
+#gram-iphone-v4 .g-rate{width:calc(58 * var(--u));min-width:44px;height:max(32px,calc(40 * var(--u)));font-size:max(11px,calc(12 * var(--u)));border-radius:calc(9 * var(--u));color:var(--g-ink);border:0;background:var(--g-surface);padding:2px}
+#gram-iphone-v4 .g-understood{white-space:nowrap;min-height:max(36px,calc(48 * var(--u)));font-size:max(11px,calc(13 * var(--u)));padding:calc(10 * var(--u)) calc(12 * var(--u));gap:calc(6 * var(--u))}
+#gram-iphone-v4 .g-audio-message{font-size:11px;color:var(--g-coral)}
+#gram-iphone-v4 .g-reading-progress{text-align:center;color:var(--g-muted);font-size:max(11px,calc(11 * var(--u)));line-height:1.2}
+#gram-iphone-v4 .g-exercise{flex:1;min-height:0;padding:calc(13 * var(--u)) calc(17 * var(--u));display:flex;flex-direction:column;gap:calc(13 * var(--u));overflow:hidden}
+#gram-iphone-v4 .g-question-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:max(11px,calc(12 * var(--u)));color:var(--g-muted)}
+#gram-iphone-v4 .g-pill{padding:calc(5 * var(--u)) calc(10 * var(--u));background:var(--g-soft);border-radius:20px;font-size:max(11px,calc(11 * var(--u)));font-weight:700;color:var(--g-ink)}
+#gram-iphone-v4 .g-timer{display:flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;color:var(--g-ink)}
+#gram-iphone-v4 .g-timer.urgent{color:var(--g-coral)}
+#gram-iphone-v4 .g-timer b{font-weight:600}
+#gram-iphone-v4 .g-prompt{font-size:max(17px,calc(23 * var(--u)));line-height:1.25}
+#gram-iphone-v4 .g-stem{font-size:max(17px,calc(22 * var(--u)));font-weight:600;line-height:1.45}
+#gram-iphone-v4 .g-stem.vi{font-size:max(14px,calc(18 * var(--u)))}
+#gram-iphone-v4 .g-gloss{color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-options{display:flex;flex-direction:column;gap:calc(9 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-option{display:flex;align-items:center;gap:calc(11 * var(--u));text-align:left;min-height:calc(53 * var(--u));background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(16 * var(--u));padding:calc(10 * var(--u)) calc(12 * var(--u));opacity:1!important;font-size:max(12px,calc(14 * var(--u)))}
+#gram-iphone-v4 .g-option>span:first-child{width:calc(28 * var(--u));height:calc(28 * var(--u));min-width:23px;min-height:23px;border-radius:calc(8 * var(--u));display:grid;place-items:center;flex-shrink:0;background:var(--g-soft);color:var(--g-muted);font-size:12px}
+#gram-iphone-v4 .g-option>span:nth-child(2){flex:1}
+#gram-iphone-v4 .g-option[aria-pressed=true]{border-color:var(--g-green);background:var(--g-stage)}
+#gram-iphone-v4 .g-option.correct{border-color:var(--g-green);background:var(--g-stage)}
+#gram-iphone-v4 .g-option.incorrect{border-color:var(--g-coral);background:var(--g-red-soft)}
+#gram-iphone-v4 .g-option.correct>svg{color:var(--g-green)}
+#gram-iphone-v4 .g-option.incorrect>svg{color:var(--g-coral)}
+#gram-iphone-v4 .g-answer-label{display:flex;flex-direction:column;gap:calc(8 * var(--u));color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-answer-input{width:100%;min-height:calc(58 * var(--u));padding:calc(12 * var(--u));border:1px solid var(--g-line);border-radius:calc(15 * var(--u));background:var(--g-surface);color:var(--g-ink)}
+#gram-iphone-v4 .g-answer-input.correct{border-color:var(--g-green)}
+#gram-iphone-v4 .g-answer-input.incorrect{border-color:var(--g-coral)}
+#gram-iphone-v4 .g-feedback-slot{flex:1;min-height:0;display:flex;align-items:flex-end}
+#gram-iphone-v4 .g-inline-feedback{background:var(--g-stage);border-radius:calc(18 * var(--u));padding:calc(14 * var(--u));width:100%;display:flex;flex-direction:column;gap:calc(8 * var(--u));font-size:max(11px,calc(13 * var(--u)));line-height:1.5}
+#gram-iphone-v4 .g-inline-feedback.wrong{background:var(--g-red-soft);color:var(--g-ink)}
+#gram-iphone-v4 .g-inline-feedback h3{display:flex;align-items:center;gap:7px;color:var(--g-green);font-size:max(17px,calc(22 * var(--u)))}
+#gram-iphone-v4 .g-inline-feedback.wrong h3{color:var(--g-coral)}
+#gram-iphone-v4 .g-correct-answer{font-weight:600}
+#gram-iphone-v4 .g-exercise-footer{display:flex;flex-shrink:0;padding-bottom:calc(3 * var(--u))}
+#gram-iphone-v4 .g-exercise-footer .g-btn{width:100%}
+#gram-iphone-v4 .g-history-page,#gram-iphone-v4 .g-results-page{display:flex;flex-direction:column;min-height:0;flex:1}
+#gram-iphone-v4 .g-history-heading{padding:calc(12 * var(--u)) calc(17 * var(--u));display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
+#gram-iphone-v4 .g-history-heading p{color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-history-list{display:flex;flex-direction:column;gap:calc(11 * var(--u));padding:calc(5 * var(--u)) calc(16 * var(--u)) calc(20 * var(--u))}
+#gram-iphone-v4 .g-attempt-card{background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(21 * var(--u));padding:calc(15 * var(--u));text-align:left;display:flex;gap:calc(12 * var(--u));align-items:center}
+#gram-iphone-v4 .g-attempt-icon{width:calc(45 * var(--u));height:calc(45 * var(--u));border-radius:calc(14 * var(--u));background:var(--g-soft);color:var(--g-green);display:grid;place-items:center;flex-shrink:0}
+#gram-iphone-v4 .g-attempt-copy{flex:1}
+#gram-iphone-v4 .g-attempt-copy strong{display:block;margin-bottom:calc(4 * var(--u));font-size:max(13px,calc(15 * var(--u)))}
+#gram-iphone-v4 .g-attempt-copy small{display:block;color:var(--g-muted);line-height:1.7}
+#gram-iphone-v4 .g-sample{color:var(--g-muted);font-size:11px;font-weight:400}
+#gram-iphone-v4 .g-score-number{font-family:GramDisplay,-apple-system,sans-serif;font-size:max(21px,calc(28 * var(--u)));font-weight:800;color:var(--g-ink)}
+#gram-iphone-v4 .g-result-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(17 * var(--u));background:var(--g-surface);margin:calc(9 * var(--u)) calc(16 * var(--u));border-radius:calc(22 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-result-summary .g-score-number{font-size:max(31px,calc(44 * var(--u)));line-height:1}
+#gram-iphone-v4 .g-result-summary p{color:var(--g-muted);font-size:max(11px,calc(12 * var(--u)));margin-top:5px}
+#gram-iphone-v4 .g-result-summary .g-stars{font-size:max(22px,calc(29 * var(--u)))}
+#gram-iphone-v4 .g-result-list{padding:calc(5 * var(--u)) calc(16 * var(--u)) calc(17 * var(--u));display:flex;flex-direction:column;gap:calc(9 * var(--u))}
+#gram-iphone-v4 .g-result-row{background:var(--g-surface);border:1px solid var(--g-line);border-radius:calc(17 * var(--u));padding:calc(13 * var(--u));display:flex;gap:calc(9 * var(--u));font-size:max(12px,calc(13 * var(--u)));line-height:1.5}
+#gram-iphone-v4 .g-result-row>svg{color:var(--g-green);flex-shrink:0;margin-top:3px}
+#gram-iphone-v4 .g-result-row.wrong>svg{color:var(--g-coral)}
+#gram-iphone-v4 .g-result-row>div{flex:1;min-width:0}
+#gram-iphone-v4 .g-result-row small{color:var(--g-muted);display:block;margin-bottom:4px}
+#gram-iphone-v4 .g-result-row strong{font-weight:600;display:block;margin-bottom:calc(4 * var(--u))}
+#gram-iphone-v4 .g-result-row .g-user-answer{color:var(--g-muted)}
+#gram-iphone-v4 .g-result-row.wrong .g-user-answer{color:var(--g-coral)}
+#gram-iphone-v4 .g-result-row .g-correction{color:var(--g-green);margin-top:3px}
+#gram-iphone-v4 .g-result-bottom{padding:calc(10 * var(--u)) calc(16 * var(--u));display:flex;gap:calc(10 * var(--u));flex-shrink:0}
+#gram-iphone-v4 .g-result-bottom .g-btn{flex:1}
+#gram-iphone-v4 .g-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;flex:1;padding:20px;color:var(--g-muted)}
+#gram-iphone-v4 .g-empty>svg{width:42px;height:42px}
+#gram-iphone-v4 .g-sr{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:370px){#gram-iphone-v4 .g-audio{padding-left:calc(6 * var(--u));padding-right:calc(6 * var(--u))}#gram-iphone-v4 .g-audio-cluster .g-play{padding-left:1px;padding-right:1px;gap:2px}#gram-iphone-v4 .g-understood{padding-left:4px;padding-right:4px}#gram-iphone-v4 .g-play>:first-child{width:14px;height:14px;flex-shrink:0}}
+@media(max-width:370px){#gram-iphone-v4 .g-learning:not(.is-dense) .g-classroom{height:calc(180 * var(--u));min-height:calc(180 * var(--u))}#gram-iphone-v4 .g-learning.is-example .g-classroom{height:calc(220 * var(--u));min-height:calc(220 * var(--u))}}
+@media(prefers-reduced-motion:reduce){#gram-iphone-v4 *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+#gram-iphone-v4{--g-error-ink:light-dark(#b42332,#ffb4bc);--g-error-bg:light-dark(#fff0f2,#482932)}
+#gram-iphone-v4 .g-pair-board strong[data-state=wrong]{color:var(--g-error-ink);background:var(--g-error-bg);outline:1px solid var(--g-error-ink)}
+#gram-iphone-v4 .g-pair-board strong[data-state=unselected]{color:var(--g-muted);background:var(--g-soft)}
+#gram-iphone-v4 .g-practice button.g-verb-choice.is-wrong[aria-pressed=true]{color:var(--g-error-ink);background:var(--g-error-bg);border-color:var(--g-error-ink)}
+#gram-iphone-v4 .g-match-help.wrong{color:var(--g-error-ink)}
+#gram-iphone-v4 .g-word[data-role=negative]{color:light-dark(#795400,#ffdf83);background:light-dark(#fff0a8,#65501b);box-shadow:0 2px 0 light-dark(#c99716,#bd953c)}
+#gram-iphone-v4 .g-word.g-selected{outline:2px solid var(--g-gold);outline-offset:1px}
+
+#gram-iphone-v4 .g-theory-middle:empty{display:none}
+
+#gram-iphone-v4 .g-match-help[data-state=correct]{color:var(--g-green)}
+
+#gram-iphone-v4 .g-result-summary>div{min-width:0}
+#gram-iphone-v4 .g-result-summary .g-result-verdict{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+#gram-iphone-v4 .g-result-percent{font-size:max(13px,calc(16 * var(--u)));color:var(--g-ink);font-variant-numeric:tabular-nums}
+#gram-iphone-v4 .g-result-status{display:inline-block;padding:3px 8px;border-radius:8px;font-weight:600;white-space:nowrap}
+#gram-iphone-v4 .g-result-status[data-passed=true]{background:var(--g-stage);color:light-dark(#237c39,#8ee6a4)}
+#gram-iphone-v4 .g-result-status[data-passed=false]{background:var(--g-error-bg);color:var(--g-error-ink)}
+
+#gram-iphone-v4 .g-history-verdict{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:max(11px,calc(12 * var(--u)))}
+#gram-iphone-v4 .g-attempt-copy .g-history-verdict>strong{font:inherit;font-weight:600;margin:0;color:var(--g-ink)}
+
+#gram-iphone-v4 .g-object-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+#gram-iphone-v4 .g-word[data-role=object],#gram-iphone-v4 .g-word[data-role=indirectObject]{color:var(--g-gold);background:var(--g-gold-soft);box-shadow:0 2px 0 var(--g-gold)}
+#gram-iphone-v4 .g-word[data-role=noun],#gram-iphone-v4 .g-word[data-role=number]{color:var(--g-gold);background:var(--g-gold-soft);box-shadow:0 2px 0 var(--g-gold)}
+#gram-iphone-v4 .g-word-transform{display:flex;align-items:center;justify-content:center;gap:calc(9 * var(--u));font-size:calc(25 * var(--u));line-height:1.5;flex-wrap:wrap;overflow-wrap:anywhere}
+#gram-iphone-v4 .g-word-transform .g-transform-arrow{display:inline-flex;flex-shrink:0;color:var(--g-muted)}
+#gram-iphone-v4 .g-word-transform strong{color:var(--g-green)}
+#gram-iphone-v4 .g-word-transform .pending{color:var(--g-muted)}
+#gram-iphone-v4 .g-word-ending{color:var(--g-gold);background:var(--g-gold-soft);border-radius:3px}
+#gram-iphone-v4 .g-word-ending.is-removed{text-decoration:line-through;text-decoration-thickness:2px}
+#gram-iphone-v4 .g-question-hint{font-size:max(11px,calc(12 * var(--u)));color:var(--g-muted);flex-shrink:0}

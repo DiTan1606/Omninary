@@ -1,0 +1,167 @@
+// Run: npm install --prefix /tmp/omninary-streak-pg @electric-sql/pglite
+// node supabase/tests/streak_workflow_test.mjs /tmp/omninary-streak-pg
+// Uses an isolated PostgreSQL runtime; never connects to a real account.
+import { createRequire } from 'node:module';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const require = createRequire(resolve(process.argv[2] ?? '.', 'package.json'));
+const { PGlite } = require('@electric-sql/pglite');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const db = new PGlite();
+let checks = 0;
+const uid = '00000000-0000-4000-8000-000000000001';
+await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA auth;
+ CREATE TABLE auth.users(id uuid PRIMARY KEY);
+ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT current_setting('request.jwt.claim.sub',true)::uuid $$;
+ CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT 'postgres'::text $$;
+ CREATE FUNCTION public.is_admin() RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+ CREATE TABLE public.profiles(id uuid PRIMARY KEY REFERENCES auth.users, display_name text);
+ CREATE TABLE public.user_stats(user_id uuid PRIMARY KEY REFERENCES auth.users, streak_count integer DEFAULT 0, last_learning_date text);
+ CREATE TABLE public.activity_logs(user_id uuid REFERENCES auth.users, date date, completed boolean);
+ CREATE TABLE public.user_vocabulary(id uuid PRIMARY KEY, user_id uuid REFERENCES auth.users, learning_level integer DEFAULT 0, next_review timestamptz, pronunciation_score double precision);`);
+const install = fs.readFileSync(resolve(root, 'omninary_unified.sql'), 'utf8');
+const ditandnaryDeploy = fs.readFileSync(resolve(root, 'ditandnary_review_schedule_deploy.sql'), 'utf8');
+await db.exec(install); checks++;
+await db.exec(install); checks++;
+await db.exec(ditandnaryDeploy); checks++;
+await db.exec(`INSERT INTO auth.users VALUES('${uid}'); INSERT INTO profiles(id,omni_points,extraordinary_trial_until)
+ VALUES('${uid}',50000,now()+interval '365 days'); SELECT set_config('request.jwt.claim.sub','${uid}',false);`);
+const one = async (sql) => (await db.query(sql)).rows[0];
+const call = async (sql) => (await one(`SELECT ${sql} AS result`)).result;
+const verify = (condition, label) => { assert.ok(condition, label); checks++; };
+const reject = async (sql, label) => {
+ const points = (await one(`SELECT omni_points FROM profiles WHERE id='${uid}'`)).omni_points;
+ await assert.rejects(() => db.exec(sql), undefined, label);
+ verify((await one(`SELECT omni_points FROM profiles WHERE id='${uid}'`)).omni_points === points, label+' preserves points');
+};
+const today = "timezone('Asia/Ho_Chi_Minh',now())::date";
+async function seed(days=3, gap=1, extra=true) {
+ await db.exec(`DELETE FROM streak_restore_history; DELETE FROM streak_freeze_history; DELETE FROM activity_logs; DELETE FROM user_stats;
+ UPDATE profiles SET extraordinary_trial_until=${extra ? "now()+interval '365 days'" : 'NULL'}, omni_points=50000;
+ INSERT INTO user_stats(user_id,streak_count,saved_streak_count,last_learning_date,streak_protected_through)
+ VALUES('${uid}',${days},${days},(${today}-${gap})::text,${today}-${gap});`);
+}
+try {
+ await seed(3,1);
+ let s=await call('refresh_streak_state()');
+ verify(s.streak_count===3 && !s.streak_restore_expires_at,'Missed today: still safe and dimmed');
+ await seed(3,2);
+ s=await call('refresh_streak_state()');
+ verify(s.streak_count===0 && s.saved_streak_count===3 && s.streak_restore_expires_at,'Missing freeze date opens rescue');
+ verify((await one('SELECT count(*)::int AS n FROM streak_restore_history')).n===0,'Missed day has no red evidence before rescue');
+ const deadline=s.streak_restore_expires_at;
+ await db.exec(install);
+ const migrated=await call('refresh_streak_state()');
+ verify(migrated.saved_streak_count===3 && migrated.streak_restore_expires_at===deadline,'Repeat installation preserves existing rescue deadline');
+ s=await call('refresh_streak_state()');
+ verify(s.streak_restore_expires_at===deadline,'Refresh never extends rescue');
+ s=await call(`refresh_streak_state_for('${uid}',(${today}+1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')`);
+ verify(s.saved_streak_count===0 && !s.streak_restore_expires_at,'Exact deadline permanently expires rescue');
+ await seed(3,2,false);
+ s=await call('refresh_streak_state()');
+ verify(s.streak_count===0 && s.saved_streak_count===0,'Normal account has no rescue');
+ await seed();
+ s=await call("use_omni_item('streak_freeze')");
+ verify(s.streak_count===3 && s.streak_freeze_requires_learning && s.new_points===49700,'Freeze keeps count and deducts 300');
+ verify((await one('SELECT count(*)::int AS n FROM streak_freeze_history')).n===1,'Freeze stored in calendar');
+ const freezeUsedAt=s.streak_freeze_used_at;
+ await db.exec(install);
+ const frozenAgain=await call('refresh_streak_state()');
+ verify(frozenAgain.streak_count===3 && frozenAgain.streak_freeze_used_at===freezeUsedAt && frozenAgain.streak_freeze_requires_learning,'Repeat installation preserves active freeze and cooldown');
+ await reject("SELECT use_omni_item('streak_freeze')",'Cannot double-freeze');
+ s=await call('record_daily_activity()');
+ verify(s.streak_count===4 && s.saved_streak_count===4 && s.is_first_learning_today && s.was_frozen_today,'Learning melts ice and adds one');
+ verify((await one('SELECT count(*)::int AS n FROM streak_freeze_history')).n===0,'Learning replaces ice in calendar');
+ s=await call('record_daily_activity()');
+ verify(s.streak_count===4 && !s.is_first_learning_today,'Second session adds no streak');
+ await reject("SELECT use_omni_item('streak_freeze')",'Lit streak cannot freeze');
+ await db.exec(`UPDATE user_stats SET last_learning_date=(${today}-1)::text, streak_protected_through=${today}-1`);
+ await reject("SELECT use_omni_item('streak_freeze')",'Rolling seven-day cooldown');
+ await db.exec("UPDATE user_stats SET streak_freeze_used_at=now()-interval '7 days',streak_freeze_requires_learning=true");
+ await reject("SELECT use_omni_item('streak_freeze')",'Study required even after seven days');
+ await db.exec('UPDATE user_stats SET streak_freeze_requires_learning=false');
+ s=await call("use_omni_item('streak_freeze')");
+ verify(s.streak_count===4,'Freeze available at exact seven-day boundary after learning');
+ await seed(3,2);
+ // Yesterday's ice protects one extra calendar day, then rescue is shifted one day.
+ await db.exec(`UPDATE user_stats SET streak_freeze_date=(${today}-1)::text,streak_protected_through=${today}-1`);
+ s=await call('refresh_streak_state()');
+ verify(s.streak_count===3 && !s.streak_restore_expires_at,'Yesterday frozen: count remains dimmed');
+ s=await call(`refresh_streak_state_for('${uid}',(${today}+1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')`);
+ verify(s.streak_count===0 && s.saved_streak_count===3,'Miss after thaw opens rescue');
+ const shifted=await one(`SELECT ((${today}+2)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')::text AS deadline`);
+ verify(new Date(s.streak_restore_expires_at).getTime()===new Date(shifted.deadline).getTime(),'Frozen day shifts exact rescue deadline');
+ await seed();
+ const daily="record_daily_activity('00000000-0000-4000-8000-000000000031')";
+ s=await call(daily);
+ verify(s.streak_count===4 && s.is_first_learning_today,'Identified daily session records first completion');
+ s=await call(daily);
+ verify(s.streak_count===4 && s.is_first_learning_today && s.already_recorded,'Network retry retains first-completion event without increment');
+ await db.exec(`UPDATE streak_activity_sessions SET response=jsonb_set(response,'{last_learning_date}',to_jsonb((${today}-1)::text))`);
+ s=await call(daily);
+ verify(!s.is_first_learning_today,'Old session replay does not celebrate on a different day');
+ await seed(3,2);
+ s=await call("use_omni_item('restore_streak')");
+ verify(s.streak_count===3 && s.saved_streak_count===0 && s.streak_restored_on && s.new_points===49000,'Rescue consumes saved streak and 1000 points');
+ const missedDay=(await one(`SELECT (${today}-1)::text AS day`)).day;
+ verify(s.streak_rescued_date===missedDay,'Rescue response identifies the missed day, not purchase day');
+ const rescuedRow=await one('SELECT date::text AS day FROM streak_restore_history');
+ verify(rescuedRow.day===missedDay,'Missed day saved in permanent rescue calendar');
+ verify((await one('SELECT count(*)::int AS n FROM activity_logs')).n===0,'Red day is not a completed lesson');
+ await db.exec(install);
+ verify((await one('SELECT count(*)::int AS n FROM streak_restore_history')).n===1,'Repeat migration keeps rescued calendar evidence');
+ await reject("SELECT use_omni_item('streak_freeze')",'Cannot freeze after rescue');
+ s=await call(`refresh_streak_state_for('${uid}',(${today}+1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')`);
+ verify(s.streak_count===0 && s.saved_streak_count===0 && !s.streak_restore_expires_at,'Rescued user missing study cannot rescue again');
+ await reject("SELECT use_omni_item('restore_streak')",'Cannot rescue twice without learning');
+ await seed(3,2);
+ await call("use_omni_item('restore_streak')");
+ s=await call('record_daily_activity()');
+ verify(s.streak_count===4 && s.saved_streak_count===4 && !s.streak_restored_on,'Study after rescue renews saved value');
+ verify((await one('SELECT count(*)::int AS n FROM streak_restore_history')).n===1,'Study on rescue day preserves the prior red day');
+ await seed(9,3);
+ await db.exec(`UPDATE user_stats SET streak_freeze_date=(${today}-2)::text,streak_protected_through=${today}-2;
+ INSERT INTO streak_freeze_history(user_id,date) VALUES('${uid}',${today}-2)`);
+ s=await call("use_omni_item('restore_streak')");
+ verify(s.streak_rescued_date===missedDay,'Rescue after ice marks the missed day after ice, not frozen day');
+ verify((await one('SELECT count(*)::int AS n FROM streak_freeze_history')).n===1,'Rescue preserves the separate blue ice day');
+ await seed(3,2);
+ s=await call('record_daily_activity()');
+ verify(s.streak_count===1 && s.saved_streak_count===1 && !s.streak_restore_expires_at,'Study before rescue starts a new streak');
+ await seed(0,1);
+ await reject("SELECT use_omni_item('streak_freeze')",'Cannot freeze zero');
+ await seed();
+ await db.exec(`INSERT INTO user_vocabulary(id,user_id,learning_level) VALUES
+ ('00000000-0000-4000-8000-000000000011','${uid}',1),('00000000-0000-4000-8000-000000000012','${uid}',1)`);
+ const settle="complete_vocabulary_learning_session('00000000-0000-4000-8000-000000000021',ARRAY['00000000-0000-4000-8000-000000000011'],5)";
+ s=await call(settle);
+ verify(s.streak_count===4 && s.is_first_learning_today && s.previous_streak_count===3,'Vocabulary settlement uses shared daily flow');
+ const balance=s.new_points;
+ s=await call(settle);
+ verify(s.already_completed && s.new_points===balance && s.streak_count===4,'Duplicate vocabulary settlement is idempotent');
+ s=await call("complete_vocabulary_learning_session('00000000-0000-4000-8000-000000000022',ARRAY['00000000-0000-4000-8000-000000000012'],5)");
+ verify(!s.is_first_learning_today && s.streak_count===4,'Second distinct vocabulary session stays four');
+ await db.exec(`INSERT INTO user_vocabulary(id,user_id,learning_level) VALUES
+ ('00000000-0000-4000-8000-000000000013','${uid}',1)`);
+ s=await call("complete_vocabulary_learning_session_extra_v1('00000000-0000-4000-8000-000000000023',ARRAY['00000000-0000-4000-8000-000000000013'],5,'[]'::jsonb,now())");
+ verify(s.streak_count===4 && !s.is_first_learning_today && s.telemetry_recorded,'Actual app endpoint preserves shared streak metadata');
+ await seed(3,1,false);
+ await db.exec(`INSERT INTO user_vocabulary(id,user_id,learning_level) VALUES
+ ('00000000-0000-4000-8000-000000000014','${uid}',NULL),
+ ('00000000-0000-4000-8000-000000000015','${uid}',9)`);
+ await call("start_vocabulary_learning(ARRAY['00000000-0000-4000-8000-000000000014'])");
+ verify((await one("SELECT learning_level=0 AND next_review<=now() AS ready FROM user_vocabulary WHERE id='00000000-0000-4000-8000-000000000014'")).ready,'New starts at level zero and is due now');
+ await call("complete_vocabulary_learning_session('00000000-0000-4000-8000-000000000024',ARRAY['00000000-0000-4000-8000-000000000014'],0)");
+ verify((await one("SELECT learning_level=1 AND extract(epoch FROM next_review-now()) BETWEEN 86390 AND 86400 AS scheduled FROM user_vocabulary WHERE id='00000000-0000-4000-8000-000000000014'")).scheduled,'First Ditan session advances to level one even with zero correct answers and schedules one day');
+ await call("complete_vocabulary_learning_session('00000000-0000-4000-8000-000000000025',ARRAY['00000000-0000-4000-8000-000000000015'],0)");
+ verify((await one("SELECT learning_level=10 AND next_review IS NULL AS finished FROM user_vocabulary WHERE id='00000000-0000-4000-8000-000000000015'")).finished,'Final Ditan session reaches Super without another review date');
+ await db.exec('SET ROLE authenticated');
+ await assert.rejects(() => db.exec(`INSERT INTO streak_restore_history(user_id,date) VALUES('${uid}',${today})`)); checks++;
+ await assert.rejects(() => db.exec(`SELECT refresh_streak_state_for('${uid}',now())`)); checks++;
+ await assert.rejects(() => db.exec(`UPDATE user_stats SET streak_count=999 WHERE user_id='${uid}'`)); checks++;
+ await assert.rejects(() => db.exec(`UPDATE profiles SET omni_points=999999 WHERE id='${uid}'`)); checks++;
+ await db.exec('RESET ROLE');
+ console.log(`${checks} PostgreSQL integration checks passed.`);
+} finally { await db.close(); }

@@ -1,0 +1,36 @@
+.DS_Store
+
+# Xcode user state
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+
+# Build output
+DerivedData/
+build/
+.build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+!admin-web/.env.example
+
+# Local Supabase CLI state
+supabase/.temp/
+
+# Web admin build output
+admin-web/node_modules/
+admin-web/dist/
+admin-web/*.tsbuildinfo
+admin-web/vite.config.js
+admin-web/vite.config.d.ts
+
+# Editors and caches
+.idea/
+.vscode/
+*.swp
+__pycache__/

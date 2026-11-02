@@ -1,0 +1,126 @@
+import { vocabularyContentError, normalizeSupplementaryText } from './vocabularyContent';
+import { readSheet } from 'read-excel-file/browser';
+import writeXlsxFile from 'write-excel-file/browser';
+import type { SheetData } from 'write-excel-file/browser';
+import { ImportRow, Topic, VocabCatalog, VocabInput } from './types';
+
+const aliases: Record<keyof Omit<VocabInput, 'id' | 'topic_id' | 'topic_ids'>, string[]> = {
+  word: ['word', 'vocab', 'tu', 'tu vung', 'từ', 'từ vựng'],
+  cefr: ['cefr', 'level', 'cap do', 'cấp độ'],
+  ipa: ['ipa', 'pronunciation', 'phien am', 'phiên âm'],
+  word_form: ['word_form', 'word form', 'type', 'loai tu', 'loại từ'],
+  e_meaning: ['e_meaning', 'english meaning', 'e meaning', 'nghia anh', 'nghĩa anh'],
+  ev_meaning: ['ev_meaning', 'english vietnamese meaning', 'ev meaning', 'anh viet', 'anh việt'],
+  v_meaning: ['v_meaning', 'vietnamese meaning', 'v meaning', 'nghia viet', 'nghĩa việt'],
+  e_example: ['e_example', 'english example', 'example', 'vi du anh', 'ví dụ anh'],
+  v_example: ['v_example', 'vietnamese example', 'translation', 'vi du viet', 'ví dụ việt'],
+  word_family: ['word_family', 'word family', 'gia dinh tu', 'gia đình từ'],
+  synonymous: ['synonymous', 'synonym', 'dong nghia', 'đồng nghĩa'],
+  antonym: ['antonym', 'opposite', 'trai nghia', 'trái nghĩa'],
+  collocation: ['collocation', 'collocations', 'cụm từ thường đi cùng'],
+  formula: ['formula', 'mẫu cấu trúc', 'công thức'],
+  note: ['note', 'notes', 'ghi chu', 'ghi chú', 'ghi chú cách dùng'],
+  bonus: ['bonus', 'thông tin mở rộng']
+};
+
+function normalizeHeader(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function readCell(row: unknown[], headers: string[], field: keyof typeof aliases) {
+  const wanted = aliases[field].map(normalizeHeader);
+  const index = headers.findIndex((header) => wanted.includes(normalizeHeader(header)));
+  const value = index >= 0 ? row[index] : '';
+  return value == null ? '' : String(value).trim();
+}
+
+export async function parseVocabularyWorkbook(file: File, topicId: string | null): Promise<ImportRow[]> {
+  const sheetRows = (await readSheet(file)) as unknown as unknown[][];
+  return parseVocabularyRows(sheetRows, topicId);
+}
+
+export function parseVocabularyRows(sheetRows: unknown[][], topicId: string | null): ImportRow[] {
+  const headers = (sheetRows[0] ?? []).map((cell: unknown) => String(cell ?? ''));
+  const rows = sheetRows.slice(1);
+
+  return rows.map((row: unknown[], index: number) => {
+    const parsed: ImportRow = {
+      rowNumber: index + 2,
+      topic_id: topicId,
+      word: readCell(row, headers, 'word'),
+      cefr: readCell(row, headers, 'cefr'),
+      ipa: readCell(row, headers, 'ipa'),
+      word_form: readCell(row, headers, 'word_form'),
+      e_meaning: readCell(row, headers, 'e_meaning'),
+      ev_meaning: readCell(row, headers, 'ev_meaning'),
+      v_meaning: readCell(row, headers, 'v_meaning'),
+      e_example: readCell(row, headers, 'e_example'),
+      v_example: readCell(row, headers, 'v_example'),
+      word_family: normalizeSupplementaryText(readCell(row, headers, 'word_family')) ?? '',
+      synonymous: normalizeSupplementaryText(readCell(row, headers, 'synonymous')) ?? '',
+      antonym: normalizeSupplementaryText(readCell(row, headers, 'antonym')) ?? '',
+      collocation: normalizeSupplementaryText(readCell(row, headers, 'collocation')) ?? '',
+      formula: normalizeSupplementaryText(readCell(row, headers, 'formula')) ?? '',
+      note: normalizeSupplementaryText(readCell(row, headers, 'note')) ?? '',
+      bonus: normalizeSupplementaryText(readCell(row, headers, 'bonus')) ?? ''
+    };
+
+    const error = vocabularyContentError(parsed);
+    if (error) parsed.error = error;
+    return parsed;
+  });
+}
+
+export async function exportVocabularyWorkbook(topic: Topic, vocabs: VocabCatalog[]) {
+  const headers = [
+    'word',
+    'cefr',
+    'ipa',
+    'word_form',
+    'e_meaning',
+    'ev_meaning',
+    'v_meaning',
+    'e_example',
+    'v_example',
+    'word_family',
+    'synonymous',
+    'antonym',
+    'collocation',
+    'formula',
+    'note',
+    'bonus'
+  ];
+
+  const data = [
+    headers.map((header) => ({ value: header, fontWeight: 'bold' })),
+    ...vocabs.map((vocab) =>
+      [
+        vocab.word,
+        vocab.cefr,
+        vocab.ipa,
+        vocab.word_form,
+        vocab.e_meaning,
+        vocab.ev_meaning,
+        vocab.v_meaning,
+        vocab.e_example,
+        vocab.v_example,
+        vocab.word_family,
+        vocab.synonymous,
+        vocab.antonym,
+        vocab.collocation,
+        vocab.formula,
+        vocab.note,
+        vocab.bonus
+      ].map((value) => ({ value: value ?? '' }))
+    )
+  ] as SheetData;
+
+  const file = await writeXlsxFile(data);
+  await file.toFile(`omninary-${topic.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.xlsx`);
+}
